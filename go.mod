@@ -1,4 +1,4 @@
-module github.com/bborbe/agent-claude
+module github.com/bborbe/agent-sentry-issue-analyzer
 
 go 1.26.4
 

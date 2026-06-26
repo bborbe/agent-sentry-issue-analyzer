@@ -4,7 +4,7 @@ include Makefile.docker
 include Makefile.env
 include common.env
 
-SERVICE = agent-claude
+SERVICE = agent-sentry-issue-analyzer
 
 run:
 	@go run -mod=mod main.go \

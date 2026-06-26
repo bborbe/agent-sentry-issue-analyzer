@@ -5,18 +5,18 @@
 apiVersion: agent.benjamin-borbe.de/v1
 kind: Config
 metadata:
-  name: agent-claude
+  name: agent-sentry-issue-analyzer
   namespace: '{{ "NAMESPACE" | env }}'
 spec:
   assignee: claude-agent
   taskTypes:
     - llm
     - healthcheck
-  priorityClassName: agent-claude
-  image: docker.quant.benjamin-borbe.de:443/agent-claude
+  priorityClassName: agent-sentry-issue-analyzer
+  image: docker.quant.benjamin-borbe.de:443/agent-sentry-issue-analyzer
   heartbeat: 5m
-  secretName: agent-claude
-  volumeClaim: agent-claude
+  secretName: agent-sentry-issue-analyzer
+  volumeClaim: agent-sentry-issue-analyzer
   volumeMountPath: /home/claude/.claude
   env:
     ALLOWED_TOOLS: WebSearch,WebFetch,Read,Grep

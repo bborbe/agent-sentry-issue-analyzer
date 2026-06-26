@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: agent-claude
+  name: agent-sentry-issue-analyzer
   namespace: prod
 spec:
   hard:
@@ -10,4 +10,4 @@ spec:
     matchExpressions:
       - scopeName: PriorityClass
         operator: In
-        values: ["agent-claude"]
+        values: ["agent-sentry-issue-analyzer"]

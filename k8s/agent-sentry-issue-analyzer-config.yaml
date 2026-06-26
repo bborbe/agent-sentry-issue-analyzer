@@ -1,0 +1,29 @@
+# Config CRD instance for agent-sentry-issue-analyzer.
+# Apply with: kubectlquant -n dev apply -f k8s/agent-sentry-issue-analyzer-config.yaml
+
+apiVersion: agent.benjamin-borbe.de/v1
+kind: Config
+metadata:
+  name: sentry-issue-analyzer
+  namespace: dev
+spec:
+  assignee: sentry-issue-analyzer
+  image: docker.quant.benjamin-borbe.de:443/agent-sentry-issue-analyzer:dev
+  heartbeat: 15m
+
+  taskTypes:
+    - sentry-issue-analyzer
+    - healthcheck
+
+  resources:
+    cpu: 500m
+    memory: 512Mi
+
+  env:
+    ALLOWED_TOOLS: "Bash,Read,Edit,Grep"
+    LOGLEVEL: "2"
+
+  secretName: agent-sentry-issue-analyzer
+
+  volumeClaim: agent-sentry-issue-analyzer-claude-oauth
+  volumeMountPath: /home/claude/.claude
