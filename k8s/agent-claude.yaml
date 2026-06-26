@@ -1,0 +1,40 @@
+# Agent pushes per-agent Prometheus metrics (agent_job_run_total{status}, agent_job_last_run_timestamp_seconds{status}, agent_job_duration_seconds) to PushGateway at Job end.
+# Envs (defaulted in main.go struct tags, no manifest change needed for cluster deploy):
+#   PUSHGATEWAY_URL  default "http://pushgateway:9090" — cluster-internal address resolves automatically.
+#   TASK_TYPE        default "unknown" — executor-side population is a follow-up; metrics carry task_type="unknown" until then.
+apiVersion: agent.benjamin-borbe.de/v1
+kind: Config
+metadata:
+  name: agent-claude
+  namespace: '{{ "NAMESPACE" | env }}'
+spec:
+  assignee: claude-agent
+  taskTypes:
+    - llm
+    - healthcheck
+  priorityClassName: agent-claude
+  image: docker.quant.benjamin-borbe.de:443/agent-claude
+  heartbeat: 5m
+  secretName: agent-claude
+  volumeClaim: agent-claude
+  volumeMountPath: /home/claude/.claude
+  env:
+    ALLOWED_TOOLS: WebSearch,WebFetch,Read,Grep
+    ANTHROPIC_BASE_URL: https://api.minimax.io/anthropic
+    ANTHROPIC_MODEL: MiniMax-M2.7-highspeed
+  trigger:
+    phases:
+      - planning
+      - execution
+      - ai_review
+    statuses:
+      - in_progress
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+      ephemeral-storage: 2Gi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+      ephemeral-storage: 2Gi
