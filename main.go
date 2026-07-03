@@ -80,7 +80,7 @@ type application struct {
 	AnthropicModel     claudelib.ClaudeModel `required:"false" arg:"anthropic-model"      env:"ANTHROPIC_MODEL"      usage:"Model name; also exposed to the claude subprocess as ANTHROPIC_MODEL"                    default:"sonnet"`
 
 	// Branch for Kafka result delivery
-	Branch base.Branch `required:"true" arg:"branch" env:"BRANCH" usage:"branch"`
+	Branch base.Branch `required:"false" arg:"branch" env:"BRANCH" usage:"branch"`
 
 	// Explicit Kafka topic prefix (independent of Branch; empty means unprefixed topics)
 	TopicPrefix base.TopicPrefix `required:"false" arg:"topic-prefix" env:"TOPIC_PREFIX" usage:"Explicit Kafka topic prefix; empty means unprefixed topics"`
