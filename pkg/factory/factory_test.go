@@ -9,7 +9,10 @@ import (
 
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
+	"github.com/bborbe/cqrs/base"
 	libkafka "github.com/bborbe/kafka"
+	kafkamocks "github.com/bborbe/kafka/mocks"
+	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -114,6 +117,34 @@ var _ = Describe("CreateKafkaResultDeliverer", func() {
 		Expect(deliverer).NotTo(BeNil())
 	})
 })
+
+var _ = DescribeTable(
+	"CreateKafkaResultDeliverer publishes to the topic derived from TopicPrefix (golden master)",
+	func(topicPrefix base.TopicPrefix, expectedTopic string) {
+		fake := &kafkamocks.KafkaSyncProducer{}
+		deliverer := factory.CreateKafkaResultDeliverer(
+			fake,
+			topicPrefix,
+			"task-id",
+			"# content",
+			libtime.NewCurrentDateTime(),
+		)
+		Expect(deliverer).NotTo(BeNil())
+
+		err := deliverer.DeliverResult(context.Background(), agentlib.AgentResultInfo{
+			Status: agentlib.AgentStatusDone,
+			Output: "# content",
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(fake.SendMessageCallCount()).To(Equal(1))
+		_, msg := fake.SendMessageArgsForCall(0)
+		Expect(msg.Topic).To(Equal(expectedTopic))
+	},
+	Entry("develop prefix", base.TopicPrefix("develop"), "develop-agent-task-v1-request"),
+	Entry("master prefix", base.TopicPrefix("master"), "master-agent-task-v1-request"),
+	Entry("empty prefix", base.TopicPrefix(""), "agent-task-v1-request"),
+)
 
 var _ = Describe("CreateFileResultDeliverer", func() {
 	It("returns a non-nil ResultDeliverer", func() {
