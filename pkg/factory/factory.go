@@ -58,14 +58,14 @@ func CreateSyncProducer(
 // status/phase frontmatter based on the result Status.
 func CreateKafkaResultDeliverer(
 	syncProducer libkafka.SyncProducer,
-	branch base.Branch,
+	topicPrefix base.TopicPrefix,
 	taskID agentlib.TaskIdentifier,
 	originalContent string,
 	currentDateTime libtime.CurrentDateTimeGetter,
 ) agentlib.ResultDeliverer {
 	return delivery.NewKafkaResultDeliverer(
 		syncProducer,
-		branch,
+		topicPrefix,
 		taskID,
 		originalContent,
 		delivery.NewPassthroughContentGenerator(),

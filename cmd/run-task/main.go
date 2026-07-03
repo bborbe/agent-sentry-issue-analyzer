@@ -65,6 +65,9 @@ type application struct {
 	// Environment
 	Branch base.Branch `required:"true" arg:"branch" env:"BRANCH" usage:"branch" default:"dev"`
 
+	// Explicit Kafka topic prefix (independent of Branch; empty means unprefixed topics)
+	TopicPrefix base.TopicPrefix `required:"false" arg:"topic-prefix" env:"TOPIC_PREFIX" usage:"Explicit Kafka topic prefix; empty means unprefixed topics"`
+
 	// Phase to run (defaults to execution; framework requires explicit phase)
 	Phase domain.TaskPhase `required:"false" arg:"phase" env:"PHASE" usage:"Agent phase: planning | execution | ai_review" default:"execution"`
 
