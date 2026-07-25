@@ -8,5 +8,9 @@ CVE-2026-33817
 # github.com/blevesearch/bleve v1.0.14, no fix available (bleve v1 EOL)
 CVE-2022-31022
 
-# aws-sdk-go-v2 s3/eventstream DoS, upgrade pending — BRO-20006
-GHSA-xmrv-pmrh-hhx2
+# rpyc 5.3.1 pinned across all services, do not upgrade
+CVE-2024-27758
+
+# golang.org/x/crypto/openpgp unmaintained, no fix version; package not imported
+# (govulncheck/osv-scanner pass — trivy flags the whole module)
+GO-2026-5932
