@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Update Go toolchain to 1.26.6, update bborbe module dependencies and transitive deps, fix GO-2026-6179 and GO-2026-6180 via golang.org/x/mod@v0.40.0
+
 ## v0.1.1
 
 - Bump Go toolchain to 1.26.5 and Alpine base image to 3.24
