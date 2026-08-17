@@ -8,7 +8,7 @@ metadata:
   namespace: dev
 spec:
   assignee: sentry-issue-analyzer
-  image: docker.quant.benjamin-borbe.de:443/agent-sentry-issue-analyzer:dev
+  image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:dev
   heartbeat: 15m
 
   taskTypes:
