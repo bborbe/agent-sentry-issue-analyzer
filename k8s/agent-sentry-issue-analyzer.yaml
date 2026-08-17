@@ -13,7 +13,7 @@ spec:
     - llm
     - healthcheck
   priorityClassName: agent-sentry-issue-analyzer
-  image: docker.quant.benjamin-borbe.de:443/agent-sentry-issue-analyzer
+  image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer
   heartbeat: 5m
   secretName: agent-sentry-issue-analyzer
   volumeClaim: agent-sentry-issue-analyzer
