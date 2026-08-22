@@ -57,19 +57,21 @@ var validConfidence = map[string]bool{
 // given markdown content. Returns the parsed verdict, or zero Verdict + nil
 // when no verdict block is present.
 func Parse(ctx context.Context, content string) (Verdict, error) {
-	section := extractVerdictSection(content)
+	section, err := extractVerdictSection(ctx, content)
+	if err != nil {
+		return Verdict{}, err
+	}
 	if section == "" {
 		return Verdict{}, nil
 	}
 
 	var v Verdict
 	var errs []string
-	for _, block := range fencedYAMLBlocks(section) {
-		select {
-		case <-ctx.Done():
-			return v, ctx.Err()
-		default:
-		}
+	blocks, err := fencedYAMLBlocks(ctx, section)
+	if err != nil {
+		return v, err
+	}
+	for _, block := range blocks {
 		var parsed Verdict
 		if err := yaml.Unmarshal([]byte(block), &parsed); err != nil {
 			errs = append(errs, errors.Wrapf(ctx, err, "parse verdict block").Error())
@@ -116,11 +118,16 @@ func Validate(ctx context.Context, v Verdict) error {
 }
 
 // extractVerdictSection returns the body of the ## Verdict section.
-func extractVerdictSection(content string) string {
+func extractVerdictSection(ctx context.Context, content string) (string, error) {
 	lines := strings.Split(content, "\n")
 	inSection := false
 	var out []string
 	for _, line := range lines {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "## ") {
 			if trimmed == "## Verdict" {
@@ -135,17 +142,22 @@ func extractVerdictSection(content string) string {
 			out = append(out, line)
 		}
 	}
-	return strings.Join(out, "\n")
+	return strings.Join(out, "\n"), nil
 }
 
 // fencedYAMLBlocks extracts the bodies of all ```yaml fenced code blocks in
 // content.
-func fencedYAMLBlocks(content string) []string {
+func fencedYAMLBlocks(ctx context.Context, content string) ([]string, error) {
 	var blocks []string
 	lines := strings.Split(content, "\n")
 	var current []string
 	inBlock := false
 	for _, line := range lines {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		trimmed := strings.TrimSpace(line)
 		if !inBlock && strings.HasPrefix(trimmed, "```") {
 			lang := strings.TrimPrefix(trimmed, "```")
@@ -168,5 +180,5 @@ func fencedYAMLBlocks(content string) []string {
 	if inBlock {
 		blocks = append(blocks, strings.Join(current, "\n"))
 	}
-	return blocks
+	return blocks, nil
 }
