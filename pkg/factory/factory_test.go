@@ -10,7 +10,6 @@ import (
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 	"github.com/bborbe/cqrs/base"
-	libkafka "github.com/bborbe/kafka"
 	kafkamocks "github.com/bborbe/kafka/mocks"
 	libtime "github.com/bborbe/time"
 	. "github.com/onsi/ginkgo/v2"
@@ -87,21 +86,6 @@ var _ = Describe("CreateAgentProvider", func() {
 		It("error message contains the sorted accepted-types list", func() {
 			Expect(err.Error()).To(ContainSubstring("[healthcheck llm oauth-probe]"))
 		})
-	})
-})
-
-var _ = Describe("CreateSyncProducer", func() {
-	var ctx context.Context
-
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
-	It("returns an error when broker is unreachable", func() {
-		producer, err := factory.CreateSyncProducer(ctx, libkafka.Brokers{})
-		Expect(producer).To(BeNil())
-		Expect(err).NotTo(BeNil())
-		Expect(err.Error()).To(ContainSubstring("create sync producer"))
 	})
 })
 

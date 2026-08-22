@@ -26,6 +26,7 @@ import (
 	"github.com/bborbe/vault-cli/pkg/domain"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/preflight"
 )
 
 func main() {
@@ -59,8 +60,8 @@ type application struct {
 	// AnthropicModel drives both the `--model` CLI flag and the ANTHROPIC_MODEL env var seen by
 	// the claude subprocess. Non-empty values override the same keys in ClaudeEnvRaw.
 	AnthropicBaseURL   string                `required:"false" arg:"anthropic-base-url"   env:"ANTHROPIC_BASE_URL"   usage:"Anthropic-compatible API base URL"`
-	AnthropicAuthToken string                `required:"false" arg:"anthropic-auth-token" env:"ANTHROPIC_AUTH_TOKEN" usage:"Bearer token for ANTHROPIC_BASE_URL"                                  display:"password"`
-	AnthropicModel     claudelib.ClaudeModel `required:"false" arg:"anthropic-model"      env:"ANTHROPIC_MODEL"      usage:"Model name; also exposed to the claude subprocess as ANTHROPIC_MODEL"                    default:"sonnet"`
+	AnthropicAuthToken string                `required:"false" arg:"anthropic-auth-token" env:"ANTHROPIC_AUTH_TOKEN" usage:"Bearer token for ANTHROPIC_BASE_URL"                                  display:"length"`
+	AnthropicModel     claudelib.ClaudeModel `required:"false" arg:"anthropic-model"      env:"ANTHROPIC_MODEL"      usage:"Model name; also exposed to the claude subprocess as ANTHROPIC_MODEL"                  default:"sonnet"`
 
 	// Environment
 	Branch base.Branch `required:"true" arg:"branch" env:"BRANCH" usage:"branch" default:"dev"`
@@ -97,6 +98,10 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	if a.AnthropicModel != "" {
 		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+
+	if err := preflight.ValidateSentryTools(ctx, claudelib.ParseAllowedTools(a.AllowedToolsRaw)); err != nil {
+		return errors.Wrap(ctx, err, "sentry MCP preflight")
 	}
 
 	agent := factory.CreateAgent(

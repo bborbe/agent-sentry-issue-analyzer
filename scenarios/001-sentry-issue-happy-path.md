@@ -1,17 +1,20 @@
-# Scenario 001: Sentry Issue Happy Path
+# Scenario 001: Sentry Issue Happy Path (per-alert)
 
-**Purpose**: prove the agent works end-to-end on a happy-path Sentry issue. Run before any deploy; run again after any non-trivial change.
+**Purpose**: prove the agent works end-to-end on a single Sentry alert. Run before any deploy; run again after any non-trivial change.
+
+**Architecture**: the sentry-watcher (separate component) creates one vault task per new Sentry alert; this agent is triggered per task and analyzes THAT single alert. This scenario simulates the watcher by creating one task manually.
 
 **Setup**:
 - Agent `bborbe/agent-sentry-issue-analyzer` deployed to dev
 - Config CRD applied: `kubectlquant -n dev get config.agent.benjamin-borbe.de sentry-issue-analyzer` shows it
+- Sentry MCP configured with the required `mcp__sentry__*` tools in ALLOWED_TOOLS (fail-fast preflight enforces this)
 - Operator creates a synthetic Sentry-issue task manually (v0: sentry-watcher not built yet)
 
-**Acceptance**: agent processes the task end-to-end (planning → ai_review → done) within 15 minutes and emits an `## Analysis` section with root-cause + fixability verdict.
+**Acceptance**: agent processes the task end-to-end (planning → execution → done) within 15 minutes; planning writes `## Analysis` (root cause + implicated `file.go:line`), execution writes `## Verdict` YAML with one of the 6 verdicts.
 
 ## Steps
 
-1. **Create the task** (manual operator path — v0):
+1. **Create the task** (manual operator path — v0, simulating the watcher):
 
    ```bash
    vault-cli task create "Analyze Sentry issue SENTRY-TEST-001" \
@@ -20,8 +23,9 @@
      --task-type sentry-issue-analyzer
    ```
 
-   Then edit the task body to include a synthetic stack trace:
+   Then edit the task body to include the alert payload:
    ```
+   sentry_link: https://seibert-group.sentry.io/issues/SENTRY-TEST-001
    ## Stack Trace
    panic: nil pointer dereference at pkg/foo/bar.go:42
    goroutine 1 [running]:
@@ -45,7 +49,7 @@
    ```bash
    kubectlquant -n dev logs <POD_NAME> --tail=200 -f
    ```
-   Expected phases: planning → ai_review → done.
+   Expected phases: planning → execution → done.
 
 5. **Verify task file updated**:
    ```bash
@@ -53,21 +57,21 @@
    ```
    Expected:
    - Frontmatter: `phase: done`, `status: completed`
-   - Body has `## Analysis` section with root-cause classification + `## Verdict` with `{fixable, reason}` JSON
+   - Body has `## Analysis` section (root cause + `file.go:line` + certainty) and `## Verdict` section with a fenced YAML block (`verdict`, `confidence`, `root_cause`, `recommended_fix`)
 
 ## Pass criteria
 
 - [ ] Task transitions all configured phases without `## Failure` section
 - [ ] Final phase = `done`, status = `completed`
-- [ ] `## Analysis` section identifies the nil-pointer root cause
-- [ ] `## Verdict` JSON has `fixable: true` (synthetic case is trivially fixable)
+- [ ] `## Analysis` section identifies the nil-pointer root cause + `pkg/foo/bar.go:42`
+- [ ] `## Verdict` YAML block has a valid verdict (this synthetic case is trivially `real bug`)
 - [ ] No agent-pipeline alerts fired in the 10 min after task completion
 
 ## Fail recovery
 
 If the task fails (phase: human_review with `## Failure`):
 1. Read the `## Failure` JSON for the error class
-2. Common classes: transient infra (retry should help), missing dependency (preflight gap — see [[Fail-Fast Preflight for Tool-Dependent LLM Agents]]), rate limit (wait for window reset), semantic error (task input is wrong shape)
+2. Common classes: transient infra (retry should help), missing dependency (preflight gap — see [[Fail-Fast Preflight for Tool-Dependent LLM Agents]]), rate limit (wait for window reset), semantic error (task input is wrong shape), missing Sentry MCP tool (ALLOWED_TOOLS not configured)
 3. Fix the root cause, then re-trigger the task via `vault-cli task set "Analyze Sentry issue SENTRY-TEST-001" status next` + `vault-cli task set ... assignee sentry-issue-analyzer`
 
 ## Cleanup
