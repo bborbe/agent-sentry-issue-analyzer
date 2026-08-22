@@ -6,11 +6,11 @@
 //
 // Two active phases per the spec (planning → execution, no ai_review — the
 // two-active-phase pattern is intentional, analogous to the backtest agent):
-//   - planning  → claude.NewAgentStep (planning prompt + MCP tools): fetches
-//     unresolved Sentry issues, writes the ## Sentry Alerts snapshot table
-//   - execution → custom step: runs Claude (execution prompt) to classify each
-//     alert and emit verdict YAML into ## Execution Log, then a pure-Go writer
-//     turns real-bug verdicts into Bug task files (dedup by sentry_issue_id)
+//   - planning  → claude.NewAgentStep (planning prompt + MCP tools): fetch
+//     LIVE state for the single alert, read implicated source (read-only),
+//     write ## Analysis
+//   - execution → claude.NewAgentStep (execution prompt): apply the 6-verdict
+//     rubric + noise disqualifiers, write ## Verdict back to the task body
 package steps
 
 import (
@@ -20,8 +20,9 @@ import (
 )
 
 // NewPlanningStep wraps a Claude invocation as the planning-phase step.
-// Claude fetches unresolved Sentry issues and writes the ## Sentry Alerts
-// (snapshot) table consumed by the execution phase.
+// Claude fetches LIVE state for the single alert, reads the implicated source
+// read-only, and writes the ## Analysis section consumed by the execution
+// phase.
 func NewPlanningStep(
 	runner claudelib.ClaudeRunner,
 	instructions claudelib.Instructions,
@@ -32,7 +33,7 @@ func NewPlanningStep(
 		Runner:        runner,
 		Instructions:  instructions,
 		EnvContext:    envContext,
-		OutputSection: "## Sentry Alerts",
+		OutputSection: "## Analysis",
 		NextPhase:     string(domain.TaskPhaseExecution),
 	})
 }

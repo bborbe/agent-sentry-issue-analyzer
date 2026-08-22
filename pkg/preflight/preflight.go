@@ -32,11 +32,21 @@ var requiredSentryTools = []string{
 func ValidateSentryTools(ctx context.Context, allowed claudelib.AllowedTools) error {
 	present := map[string]bool{}
 	for _, t := range allowed {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		present[t] = true
 	}
 
 	var missing []string
 	for _, t := range requiredSentryTools {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if !present[t] {
 			missing = append(missing, t)
 		}
