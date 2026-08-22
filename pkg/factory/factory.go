@@ -24,6 +24,13 @@ import (
 
 const serviceName = "agent-sentry-issue-analyzer"
 
+// taskTypeSentryIssueAnalyzer is the agent-lib TaskType literal for this
+// agent's domain task. No constant exists in agent-lib for this value, so we
+// cast it locally (mirrors github-update-go-agent). Keep the literal exactly
+// "sentry-issue-analyzer" — the watcher emits it verbatim in task frontmatter
+// and the Config CR taskTypes list must match.
+var taskTypeSentryIssueAnalyzer = agentlib.TaskType("sentry-issue-analyzer")
+
 // CreateClaudeRunner constructs a ClaudeRunner pre-configured with tools,
 // model, working directory, and CLI environment.
 func CreateClaudeRunner(
@@ -118,9 +125,10 @@ func CreateAgentFromRunner(
 // Returns lib.AgentProvider — main.go calls Get(ctx, taskType) to select the
 // appropriate *Agent. Pure plumbing; no conditional, no error.
 //
-// TaskTypeLLM routes to the 2-phase domain agent. TaskTypeHealthcheck and
-// TaskTypeOAuthProbe (transition alias) both route to the shared
-// healthcheck-Claude liveness agent, reusing the same ClaudeRunner.
+// taskTypeSentryIssueAnalyzer and TaskTypeLLM (legacy alias) both route to the
+// 2-phase domain agent. TaskTypeHealthcheck and TaskTypeOAuthProbe (transition
+// alias) both route to the shared healthcheck-Claude liveness agent, reusing
+// the same ClaudeRunner.
 func CreateAgentProvider(
 	claudeConfigDir claudelib.ClaudeConfigDir,
 	agentDir claudelib.AgentDir,
@@ -133,6 +141,7 @@ func CreateAgentProvider(
 	domainAgent := CreateAgentFromRunner(runner, envContext)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{
+		taskTypeSentryIssueAnalyzer:  domainAgent,
 		agentlib.TaskTypeLLM:         domainAgent,
 		agentlib.TaskTypeHealthcheck: livenessAgent,
 		agentlib.TaskTypeOAuthProbe:  livenessAgent,
