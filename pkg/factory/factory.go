@@ -9,18 +9,14 @@
 package factory
 
 import (
-	"context"
-
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 	delivery "github.com/bborbe/agent/delivery"
 	healthcheck "github.com/bborbe/agent/healthcheck"
 	"github.com/bborbe/cqrs/base"
-	"github.com/bborbe/errors"
 	libkafka "github.com/bborbe/kafka"
 	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
-	"github.com/golang/glog"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
@@ -44,14 +40,6 @@ func CreateClaudeRunner(
 		WorkingDirectory: agentDir,
 		Env:              env,
 	})
-}
-
-// CreateSyncProducer creates a Kafka sync producer.
-func CreateSyncProducer(
-	ctx context.Context,
-	brokers libkafka.Brokers,
-) (libkafka.SyncProducer, error) {
-	return libkafka.NewSyncProducerWithName(ctx, brokers, serviceName)
 }
 
 // CreateKafkaResultDeliverer creates a ResultDeliverer that publishes task
@@ -84,41 +72,6 @@ func CreateFileResultDeliverer(filePath string) agentlib.ResultDeliverer {
 		delivery.NewPassthroughContentGenerator(),
 		filePath,
 	)
-}
-
-// CreateDeliverer builds the Kafka-or-Noop deliverer used by the Kafka entry
-// point. Empty taskID means "no Kafka" — returns a noop deliverer and an empty
-// cleanup. Non-empty taskID requires non-empty brokers; the returned cleanup
-// closes the underlying SyncProducer (logged-and-ignored on error).
-func CreateDeliverer(
-	ctx context.Context,
-	taskID agentlib.TaskIdentifier,
-	brokers libkafka.Brokers,
-	topicPrefix base.TopicPrefix,
-	originalContent string,
-) (agentlib.ResultDeliverer, func(), error) {
-	if taskID == "" {
-		return delivery.NewNoopResultDeliverer(), func() {}, nil
-	}
-	if len(brokers) == 0 {
-		return nil, nil, errors.Errorf(ctx, "KAFKA_BROKERS must be set when TASK_ID is set")
-	}
-	syncProducer, err := CreateSyncProducer(ctx, brokers)
-	if err != nil {
-		return nil, nil, errors.Wrap(ctx, err, "create sync producer")
-	}
-	cleanup := func() {
-		if err := syncProducer.Close(); err != nil {
-			glog.Warningf("close sync producer failed: %v", err)
-		}
-	}
-	return CreateKafkaResultDeliverer(
-		syncProducer,
-		topicPrefix,
-		taskID,
-		originalContent,
-		libtime.NewCurrentDateTime(),
-	), cleanup, nil
 }
 
 // CreateAgent assembles the 2-phase Sentry analyzer agent:
