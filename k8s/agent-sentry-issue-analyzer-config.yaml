@@ -20,7 +20,7 @@ spec:
     memory: 512Mi
 
   env:
-    ALLOWED_TOOLS: "Bash,Read,Edit,Grep,mcp__sentry__whoami,mcp__sentry__get_sentry_resource,mcp__sentry__get_issue_details,mcp__sentry__search_issue_events"
+    ALLOWED_TOOLS: "Bash,Read,Edit,Grep,mcp__sentry__whoami,mcp__sentry__get_sentry_resource"
     LOGLEVEL: "2"
 
   secretName: agent-sentry-issue-analyzer

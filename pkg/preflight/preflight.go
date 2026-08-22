@@ -18,10 +18,11 @@ import (
 	"github.com/bborbe/errors"
 )
 
-// requiredSentryTools are the mcp__sentry__* tools the domain prompts invoke.
+// requiredSentryTools are the mcp__sentry__* tools the domain prompts invoke
+// in the per-alert model (planning + execution only need identity + live-state
+// fetch; search_issues was dropped with the batch model).
 var requiredSentryTools = []string{
 	"mcp__sentry__whoami",
-	"mcp__sentry__search_issues",
 	"mcp__sentry__get_sentry_resource",
 }
 
