@@ -8,7 +8,7 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
-## Unreleased
+## v0.2.1
 
 - fix: register the domain agent under the `sentry-issue-analyzer` task type (kept `llm` as legacy alias). The factory previously mapped only `{llm, healthcheck, oauth-probe}`, so tasks carrying `task_type: sentry-issue-analyzer` (the watcher + Config CR contract) failed with `unknown task_type` at agent startup — caught by scenario 001 in dev.
 
