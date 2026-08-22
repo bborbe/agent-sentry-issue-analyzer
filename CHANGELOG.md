@@ -8,6 +8,10 @@ Please choose versions by [Semantic Versioning](http://semver.org/).
 * MINOR version when you add functionality in a backwards-compatible manner, and
 * PATCH version when you make backwards-compatible bug fixes.
 
+## Unreleased
+
+- feat: per-alert Sentry analyzer domain logic — planning (LIVE-state fetch + read-only source analysis → `## Analysis`) and execution (6-verdict rubric + noise disqualifiers → `## Verdict`) phases replace the generic claude-template prompts; verdict YAML schema + parser + validator (`pkg/verdict`); fail-fast `mcp__sentry__*` preflight (`pkg/preflight`). Watcher creates one task per new alert; agent analyzes that single alert (same architecture as all other agents).
+
 ## v0.1.4
 
 - fix: repoint dead `docker.quant` registry to `docker.prod.nuke` in common.env, Dockerfile, k8s Config CRs, and the agent-scaffold doc template

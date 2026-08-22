@@ -22,7 +22,6 @@ import (
 
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
-	delivery "github.com/bborbe/agent/delivery"
 	"github.com/bborbe/agent/envparse"
 	libmetrics "github.com/bborbe/agent/metrics"
 	"github.com/bborbe/cqrs/base"
@@ -37,6 +36,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/preflight"
 )
 
 // agentName is the identity string used for Prometheus metric grouping and logging.
@@ -114,29 +114,19 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 
 	glog.V(2).Infof("agent-sentry-issue-analyzer started phase=%s", a.Phase)
 
-	deliverer := delivery.NewNoopResultDeliverer()
-	if a.TaskID != "" {
-		if len(a.KafkaBrokers) == 0 {
-			jobMetrics.RecordRun(agentlib.AgentStatusFailed)
-			jobMetrics.RecordDuration(time.Since(start))
-			return errors.Errorf(ctx, "KAFKA_BROKERS must be set when TASK_ID is set")
-		}
-		syncProducer, err := factory.CreateSyncProducer(ctx, a.KafkaBrokers)
-		if err != nil {
-			jobMetrics.RecordRun(agentlib.AgentStatusFailed)
-			jobMetrics.RecordDuration(time.Since(start))
-			return errors.Wrap(ctx, err, "create sync producer")
-		}
-		defer func() {
-			if err := syncProducer.Close(); err != nil {
-				glog.Warningf("close sync producer failed: %v", err)
-			}
-		}()
-		deliverer = factory.CreateKafkaResultDeliverer(
-			syncProducer, a.TopicPrefix, a.TaskID, a.TaskContent,
-			libtime.NewCurrentDateTime(),
-		)
+	deliverer, cleanup, err := factory.CreateDeliverer(
+		ctx,
+		a.TaskID,
+		a.KafkaBrokers,
+		a.TopicPrefix,
+		a.TaskContent,
+	)
+	if err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return errors.Wrap(ctx, err, "create deliverer")
 	}
+	defer cleanup()
 
 	claudeEnv := envparse.KeyValuePairs(a.ClaudeEnvRaw)
 	if claudeEnv == nil {
@@ -150,6 +140,12 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	if a.AnthropicModel != "" {
 		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+
+	if err := preflight.ValidateSentryTools(ctx, claudelib.ParseAllowedTools(a.AllowedToolsRaw)); err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return errors.Wrap(ctx, err, "sentry MCP preflight")
 	}
 
 	provider := factory.CreateAgentProvider(

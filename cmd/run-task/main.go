@@ -26,6 +26,7 @@ import (
 	"github.com/bborbe/vault-cli/pkg/domain"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/preflight"
 )
 
 func main() {
@@ -97,6 +98,10 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	if a.AnthropicModel != "" {
 		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+
+	if err := preflight.ValidateSentryTools(ctx, claudelib.ParseAllowedTools(a.AllowedToolsRaw)); err != nil {
+		return errors.Wrap(ctx, err, "sentry MCP preflight")
 	}
 
 	agent := factory.CreateAgent(

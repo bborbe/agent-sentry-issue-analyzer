@@ -1,22 +1,22 @@
 # Agent Sentry Issue Analyzer
 
-Watches Sentry issues, classifies severity, and emits structured fix-prompts for downstream agents (analyser → fix → code-review → human-review pipeline).
+Analyzes Sentry issues and classifies them (severity + fixability) for the Sentry resolution pipeline. Consumes one `sentry-issue-analyzer` task per run — the sentry-watcher (separate component) creates one vault task per new Sentry alert; this agent is triggered per task and analyzes that single alert.
 
 ## Role
 
-Planner in the Sentry resolution pipeline (see [[Agent Pipeline Concept]]). Consumes `sentry-task` from Kafka via `agent-task-executor`, runs Claude over the stack trace + repo state, emits a structured spec/prompt for the next stage.
+Planner in the Sentry resolution pipeline (see [[Agent Pipeline Concept]]). Consumes a task from Kafka via `agent-task-executor`, reads the alert (stack trace + `sentry_link`), fetches LIVE state, reads the implicated source (read-only), and writes the root-cause analysis + verdict back to the task body.
 
 ## Shape
 
-Built on `bborbe/agent-claude` template — AI-heavy reference (same Claude Code step reused across all phases). See [[Quick-Launch New Agents]] for the scaffolding flow that produced this repo.
+Built on `bborbe/agent-claude` template — AI-heavy reference. Two active phases (planning → execution; no ai_review — write-verification is part of execution). The watcher creates tasks; the agent processes exactly one.
 
 ## Phases
 
 | Phase | Step | Output |
 |---|---|---|
-| `planning` | Analyze stack trace, classify severity (critical / important / nit), inspect linked repos | Structured analysis (JSON) |
-| `ai_review` | Verdict on fixability — is this safely auto-fixable, or human-only? | `{fixable: bool, reason: string}` |
-| `done` | Emit `fix-task` prompt for downstream agent if `fixable=true`; else hand off to human | New task in pipeline |
+| `planning` | Fetch LIVE Sentry state, read implicated source (read-only), root-cause analysis | `## Analysis` (file.go:line, root cause, certainty) |
+| `execution` | Re-check LIVE state, apply 6-verdict rubric + noise disqualifiers | `## Verdict` YAML block |
+| `done` | Terminal — verdict written back to task body | — |
 
 ## Build + Deploy
 

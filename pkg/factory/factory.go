@@ -16,11 +16,14 @@ import (
 	delivery "github.com/bborbe/agent/delivery"
 	healthcheck "github.com/bborbe/agent/healthcheck"
 	"github.com/bborbe/cqrs/base"
+	"github.com/bborbe/errors"
 	libkafka "github.com/bborbe/kafka"
 	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
+	"github.com/golang/glog"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 )
 
 const serviceName = "agent-sentry-issue-analyzer"
@@ -83,10 +86,52 @@ func CreateFileResultDeliverer(filePath string) agentlib.ResultDeliverer {
 	)
 }
 
-// CreateAgent assembles the full 3-phase claude agent. Single Claude step
-// shared across planning / in_progress / ai_review preserves the existing
-// CRD trigger.phases behavior — every phase runs Claude once and emits
-// done.
+// CreateDeliverer builds the Kafka-or-Noop deliverer used by the Kafka entry
+// point. Empty taskID means "no Kafka" — returns a noop deliverer and an empty
+// cleanup. Non-empty taskID requires non-empty brokers; the returned cleanup
+// closes the underlying SyncProducer (logged-and-ignored on error).
+func CreateDeliverer(
+	ctx context.Context,
+	taskID agentlib.TaskIdentifier,
+	brokers libkafka.Brokers,
+	topicPrefix base.TopicPrefix,
+	originalContent string,
+) (agentlib.ResultDeliverer, func(), error) {
+	if taskID == "" {
+		return delivery.NewNoopResultDeliverer(), func() {}, nil
+	}
+	if len(brokers) == 0 {
+		return nil, nil, errors.Errorf(ctx, "KAFKA_BROKERS must be set when TASK_ID is set")
+	}
+	syncProducer, err := CreateSyncProducer(ctx, brokers)
+	if err != nil {
+		return nil, nil, errors.Wrap(ctx, err, "create sync producer")
+	}
+	cleanup := func() {
+		if err := syncProducer.Close(); err != nil {
+			glog.Warningf("close sync producer failed: %v", err)
+		}
+	}
+	return CreateKafkaResultDeliverer(
+		syncProducer,
+		topicPrefix,
+		taskID,
+		originalContent,
+		libtime.NewCurrentDateTime(),
+	), cleanup, nil
+}
+
+// CreateAgent assembles the 2-phase Sentry analyzer agent:
+//
+//   - planning  → claude.NewAgentStep (planning prompt + MCP tools): fetch
+//     LIVE state for the single alert, read implicated source (read-only),
+//     write ## Analysis
+//   - execution → claude.NewAgentStep (execution prompt): apply the 6-verdict
+//     rubric + noise disqualifiers, write ## Verdict back to the task body
+//
+// No ai_review phase — write-verification is part of execution (two-active-phase
+// pattern, per the spec). The watcher creates one task per new Sentry alert;
+// this agent processes exactly one task per run.
 func CreateAgent(
 	claudeConfigDir claudelib.ClaudeConfigDir,
 	agentDir claudelib.AgentDir,
@@ -101,25 +146,18 @@ func CreateAgent(
 	)
 }
 
-// CreateAgentFromRunner builds the 3-phase claude agent given a pre-constructed
+// CreateAgentFromRunner builds the 2-phase agent given a pre-constructed
 // ClaudeRunner. Used by CreateAgentProvider to share one runner across the
 // domain agent and the healthcheck-Claude liveness agent.
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
 ) *agentlib.Agent {
-	step := claudelib.NewAgentStep(claudelib.AgentStepConfig{
-		Name:          "claude-task",
-		Runner:        runner,
-		Instructions:  prompts.BuildInstructions(),
-		EnvContext:    envContext,
-		OutputSection: "## Result",
-		NextPhase:     "done",
-	})
+	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
+	execution := steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext)
 	return agentlib.NewAgent(
-		agentlib.NewPhase("planning", step),
-		agentlib.NewPhase(domain.TaskPhaseExecution, step),
-		agentlib.NewPhase("ai_review", step),
+		agentlib.NewPhase("planning", planning),
+		agentlib.NewPhase(domain.TaskPhaseExecution, execution),
 	)
 }
 
@@ -127,8 +165,8 @@ func CreateAgentFromRunner(
 // Returns lib.AgentProvider — main.go calls Get(ctx, taskType) to select the
 // appropriate *Agent. Pure plumbing; no conditional, no error.
 //
-// TaskTypeLLM routes to the existing 3-phase domain agent. TaskTypeHealthcheck
-// and TaskTypeOAuthProbe (transition alias) both route to the shared
+// TaskTypeLLM routes to the 2-phase domain agent. TaskTypeHealthcheck and
+// TaskTypeOAuthProbe (transition alias) both route to the shared
 // healthcheck-Claude liveness agent, reusing the same ClaudeRunner.
 func CreateAgentProvider(
 	claudeConfigDir claudelib.ClaudeConfigDir,

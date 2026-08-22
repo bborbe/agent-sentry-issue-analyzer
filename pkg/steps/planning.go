@@ -1,0 +1,38 @@
+// Copyright (c) 2026 Benjamin Borbe All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package steps holds the per-phase agent steps for the Sentry analyzer.
+//
+// Two active phases per the spec (planning → execution, no ai_review — the
+// two-active-phase pattern is intentional, analogous to the backtest agent):
+//   - planning  → claude.NewAgentStep (planning prompt + MCP tools): fetches
+//     unresolved Sentry issues, writes the ## Sentry Alerts snapshot table
+//   - execution → custom step: runs Claude (execution prompt) to classify each
+//     alert and emit verdict YAML into ## Execution Log, then a pure-Go writer
+//     turns real-bug verdicts into Bug task files (dedup by sentry_issue_id)
+package steps
+
+import (
+	agentlib "github.com/bborbe/agent"
+	claudelib "github.com/bborbe/agent/claude"
+	"github.com/bborbe/vault-cli/pkg/domain"
+)
+
+// NewPlanningStep wraps a Claude invocation as the planning-phase step.
+// Claude fetches unresolved Sentry issues and writes the ## Sentry Alerts
+// (snapshot) table consumed by the execution phase.
+func NewPlanningStep(
+	runner claudelib.ClaudeRunner,
+	instructions claudelib.Instructions,
+	envContext map[string]string,
+) agentlib.Step {
+	return claudelib.NewAgentStep(claudelib.AgentStepConfig{
+		Name:          "sentry-planning",
+		Runner:        runner,
+		Instructions:  instructions,
+		EnvContext:    envContext,
+		OutputSection: "## Sentry Alerts",
+		NextPhase:     string(domain.TaskPhaseExecution),
+	})
+}
