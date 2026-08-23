@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update github.com/bborbe/vault-cli to v0.114.7
+
 ## v0.1.5
 
 - chore: Bump errcheck to v1.20.0 and golangci-lint to v2.13.1 for Go 1.27 support
