@@ -1,5 +1,5 @@
-# Config CRD instance for agent-sentry-issue-analyzer.
-# Apply with: kubectlquant -n dev apply -f k8s/agent-sentry-issue-analyzer-config.yaml
+# Config CRD instance for agent-sentry-issue-analyzer (v0.2.0 — per-alert domain logic).
+# Apply with: kubectlnukedev -n dev apply -f k8s/agent-sentry-issue-analyzer-config.yaml
 
 apiVersion: agent.benjamin-borbe.de/v1
 kind: Config
@@ -9,21 +9,37 @@ metadata:
 spec:
   assignee: sentry-issue-analyzer
   image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:dev
-  heartbeat: 15m
+  heartbeat: 5m
+  maxConcurrentJobs: 1
+  priorityClassName: agent-sentry-issue-analyzer
 
   taskTypes:
     - sentry-issue-analyzer
     - healthcheck
 
+  trigger:
+    phases:
+      - planning
+      - execution
+    statuses:
+      - in_progress
+
   resources:
-    cpu: 500m
-    memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
   env:
     ALLOWED_TOOLS: "Bash,Read,Edit,Grep,mcp__sentry__whoami,mcp__sentry__get_sentry_resource"
+    ANTHROPIC_BASE_URL: "http://claude-code-router-dev:8788"
+    ANTHROPIC_MODEL: "MiniMax-M2.7-highspeed"
+    CLAUDE_CONFIG_DIR: "/home/claude/.claude"
     LOGLEVEL: "2"
 
   secretName: agent-sentry-issue-analyzer
 
-  volumeClaim: agent-sentry-issue-analyzer-claude-oauth
+  volumeClaim: agent-sentry-issue-analyzer
   volumeMountPath: /home/claude/.claude
