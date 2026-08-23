@@ -37,6 +37,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/preflight"
 )
 
 // agentName is the identity string used for Prometheus metric grouping and logging.
@@ -76,8 +77,8 @@ type application struct {
 	// AnthropicModel drives both the `--model` CLI flag and the ANTHROPIC_MODEL env var seen by
 	// the claude subprocess. Non-empty values override the same keys in ClaudeEnvRaw.
 	AnthropicBaseURL   string                `required:"false" arg:"anthropic-base-url"   env:"ANTHROPIC_BASE_URL"   usage:"Anthropic-compatible API base URL"`
-	AnthropicAuthToken string                `required:"false" arg:"anthropic-auth-token" env:"ANTHROPIC_AUTH_TOKEN" usage:"Bearer token for ANTHROPIC_BASE_URL"                                  display:"password"`
-	AnthropicModel     claudelib.ClaudeModel `required:"false" arg:"anthropic-model"      env:"ANTHROPIC_MODEL"      usage:"Model name; also exposed to the claude subprocess as ANTHROPIC_MODEL"                    default:"sonnet"`
+	AnthropicAuthToken string                `required:"false" arg:"anthropic-auth-token" env:"ANTHROPIC_AUTH_TOKEN" usage:"Bearer token for ANTHROPIC_BASE_URL"                                  display:"length"`
+	AnthropicModel     claudelib.ClaudeModel `required:"false" arg:"anthropic-model"      env:"ANTHROPIC_MODEL"      usage:"Model name; also exposed to the claude subprocess as ANTHROPIC_MODEL"                  default:"sonnet"`
 
 	// Branch for Kafka result delivery
 	Branch base.Branch `required:"false" arg:"branch" env:"BRANCH" usage:"branch"`
@@ -94,6 +95,39 @@ type application struct {
 
 	PushgatewayURL string `required:"false" arg:"pushgateway-url" env:"PUSHGATEWAY_URL" usage:"Prometheus PushGateway URL"          default:"http://pushgateway:9090"`
 	TaskType       string `required:"false" arg:"task-type"       env:"TASK_TYPE"       usage:"Task type label for metric grouping" default:"unknown"`
+}
+
+// createDeliverer builds the Kafka-or-Noop result deliverer. Empty taskID
+// means "no Kafka" — returns a noop deliverer and an empty cleanup. Non-empty
+// taskID requires non-empty brokers; the cleanup closes the SyncProducer.
+// Boot-time decision, kept in main.go (per go-factory-pattern: factories
+// compose, main.go interprets config + owns lifecycle).
+func (a *application) createDeliverer(
+	ctx context.Context,
+) (agentlib.ResultDeliverer, func(), error) {
+	if a.TaskID == "" {
+		return delivery.NewNoopResultDeliverer(), func() {}, nil
+	}
+	if len(a.KafkaBrokers) == 0 {
+		return nil, nil, errors.Errorf(ctx, "KAFKA_BROKERS must be set when TASK_ID is set")
+	}
+	syncProducer, err := libkafka.NewSyncProducerWithName(
+		ctx,
+		a.KafkaBrokers,
+		"agent-sentry-issue-analyzer",
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(ctx, err, "create sync producer")
+	}
+	cleanup := func() {
+		if err := syncProducer.Close(); err != nil {
+			glog.Warningf("close sync producer failed: %v", err)
+		}
+	}
+	return factory.CreateKafkaResultDeliverer(
+		syncProducer, a.TopicPrefix, a.TaskID, a.TaskContent,
+		libtime.NewCurrentDateTime(),
+	), cleanup, nil
 }
 
 func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
@@ -114,29 +148,13 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 
 	glog.V(2).Infof("agent-sentry-issue-analyzer started phase=%s", a.Phase)
 
-	deliverer := delivery.NewNoopResultDeliverer()
-	if a.TaskID != "" {
-		if len(a.KafkaBrokers) == 0 {
-			jobMetrics.RecordRun(agentlib.AgentStatusFailed)
-			jobMetrics.RecordDuration(time.Since(start))
-			return errors.Errorf(ctx, "KAFKA_BROKERS must be set when TASK_ID is set")
-		}
-		syncProducer, err := factory.CreateSyncProducer(ctx, a.KafkaBrokers)
-		if err != nil {
-			jobMetrics.RecordRun(agentlib.AgentStatusFailed)
-			jobMetrics.RecordDuration(time.Since(start))
-			return errors.Wrap(ctx, err, "create sync producer")
-		}
-		defer func() {
-			if err := syncProducer.Close(); err != nil {
-				glog.Warningf("close sync producer failed: %v", err)
-			}
-		}()
-		deliverer = factory.CreateKafkaResultDeliverer(
-			syncProducer, a.TopicPrefix, a.TaskID, a.TaskContent,
-			libtime.NewCurrentDateTime(),
-		)
+	deliverer, cleanup, err := a.createDeliverer(ctx)
+	if err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return errors.Wrap(ctx, err, "create deliverer")
 	}
+	defer cleanup()
 
 	claudeEnv := envparse.KeyValuePairs(a.ClaudeEnvRaw)
 	if claudeEnv == nil {
@@ -150,6 +168,12 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	if a.AnthropicModel != "" {
 		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+
+	if err := preflight.ValidateSentryTools(ctx, claudelib.ParseAllowedTools(a.AllowedToolsRaw)); err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return errors.Wrap(ctx, err, "sentry MCP preflight")
 	}
 
 	provider := factory.CreateAgentProvider(

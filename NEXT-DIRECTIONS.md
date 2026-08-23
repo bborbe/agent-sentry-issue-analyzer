@@ -10,17 +10,26 @@ Deferred-not-cut work captured during `/launch-agent` proof-of-life scaffold on 
 - Smoke test: scenario 001 (happy path with synthetic stack trace)
 - Pinned to `github.com/bborbe/agent` master (will pin to v0.71.0 once tagged)
 
-## v1 (next iteration — domain logic)
+## v1 (shipped — domain logic, per-alert architecture)
 
-- **Implement `pkg/factory/factory.go` + `pkg/prompts/{planning,ai_review,done}.md`**
-  - **Why deferred**: v0 scaffold is the runtime shell only — Claude template's generic dispatcher passes the task body to the LLM, but the prompts need domain-specific instructions (Sentry stack-trace parsing, severity rubric, fixability heuristics)
-  - **How**: write per-phase prompts to `pkg/prompts/<phase>.md`; expand scenario 001 to cover a real Sentry issue (not synthetic)
-  - **Effort**: 1-2 days
+- **Per-alert domain logic shipped 2026-08-22** (feature/sentry-domain → PR #N): two active phases (planning → execution), no ai_review.
+  - `pkg/prompts/planning.md` — fetch LIVE state (`mcp__sentry__get_sentry_resource`), read implicated source (read-only), write `## Analysis`
+  - `pkg/prompts/execution.md` — 6-verdict rubric + noise disqualifiers verbatim, write `## Verdict` YAML
+  - `pkg/verdict/` — verdict YAML schema + parser + validator (6-verdict fixture tests)
+  - `pkg/preflight/` — fail-fast check that `mcp__sentry__*` tools are in ALLOWED_TOOLS
+  - Architecture (operator decision 2026-08-22): **watcher creates one task per new alert; agent analyzes that single alert** — same shape as all other agents. Bug-task creation moved OUT of the agent (watcher's job).
+
+## v2 (next)
 
 - **Build `sentry-watcher` as the upstream producer**
-  - **Why deferred**: v0 uses manual task creation; the watcher needs Sentry API integration + poll loop
-  - **How**: separate repo `bborbe/sentry-watcher` (future `/launch-watcher` plugin); emit `sentry-task` on new Sentry issue
+  - **Why deferred**: v1 uses manual task creation; the watcher needs Sentry API integration + poll loop
+  - **How**: separate repo `bborbe/sentry-watcher` (future `/launch-watcher` plugin); emit one `sentry-issue-analyzer` task per new Sentry issue
   - **Effort**: 1-2 days (after `/launch-watcher` plugin exists)
+
+- **Go-side repo checkout step** (pr-reviewer `CheckoutExecutionStep` shape)
+  - **Why deferred**: v1 planning prompt tells Claude to read source via its own git/Bash tools; a Go checkout step (RepoManager.EnsureWorktree → Claude WorkingDirectory=worktree) hardens allowlist + auth, matching the pr-reviewer pattern
+  - **How**: import/port `pkg/git` RepoManager; add `clone_url`/`ref` frontmatter from watcher
+  - **Effort**: 1 day
 
 ## v2 (medium-term — quality / robustness improvements)
 
