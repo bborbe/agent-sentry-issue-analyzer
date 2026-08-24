@@ -142,6 +142,50 @@ func (a *application) createDeliverer(
 	), cleanup, nil
 }
 
+// buildClaudeEnv assembles the environment passed to the Claude CLI subprocess.
+// The claude CLI runs prompt scripts (Bash tool) in a subprocess env built from
+// an allowlist + CLAUDE_CONFIG_DIR + this map, so anything a script needs (the
+// Sentry token, the repo-clone GitHub token) must be forwarded here — the pod
+// secret alone is not enough (buildSubprocessEnv strips non-allowlisted vars).
+// Errors are wrapped for the caller to record metrics + return.
+func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, error) {
+	claudeEnv := envparse.KeyValuePairs(a.ClaudeEnvRaw)
+	if claudeEnv == nil {
+		claudeEnv = map[string]string{}
+	}
+	if a.AnthropicBaseURL != "" {
+		claudeEnv["ANTHROPIC_BASE_URL"] = a.AnthropicBaseURL
+	}
+	if a.AnthropicAuthToken != "" {
+		claudeEnv["ANTHROPIC_AUTH_TOKEN"] = a.AnthropicAuthToken
+	}
+	if a.AnthropicModel != "" {
+		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+	// The Sentry REST token: the main binary reads it for preflight, and the
+	// Bash tool contract (scripts/sentry-read.sh) needs it in the subprocess env.
+	if a.SentryAPIToken != "" {
+		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
+	}
+	// Mint a GitHub App installation token and expose it as GIT_CLONE_TOKEN so
+	// scripts/repo-clone.sh can clone private bborbe/seibert repos (e.g. trading).
+	// Same shared App as github-pr-review-agent. Optional: when App auth is not
+	// configured, no GIT_CLONE_TOKEN is set and repo-clone.sh only clones public
+	// repos.
+	if a.AppID != 0 && a.InstallationID != 0 && a.PEMKey != "" {
+		iat, err := githubapp.MintIAT(ctx, githubapp.Config{
+			AppID:          a.AppID,
+			InstallationID: a.InstallationID,
+			PEM:            []byte(a.PEMKey),
+		})
+		if err != nil {
+			return nil, errors.Wrap(ctx, err, "mint github app iat")
+		}
+		claudeEnv["GIT_CLONE_TOKEN"] = iat
+	}
+	return claudeEnv, nil
+}
+
 func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	registry := prometheus.NewRegistry()
 	jobMetrics := libmetrics.NewJobMetrics(registry, libtime.NewCurrentDateTime())
@@ -168,46 +212,11 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	defer cleanup()
 
-	claudeEnv := envparse.KeyValuePairs(a.ClaudeEnvRaw)
-	if claudeEnv == nil {
-		claudeEnv = map[string]string{}
-	}
-	if a.AnthropicBaseURL != "" {
-		claudeEnv["ANTHROPIC_BASE_URL"] = a.AnthropicBaseURL
-	}
-	if a.AnthropicAuthToken != "" {
-		claudeEnv["ANTHROPIC_AUTH_TOKEN"] = a.AnthropicAuthToken
-	}
-	if a.AnthropicModel != "" {
-		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
-	}
-
-	// Forward the Sentry REST token to the Claude subprocess so the Bash tool
-	// contract (scripts/sentry-read.sh) can authenticate. The main binary reads
-	// SENTRY_API_TOKEN for preflight, but the claude CLI runs scripts in its own
-	// subprocess env — without this the script fails `:?SENTRY_API_TOKEN is
-	// required` even though the pod has the secret mounted.
-	if a.SentryAPIToken != "" {
-		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
-	}
-
-	// Mint a GitHub App installation token and expose it as GIT_CLONE_TOKEN so
-	// scripts/repo-clone.sh can clone private bborbe/seibert repos (e.g. trading).
-	// Same shared App as github-pr-review-agent (APP_ID 3800041), read access to
-	// bborbe/*. Optional: when App auth is not configured, no GIT_CLONE_TOKEN is
-	// set and repo-clone.sh only clones public repos.
-	if a.AppID != 0 && a.InstallationID != 0 && a.PEMKey != "" {
-		iat, err := githubapp.MintIAT(ctx, githubapp.Config{
-			AppID:          a.AppID,
-			InstallationID: a.InstallationID,
-			PEM:            []byte(a.PEMKey),
-		})
-		if err != nil {
-			jobMetrics.RecordRun(agentlib.AgentStatusFailed)
-			jobMetrics.RecordDuration(time.Since(start))
-			return errors.Wrap(ctx, err, "mint github app iat")
-		}
-		claudeEnv["GIT_CLONE_TOKEN"] = iat
+	claudeEnv, err := a.buildClaudeEnv(ctx)
+	if err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return err
 	}
 
 	allowedTools := claudelib.ParseAllowedTools(a.AllowedToolsRaw)
