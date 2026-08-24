@@ -209,7 +209,8 @@ func fencedYAMLBlocks(ctx context.Context, content string) ([]string, error) {
 		}
 	}
 	if inBlock {
-		blocks = append(blocks, strings.Join(current, "\n"))
+		// Unclosed fence — the block is malformed, not silently complete.
+		return nil, errors.New(ctx, "unclosed yaml fence in verdict section")
 	}
 	return blocks, nil
 }

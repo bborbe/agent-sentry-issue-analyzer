@@ -21,6 +21,11 @@ import (
 // the controller applies it, the scanner re-publishes, and the executor
 // re-routes the task to the sentry-deep-analyzer Config CR. Never batch: one
 // reassign per real-bug verdict, idempotent per task.
+//
+// The frontmatter mutation in Run is safe only under the executor's
+// single-threaded delivery per task: the StepRunner delivers once per step on
+// the same *Markdown pointer, and one Job processes one task at a time. Run
+// must not be invoked concurrently on the same task content.
 type reassignExecutionStep struct {
 	// execution is the underlying triage execution step (Claude writes ## Verdict).
 	execution agentlib.Step
