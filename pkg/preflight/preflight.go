@@ -50,7 +50,7 @@ func ValidateSentryTools(
 	}
 
 	var missing []string
-	if !hasSentryReadTool(allowed) {
+	if !hasSentryReadTool(ctx, allowed) {
 		missing = append(missing, "Bash(scripts/sentry-read.sh:*)")
 	}
 	if apiToken == "" {
@@ -69,8 +69,13 @@ func ValidateSentryTools(
 
 // hasSentryReadTool reports whether allowed contains the constrained script
 // tool (prefix match: "Bash(scripts/sentry-read.sh:*" or a stricter scope).
-func hasSentryReadTool(allowed claudelib.AllowedTools) bool {
+func hasSentryReadTool(ctx context.Context, allowed claudelib.AllowedTools) bool {
 	for _, t := range allowed {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
 		if strings.HasPrefix(t, sentryReadToolPrefix) {
 			return true
 		}

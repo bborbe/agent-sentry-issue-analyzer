@@ -6,6 +6,7 @@ package steps_test
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -13,5 +14,7 @@ import (
 
 func TestSteps(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Steps Suite")
+	suiteConfig, reporterConfig := GinkgoConfiguration()
+	suiteConfig.Timeout = 60 * time.Second
+	RunSpecs(t, "Steps Suite", suiteConfig, reporterConfig)
 }

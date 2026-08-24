@@ -76,6 +76,11 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 		return v, err
 	}
 	for _, block := range blocks {
+		select {
+		case <-ctx.Done():
+			return Verdict{}, ctx.Err()
+		default:
+		}
 		var parsed Verdict
 		if err := yaml.Unmarshal([]byte(block), &parsed); err != nil {
 			errs = append(errs, errors.Wrapf(ctx, err, "parse verdict block").Error())

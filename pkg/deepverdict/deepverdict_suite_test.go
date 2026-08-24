@@ -6,6 +6,7 @@ package deepverdict_test
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,5 +17,6 @@ func TestSuite(t *testing.T) {
 	format.TruncatedDiff = false
 	RegisterFailHandler(Fail)
 	suiteConfig, reporterConfig := GinkgoConfiguration()
+	suiteConfig.Timeout = 60 * time.Second
 	RunSpecs(t, "Deepverdict Suite", suiteConfig, reporterConfig)
 }
