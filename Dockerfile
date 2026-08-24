@@ -22,6 +22,10 @@ ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.version="${BUILD_GIT_VERSION}"
 COPY --from=build /main /main
 COPY agent/ /agent/
+# Scripts live under /agent/scripts/ so the agent's cwd-relative Bash tool
+# contract (prompts + preflight + ALLOWED_TOOLS use scripts/... from /agent)
+# resolves. /scripts/ is kept as a stable alias for debugging.
+COPY scripts/ /agent/scripts/
 COPY scripts/ /scripts/
 ENV HOME=/home/claude
 RUN mkdir -p /home/claude/.claude
