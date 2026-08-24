@@ -64,13 +64,6 @@ var _ = Describe("BuildExecutionInstructions", func() {
 		Expect(instrs[0].Content).NotTo(BeEmpty())
 	})
 
-	It("execution prompt contains the 6-verdict rubric", func() {
-		instrs := prompts.BuildExecutionInstructions()
-		for _, v := range []string{"already-tracked", "regression", "real bug", "noise", "duplicate", "not-a-defect"} {
-			Expect(instrs[0].Content).To(ContainSubstring("`" + v + "`"))
-		}
-	})
-
 	It("execution prompt contains the noise disqualifiers", func() {
 		instrs := prompts.BuildExecutionInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("live_event_count > 10000"))
@@ -83,11 +76,18 @@ var _ = Describe("BuildExecutionInstructions", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/sentry-read.sh"))
 	})
 
-	It("execution prompt defines the verdict YAML keys", func() {
+	It("execution prompt defines the octopus verdict YAML keys", func() {
 		instrs := prompts.BuildExecutionInstructions()
-		Expect(instrs[0].Content).To(ContainSubstring("sentry_issue_id"))
-		Expect(instrs[0].Content).To(ContainSubstring("verdict"))
-		Expect(instrs[0].Content).To(ContainSubstring("confidence"))
+		for _, k := range []string{"sentry_issue_id", "verdict", "understanding", "fix_certainty", "root_cause", "recommended_fix", "file:line", "disqualifiers_fired", "live_event_count"} {
+			Expect(instrs[0].Content).To(ContainSubstring(k))
+		}
+	})
+
+	It("execution prompt uses the octopus verdict vocabulary", func() {
+		instrs := prompts.BuildExecutionInstructions()
+		for _, v := range []string{"real bug", "noise", "duplicate", "closed-fixed-in-prod", "not-a-defect", "track"} {
+			Expect(instrs[0].Content).To(ContainSubstring("`" + v + "`"))
+		}
 	})
 
 	It("execution prompt writes the verdict into the ## Verdict section", func() {
