@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package preflight provides the fail-fast check that the Sentry MCP tools the
-// planning/execution prompts depend on are actually wired into the agent
-// config. A missing tool fails the run immediately with a structured error
-// instead of letting the LLM loop on empty tool results (see [[Fail-Fast
-// Preflight for Tool-Dependent LLM Agents]]).
+// Package preflight provides the fail-fast check that the token-based Sentry
+// access path the planning/execution prompts depend on is actually wired into
+// the agent config: the constrained `scripts/sentry-read.sh` Bash tool in
+// ALLOWED_TOOLS plus the SENTRY_API_TOKEN env var. A missing piece fails the
+// run immediately with a structured error instead of letting the LLM loop on
+// empty results (see [[Fail-Fast Preflight for Tool-Dependent LLM Agents]]).
 package preflight
 
 import (
@@ -18,18 +19,17 @@ import (
 	"github.com/bborbe/errors"
 )
 
-// requiredSentryTools are the mcp__sentry__* tools the domain prompts invoke
-// in the per-alert model (planning + execution only need identity + live-state
-// fetch; search_issues was dropped with the batch model).
-var requiredSentryTools = []string{
-	"mcp__sentry__whoami",
-	"mcp__sentry__get_sentry_resource",
-}
+// sentryReadToolPrefix is the constrained Bash tool the domain prompts invoke
+// to fetch LIVE Sentry state. ALLOWED_TOOLS must grant it with its script
+// constraint so the agent can call nothing but the read-only fetcher.
+const sentryReadToolPrefix = "Bash(scripts/sentry-read.sh"
 
-// ValidateSentryTools returns an error listing any required Sentry MCP tool
-// absent from the allowed-tools set. Empty allowed tools is a hard failure —
-// the agent would run without any Sentry access.
-func ValidateSentryTools(ctx context.Context, allowed claudelib.AllowedTools) error {
+// ValidateSentryTools returns an error if the token-based Sentry access path is
+// not wired: the `Bash(scripts/sentry-read.sh:*` tool must be present in
+// ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. Empty allowed tools or a
+// missing token are hard failures — the agent would run without any Sentry
+// access.
+func ValidateSentryTools(ctx context.Context, allowed claudelib.AllowedTools, apiToken string) error {
 	present := map[string]bool{}
 	for _, t := range allowed {
 		select {
@@ -41,15 +41,11 @@ func ValidateSentryTools(ctx context.Context, allowed claudelib.AllowedTools) er
 	}
 
 	var missing []string
-	for _, t := range requiredSentryTools {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		if !present[t] {
-			missing = append(missing, t)
-		}
+	if !hasSentryReadTool(allowed) {
+		missing = append(missing, "Bash(scripts/sentry-read.sh:*)")
+	}
+	if apiToken == "" {
+		missing = append(missing, "SENTRY_API_TOKEN")
 	}
 	if len(missing) == 0 {
 		return nil
@@ -57,7 +53,18 @@ func ValidateSentryTools(ctx context.Context, allowed claudelib.AllowedTools) er
 	sort.Strings(missing)
 	return errors.Errorf(
 		ctx,
-		"sentry MCP preflight failed: missing required tool(s) in ALLOWED_TOOLS: %s. Configure the Sentry MCP server and add these tools to the agent Config CRD ALLOWED_TOOLS list (see Sentry MCP guide).",
+		"sentry preflight failed: missing required piece(s) for token-based Sentry access: %s. Grant the Bash(scripts/sentry-read.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set SENTRY_API_TOKEN (teamvault-sourced).",
 		strings.Join(missing, ", "),
 	)
+}
+
+// hasSentryReadTool reports whether allowed contains the constrained script
+// tool (prefix match: "Bash(scripts/sentry-read.sh:*" or a stricter scope).
+func hasSentryReadTool(allowed claudelib.AllowedTools) bool {
+	for _, t := range allowed {
+		if strings.HasPrefix(t, sentryReadToolPrefix) {
+			return true
+		}
+	}
+	return false
 }

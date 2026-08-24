@@ -21,39 +21,43 @@ var _ = Describe("ValidateSentryTools", func() {
 		ctx = context.Background()
 	})
 
-	It("passes when all required Sentry MCP tools are allowed", func() {
+	It("passes when the constrained script tool is allowed and the token is set", func() {
 		err := preflight.ValidateSentryTools(ctx, claudelib.AllowedTools{
-			"mcp__sentry__whoami",
-			"mcp__sentry__search_issues",
-			"mcp__sentry__get_sentry_resource",
-			"Bash",
+			"Bash(scripts/sentry-read.sh:*)",
 			"Read",
-		})
+			"Grep",
+		}, "tok")
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("fails when allowed tools is empty", func() {
-		err := preflight.ValidateSentryTools(ctx, claudelib.AllowedTools{})
+		err := preflight.ValidateSentryTools(ctx, claudelib.AllowedTools{}, "tok")
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("sentry MCP preflight failed"))
+		Expect(err.Error()).To(ContainSubstring("sentry preflight failed"))
 	})
 
-	It("fails and lists the missing tool", func() {
+	It("fails and lists the missing script tool", func() {
 		err := preflight.ValidateSentryTools(ctx, claudelib.AllowedTools{
-			"mcp__sentry__whoami",
-			"mcp__sentry__search_issues",
-		})
+			"Bash",
+			"Read",
+		}, "tok")
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("mcp__sentry__get_sentry_resource"))
+		Expect(err.Error()).To(ContainSubstring("scripts/sentry-read.sh"))
 	})
 
-	It("fails when a single required tool is absent", func() {
+	It("fails when the token is missing", func() {
 		err := preflight.ValidateSentryTools(ctx, claudelib.AllowedTools{
-			"mcp__sentry__whoami",
-			"mcp__sentry__search_issues",
-			"mcp__sentry__get_sentry_resource",
-			"mcp__atlassian__getAccessibleAtlassianResources",
-		})
+			"Bash(scripts/sentry-read.sh:*)",
+			"Read",
+		}, "")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("SENTRY_API_TOKEN"))
+	})
+
+	It("passes with a narrower script scope (subpath)", func() {
+		err := preflight.ValidateSentryTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/sentry-read.sh:*)",
+		}, "tok")
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
