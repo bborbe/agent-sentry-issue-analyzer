@@ -28,6 +28,7 @@ import (
 	"github.com/bborbe/cqrs/base"
 	"github.com/bborbe/errors"
 	libkafka "github.com/bborbe/kafka"
+	"github.com/bborbe/maintainer/githubapp"
 	libsentry "github.com/bborbe/sentry"
 	"github.com/bborbe/service"
 	libtime "github.com/bborbe/time"
@@ -52,6 +53,16 @@ type application struct {
 	SentryDSN      string `required:"false" arg:"sentry-dsn"       env:"SENTRY_DSN"       usage:"SentryDSN"                                        display:"length"`
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
+
+	// GitHub App auth for read-only cloning of private repos (repo-clone.sh).
+	// The pod mints an installation access token at startup (same pattern as
+	// github-pr-review-agent resolveAuth) and exposes it to the Claude
+	// subprocess as GIT_CLONE_TOKEN so repo-clone.sh can clone private
+	// bborbe/seibert repos. APP_ID + INSTALLATION_ID + one of PEM/PEM_KEY are
+	// required for App auth.
+	AppID          int64  `required:"false" arg:"app-id"          env:"APP_ID"          usage:"GitHub App ID (numeric); required for App auth"`
+	InstallationID int64  `required:"false" arg:"installation-id" env:"INSTALLATION_ID" usage:"GitHub App installation ID; required for App auth"`
+	PEMKey         string `required:"false" arg:"pem-key"         env:"PEM_KEY"         usage:"GitHub App private key (PEM) as env var content" display:"length"`
 
 	// Claude Code CLI configuration
 	ClaudeConfigDir claudelib.ClaudeConfigDir `required:"false" arg:"claude-config-dir" env:"CLAUDE_CONFIG_DIR" usage:"Claude Code config directory"`
@@ -131,6 +142,50 @@ func (a *application) createDeliverer(
 	), cleanup, nil
 }
 
+// buildClaudeEnv assembles the environment passed to the Claude CLI subprocess.
+// The claude CLI runs prompt scripts (Bash tool) in a subprocess env built from
+// an allowlist + CLAUDE_CONFIG_DIR + this map, so anything a script needs (the
+// Sentry token, the repo-clone GitHub token) must be forwarded here — the pod
+// secret alone is not enough (buildSubprocessEnv strips non-allowlisted vars).
+// Errors are wrapped for the caller to record metrics + return.
+func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, error) {
+	claudeEnv := envparse.KeyValuePairs(a.ClaudeEnvRaw)
+	if claudeEnv == nil {
+		claudeEnv = map[string]string{}
+	}
+	if a.AnthropicBaseURL != "" {
+		claudeEnv["ANTHROPIC_BASE_URL"] = a.AnthropicBaseURL
+	}
+	if a.AnthropicAuthToken != "" {
+		claudeEnv["ANTHROPIC_AUTH_TOKEN"] = a.AnthropicAuthToken
+	}
+	if a.AnthropicModel != "" {
+		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+	// The Sentry REST token: the main binary reads it for preflight, and the
+	// Bash tool contract (scripts/sentry-read.sh) needs it in the subprocess env.
+	if a.SentryAPIToken != "" {
+		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
+	}
+	// Mint a GitHub App installation token and expose it as GIT_CLONE_TOKEN so
+	// scripts/repo-clone.sh can clone private bborbe/seibert repos (e.g. trading).
+	// Same shared App as github-pr-review-agent. Optional: when App auth is not
+	// configured, no GIT_CLONE_TOKEN is set and repo-clone.sh only clones public
+	// repos.
+	if a.AppID != 0 && a.InstallationID != 0 && a.PEMKey != "" {
+		iat, err := githubapp.MintIAT(ctx, githubapp.Config{
+			AppID:          a.AppID,
+			InstallationID: a.InstallationID,
+			PEM:            []byte(a.PEMKey),
+		})
+		if err != nil {
+			return nil, errors.Wrap(ctx, err, "mint github app iat")
+		}
+		claudeEnv["GIT_CLONE_TOKEN"] = iat
+	}
+	return claudeEnv, nil
+}
+
 func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	registry := prometheus.NewRegistry()
 	jobMetrics := libmetrics.NewJobMetrics(registry, libtime.NewCurrentDateTime())
@@ -157,18 +212,11 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	defer cleanup()
 
-	claudeEnv := envparse.KeyValuePairs(a.ClaudeEnvRaw)
-	if claudeEnv == nil {
-		claudeEnv = map[string]string{}
-	}
-	if a.AnthropicBaseURL != "" {
-		claudeEnv["ANTHROPIC_BASE_URL"] = a.AnthropicBaseURL
-	}
-	if a.AnthropicAuthToken != "" {
-		claudeEnv["ANTHROPIC_AUTH_TOKEN"] = a.AnthropicAuthToken
-	}
-	if a.AnthropicModel != "" {
-		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	claudeEnv, err := a.buildClaudeEnv(ctx)
+	if err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return err
 	}
 
 	allowedTools := claudelib.ParseAllowedTools(a.AllowedToolsRaw)
