@@ -28,6 +28,7 @@ import (
 	"github.com/bborbe/cqrs/base"
 	"github.com/bborbe/errors"
 	libkafka "github.com/bborbe/kafka"
+	"github.com/bborbe/maintainer/githubapp"
 	libsentry "github.com/bborbe/sentry"
 	"github.com/bborbe/service"
 	libtime "github.com/bborbe/time"
@@ -52,6 +53,16 @@ type application struct {
 	SentryDSN      string `required:"false" arg:"sentry-dsn"       env:"SENTRY_DSN"       usage:"SentryDSN"                                        display:"length"`
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
+
+	// GitHub App auth for read-only cloning of private repos (repo-clone.sh).
+	// The pod mints an installation access token at startup (same pattern as
+	// github-pr-review-agent resolveAuth) and exposes it to the Claude
+	// subprocess as GIT_CLONE_TOKEN so repo-clone.sh can clone private
+	// bborbe/seibert repos. APP_ID + INSTALLATION_ID + one of PEM/PEM_KEY are
+	// required for App auth.
+	AppID          int64  `required:"false" arg:"app-id"          env:"APP_ID"          usage:"GitHub App ID (numeric); required for App auth"`
+	InstallationID int64  `required:"false" arg:"installation-id" env:"INSTALLATION_ID" usage:"GitHub App installation ID; required for App auth"`
+	PEMKey         string `required:"false" arg:"pem-key"         env:"PEM_KEY"         usage:"GitHub App private key (PEM) as env var content" display:"length"`
 
 	// Claude Code CLI configuration
 	ClaudeConfigDir claudelib.ClaudeConfigDir `required:"false" arg:"claude-config-dir" env:"CLAUDE_CONFIG_DIR" usage:"Claude Code config directory"`
@@ -169,6 +180,34 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	if a.AnthropicModel != "" {
 		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
+	}
+
+	// Forward the Sentry REST token to the Claude subprocess so the Bash tool
+	// contract (scripts/sentry-read.sh) can authenticate. The main binary reads
+	// SENTRY_API_TOKEN for preflight, but the claude CLI runs scripts in its own
+	// subprocess env — without this the script fails `:?SENTRY_API_TOKEN is
+	// required` even though the pod has the secret mounted.
+	if a.SentryAPIToken != "" {
+		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
+	}
+
+	// Mint a GitHub App installation token and expose it as GIT_CLONE_TOKEN so
+	// scripts/repo-clone.sh can clone private bborbe/seibert repos (e.g. trading).
+	// Same shared App as github-pr-review-agent (APP_ID 3800041), read access to
+	// bborbe/*. Optional: when App auth is not configured, no GIT_CLONE_TOKEN is
+	// set and repo-clone.sh only clones public repos.
+	if a.AppID != 0 && a.InstallationID != 0 && a.PEMKey != "" {
+		iat, err := githubapp.MintIAT(ctx, githubapp.Config{
+			AppID:          a.AppID,
+			InstallationID: a.InstallationID,
+			PEM:            []byte(a.PEMKey),
+		})
+		if err != nil {
+			jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+			jobMetrics.RecordDuration(time.Since(start))
+			return errors.Wrap(ctx, err, "mint github app iat")
+		}
+		claudeEnv["GIT_CLONE_TOKEN"] = iat
 	}
 
 	allowedTools := claudelib.ParseAllowedTools(a.AllowedToolsRaw)
