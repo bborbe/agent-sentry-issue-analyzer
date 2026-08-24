@@ -52,7 +52,7 @@ Do NOT use simple `<50 events = noise`. That heuristic fails for long-running lo
 
 ## Output
 
-Write a fenced YAML block into the task body under the section `## Verdict` with EXACTLY these keys:
+Your final response MUST contain the fenced YAML block below — the framework places your entire response under the task's `## Verdict` section, and a downstream orchestrator parses the YAML from it. Do NOT try to write a task file (there is no file path in this environment). Structure your response as: the fenced ````yaml` block first, then the `<output-format>` JSON envelope (`status`/`message`/`files`). The JSON envelope drives task status; the YAML block carries the verdict. Do NOT omit the YAML block:
 
 ```yaml
 sentry_issue_id: NUKE-PROD-77
@@ -66,4 +66,4 @@ disqualifiers_fired: [Volume]  # list of fired disqualifier names (Volume | Acti
 live_event_count: 142
 ```
 
-Use exactly these keys — a downstream orchestrator parses them, and a High/High verdict (`understanding: High` AND `fix_certainty: High`) triggers the fix-PR agent. Your final response MUST be valid JSON matching the `<output-format>` spec: `status` must be `done` if the verdict is written, `needs_input` for regression / low-confidence real-bug / missing live state, `failed` on infra error.
+Use exactly these keys — a downstream orchestrator parses them, and a High/High verdict (`understanding: High` AND `fix_certainty: High`) triggers the fix-PR agent. The trailing JSON envelope (`<output-format>`) carries `status`: `done` if the verdict YAML is written, `needs_input` for regression / low-confidence real-bug / missing live state, `failed` on infra error.
