@@ -1,20 +1,23 @@
-# Config CRD instance for agent-sentry-issue-analyzer (v0.2.0 — per-alert domain logic).
-# Apply with: kubectlnukedev -n dev apply -f k8s/agent-sentry-issue-analyzer-config.yaml
+# Config CRD instance for the deep Sentry bug analyzer (sentry-deep-analyzer
+# task type, same binary as the triage agent). The triage execution phase
+# reassigns a task to this assignee on a `verdict: real bug`, and the executor
+# routes it here — one deep run per flagged alert, never batch.
+# Apply with: kubectlnukedev -n dev apply -f k8s/sentry-deep-analyzer-config.yaml
 
 apiVersion: agent.benjamin-borbe.de/v1
 kind: Config
 metadata:
-  name: sentry-issue-analyzer
+  name: sentry-deep-analyzer
   namespace: dev
 spec:
-  assignee: sentry-issue-analyzer
+  assignee: sentry-deep-analyzer
   image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:dev
   heartbeat: 5m
   maxConcurrentJobs: 1
   priorityClassName: agent-sentry-issue-analyzer
 
   taskTypes:
-    - sentry-issue-analyzer
+    - sentry-deep-analyzer
     - healthcheck
 
   trigger:

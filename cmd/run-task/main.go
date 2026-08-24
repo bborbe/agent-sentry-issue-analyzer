@@ -35,8 +35,9 @@ func main() {
 }
 
 type application struct {
-	SentryDSN   string `required:"false" arg:"sentry-dsn"   env:"SENTRY_DSN"   usage:"SentryDSN"    display:"length"`
-	SentryProxy string `required:"false" arg:"sentry-proxy" env:"SENTRY_PROXY" usage:"Sentry Proxy" display:"length"`
+	SentryDSN      string `required:"false" arg:"sentry-dsn"       env:"SENTRY_DSN"       usage:"SentryDSN"                                        display:"length"`
+	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
+	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
 	// Claude Code CLI configuration
 	ClaudeConfigDir claudelib.ClaudeConfigDir `required:"false" arg:"claude-config-dir" env:"CLAUDE_CONFIG_DIR" usage:"Claude Code config directory"`
@@ -100,14 +101,18 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		claudeEnv["ANTHROPIC_MODEL"] = a.AnthropicModel.String()
 	}
 
-	if err := preflight.ValidateSentryTools(ctx, claudelib.ParseAllowedTools(a.AllowedToolsRaw)); err != nil {
-		return errors.Wrap(ctx, err, "sentry MCP preflight")
+	allowedTools := claudelib.ParseAllowedTools(a.AllowedToolsRaw)
+	if err := preflight.ValidateSentryTools(ctx, allowedTools, a.SentryAPIToken); err != nil {
+		return errors.Wrap(ctx, err, "sentry preflight")
+	}
+	if err := preflight.ValidateRepoCloneTools(ctx, allowedTools); err != nil {
+		return errors.Wrap(ctx, err, "repo-clone preflight")
 	}
 
 	agent := factory.CreateAgent(
 		a.ClaudeConfigDir,
 		a.AgentDir,
-		claudelib.ParseAllowedTools(a.AllowedToolsRaw),
+		allowedTools,
 		a.AnthropicModel,
 		claudeEnv,
 		envparse.KeyValuePairs(a.EnvContextRaw),

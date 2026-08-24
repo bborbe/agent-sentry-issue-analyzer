@@ -19,11 +19,18 @@ var planning string
 //go:embed execution.md
 var execution string
 
+//go:embed deep-planning.md
+var deepPlanning string
+
+//go:embed deep-execution.md
+var deepExecution string
+
 //go:embed output-format.md
 var outputFormat string
 
-// BuildPlanningInstructions assembles the planning-phase prompt: the domain
-// planning module plus the shared output-format contract.
+// BuildPlanningInstructions assembles the triage planning-phase prompt: the
+// domain planning module plus the shared output-format contract. Used by the
+// sentry-issue-analyzer task type (the daily-batch triage agent).
 func BuildPlanningInstructions() claudelib.Instructions {
 	return claudelib.Instructions{
 		{Name: "planning", Content: planning},
@@ -31,11 +38,32 @@ func BuildPlanningInstructions() claudelib.Instructions {
 	}
 }
 
-// BuildExecutionInstructions assembles the execution-phase prompt: the
-// domain execution module plus the shared output-format contract.
+// BuildExecutionInstructions assembles the triage execution-phase prompt: the
+// 6-verdict rubric + noise disqualifiers, plus the shared output-format
+// contract. Used by the sentry-issue-analyzer task type.
 func BuildExecutionInstructions() claudelib.Instructions {
 	return claudelib.Instructions{
 		{Name: "execution", Content: execution},
+		{Name: "output-format", Content: outputFormat},
+	}
+}
+
+// BuildDeepPlanningInstructions assembles the deep planning-phase prompt: the
+// deep root-cause module (LIVE state + read-only clone) plus the shared
+// output-format contract. Used by the sentry-deep-analyzer task type.
+func BuildDeepPlanningInstructions() claudelib.Instructions {
+	return claudelib.Instructions{
+		{Name: "deep-planning", Content: deepPlanning},
+		{Name: "output-format", Content: outputFormat},
+	}
+}
+
+// BuildDeepExecutionInstructions assembles the deep execution-phase prompt:
+// the octopus verdict schema (U/F + file:line + disqualifiers_fired) plus the
+// shared output-format contract. Used by the sentry-deep-analyzer task type.
+func BuildDeepExecutionInstructions() claudelib.Instructions {
+	return claudelib.Instructions{
+		{Name: "deep-execution", Content: deepExecution},
 		{Name: "output-format", Content: outputFormat},
 	}
 }

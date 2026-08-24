@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package steps_test
+package deepverdict_test
 
 import (
 	"testing"
@@ -10,11 +10,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 )
 
-func TestSteps(t *testing.T) {
+func TestSuite(t *testing.T) {
+	format.TruncatedDiff = false
 	RegisterFailHandler(Fail)
 	suiteConfig, reporterConfig := GinkgoConfiguration()
 	suiteConfig.Timeout = 60 * time.Second
-	RunSpecs(t, "Steps Suite", suiteConfig, reporterConfig)
+	RunSpecs(t, "Deepverdict Suite", suiteConfig, reporterConfig)
 }
