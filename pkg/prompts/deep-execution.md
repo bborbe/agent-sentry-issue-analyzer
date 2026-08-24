@@ -55,7 +55,7 @@ Do NOT use simple `<50 events = noise`. That heuristic fails for long-running lo
 Write a fenced YAML block into the task body under the section `## Verdict` with EXACTLY these keys:
 
 ```yaml
-sentry_issue_id: OCTOPUS-PROD-1J
+sentry_issue_id: NUKE-PROD-77
 verdict: real bug
 understanding: High          # High | Medium | Low — from ## Context Understanding certainty
 fix_certainty: Medium        # High | Medium | Low — from ## Context Fix certainty
