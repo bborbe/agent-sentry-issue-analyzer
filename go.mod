@@ -3,14 +3,14 @@ module github.com/bborbe/agent-sentry-issue-analyzer
 go 1.27.0
 
 require (
-	github.com/bborbe/agent v0.82.1
+	github.com/bborbe/agent v0.83.0
 	github.com/bborbe/cqrs v0.6.8
 	github.com/bborbe/errors v1.5.20
 	github.com/bborbe/kafka v1.25.9
-	github.com/bborbe/sentry v1.9.26
+	github.com/bborbe/sentry v1.9.27
 	github.com/bborbe/service v1.10.9
 	github.com/bborbe/time v1.27.10
-	github.com/bborbe/vault-cli v0.114.7
+	github.com/bborbe/vault-cli v0.115.0
 	github.com/golang/glog v1.2.5
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	github.com/IBM/sarama v1.60.1 // indirect
+	github.com/IBM/sarama v1.60.2 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/bborbe/argument/v2 v2.12.37 // indirect
 	github.com/bborbe/collection v1.20.23 // indirect
@@ -27,8 +27,8 @@ require (
 	github.com/bborbe/k8s v1.14.11 // indirect
 	github.com/bborbe/kv v1.21.11 // indirect
 	github.com/bborbe/log v1.6.24 // indirect
-	github.com/bborbe/math v1.4.1 // indirect
-	github.com/bborbe/metrics v0.5.14 // indirect
+	github.com/bborbe/math v1.4.4 // indirect
+	github.com/bborbe/metrics v0.5.15 // indirect
 	github.com/bborbe/parse v1.10.21 // indirect
 	github.com/bborbe/run v1.9.37 // indirect
 	github.com/bborbe/strimzi v1.8.14 // indirect
@@ -69,6 +69,7 @@ require (
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
