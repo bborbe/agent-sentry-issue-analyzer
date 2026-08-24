@@ -6,7 +6,7 @@ The task body contains ONE Sentry alert, already flagged `real bug` by the triag
 
 ## Scope
 
-Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you have read-only source access via the constrained scripts.
+Production only, `bborbe` repos only (Personal-vault fleet). The alert's repo is a `bborbe/*` repo (e.g. `bborbe/trading`, `bborbe/agent-sentry-issue-analyzer`); you have read-only source access via the constrained scripts. `seibert-group` / `seibert-data` repos are OUT OF SCOPE — they are analyzed by the dedicated octopus agent in the octopus cluster, not by this agent. If the stack trace implicates a non-`bborbe` repo, STOP: return `needs_input` naming the repo as out of scope.
 
 ## Steps
 
