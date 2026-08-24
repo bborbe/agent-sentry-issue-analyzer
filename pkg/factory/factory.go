@@ -24,12 +24,18 @@ import (
 
 const serviceName = "agent-sentry-issue-analyzer"
 
-// taskTypeSentryIssueAnalyzer is the agent-lib TaskType literal for this
-// agent's domain task. No constant exists in agent-lib for this value, so we
-// cast it locally (mirrors github-update-go-agent). Keep the literal exactly
-// "sentry-issue-analyzer" — the watcher emits it verbatim in task frontmatter
-// and the Config CR taskTypes list must match.
+// taskTypeSentryIssueAnalyzer is the agent-lib TaskType literal for the
+// triage agent's domain task. No constant exists in agent-lib for this value,
+// so we cast it locally (mirrors github-update-go-agent). Keep the literal
+// exactly "sentry-issue-analyzer" — the watcher emits it verbatim in task
+// frontmatter and the Config CR taskTypes list must match.
 var taskTypeSentryIssueAnalyzer = agentlib.TaskType("sentry-issue-analyzer")
+
+// taskTypeSentryDeepAnalyzer is the agent-lib TaskType literal for the deep
+// analyzer's domain task. The triage execution phase reassigns a task to this
+// type (assignee + task_type + phase: planning) on a `real bug` verdict, and
+// the executor routes it to the sentry-deep-analyzer Config CR.
+var taskTypeSentryDeepAnalyzer = agentlib.TaskType("sentry-deep-analyzer")
 
 // CreateClaudeRunner constructs a ClaudeRunner pre-configured with tools,
 // model, working directory, and CLI environment.
@@ -106,15 +112,48 @@ func CreateAgent(
 	)
 }
 
-// CreateAgentFromRunner builds the 2-phase agent given a pre-constructed
+// CreateAgentFromRunner builds the triage agent given a pre-constructed
 // ClaudeRunner. Used by CreateAgentProvider to share one runner across the
 // domain agent and the healthcheck-Claude liveness agent.
+//
+// The triage execution step is wrapped in the real-bug reassign trigger: on a
+// `verdict: real bug` it reassigns the SAME task to the deep analyzer
+// (sentry-deep-analyzer) instead of closing it.
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
-	execution := steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext)
+	execution := steps.NewReassignExecutionStep(
+		steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
+		string(taskTypeSentryDeepAnalyzer),
+		string(taskTypeSentryDeepAnalyzer),
+	)
+	return agentlib.NewAgent(
+		agentlib.NewPhase("planning", planning),
+		agentlib.NewPhase(domain.TaskPhaseExecution, execution),
+	)
+}
+
+// CreateDeepAgentFromRunner builds the deep analyzer agent given a
+// pre-constructed ClaudeRunner. The deep agent is a separate task type
+// (sentry-deep-analyzer) with its own octopus verdict schema and deep
+// planning/execution prompts — it runs on ONE task flagged `real bug` by the
+// triage agent, never batch.
+func CreateDeepAgentFromRunner(
+	runner claudelib.ClaudeRunner,
+	envContext map[string]string,
+) *agentlib.Agent {
+	planning := steps.NewDeepPlanningStep(
+		runner,
+		prompts.BuildDeepPlanningInstructions(),
+		envContext,
+	)
+	execution := steps.NewDeepExecutionStep(
+		runner,
+		prompts.BuildDeepExecutionInstructions(),
+		envContext,
+	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
 		agentlib.NewPhase(domain.TaskPhaseExecution, execution),
@@ -126,9 +165,10 @@ func CreateAgentFromRunner(
 // appropriate *Agent. Pure plumbing; no conditional, no error.
 //
 // taskTypeSentryIssueAnalyzer and TaskTypeLLM (legacy alias) both route to the
-// 2-phase domain agent. TaskTypeHealthcheck and TaskTypeOAuthProbe (transition
-// alias) both route to the shared healthcheck-Claude liveness agent, reusing
-// the same ClaudeRunner.
+// triage agent. taskTypeSentryDeepAnalyzer routes to the deep analyzer (its
+// own prompts + octopus verdict). TaskTypeHealthcheck and TaskTypeOAuthProbe
+// (transition alias) both route to the shared healthcheck-Claude liveness
+// agent, reusing the same ClaudeRunner.
 func CreateAgentProvider(
 	claudeConfigDir claudelib.ClaudeConfigDir,
 	agentDir claudelib.AgentDir,
@@ -139,9 +179,11 @@ func CreateAgentProvider(
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(runner, envContext)
+	deepAgent := CreateDeepAgentFromRunner(runner, envContext)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{
 		taskTypeSentryIssueAnalyzer:  domainAgent,
+		taskTypeSentryDeepAnalyzer:   deepAgent,
 		agentlib.TaskTypeLLM:         domainAgent,
 		agentlib.TaskTypeHealthcheck: livenessAgent,
 		agentlib.TaskTypeOAuthProbe:  livenessAgent,

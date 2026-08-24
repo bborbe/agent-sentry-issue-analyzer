@@ -6,7 +6,7 @@ The task body contains ONE Sentry alert (created by the sentry-watcher): a stack
 
 ## Scope
 
-Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you have read-only source access via the constrained scripts.
+Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you have read-only source access.
 
 ## Steps
 

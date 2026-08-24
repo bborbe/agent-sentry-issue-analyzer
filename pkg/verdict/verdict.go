@@ -2,15 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package verdict defines the structured verdict schema the deep analyzer's
+// Package verdict defines the structured verdict schema the Sentry analyzer's
 // execution phase writes into the ## Verdict section of the task body. One
 // verdict per task (per-alert architecture: the watcher creates one task per
 // new Sentry alert, this agent analyzes that single alert).
-//
-// The schema is the octopus-analyse-bugs verdict YAML minus the Jira fields
-// (parent_bug, analyze_subtask, duplicate_of, fixed_commit) plus file:line —
-// the deep analyzer hands a machine-actionable fix-spec downstream, so the
-// file:line the fix-PR agent needs is required, not optional.
 package verdict
 
 import (
@@ -27,34 +22,35 @@ import (
 // ## Verdict section with EXACTLY these keys (see pkg/prompts/execution.md).
 // Unknown verdicts or missing required fields fail validation.
 type Verdict struct {
-	SentryIssueID      string   `yaml:"sentry_issue_id"`
-	Verdict            string   `yaml:"verdict"`
-	Understanding      string   `yaml:"understanding"`
-	FixCertainty       string   `yaml:"fix_certainty"`
-	RootCause          string   `yaml:"root_cause"`
-	RecommendedFix     string   `yaml:"recommended_fix"`
-	FileLine           string   `yaml:"file:line"`
-	DisqualifiersFired []string `yaml:"disqualifiers_fired"`
-	LiveEventCount     int      `yaml:"live_event_count"`
+	SentryIssueID  string `yaml:"sentry_issue_id"`
+	Verdict        string `yaml:"verdict"`
+	Confidence     string `yaml:"confidence"`
+	Reason         string `yaml:"reason"`
+	LiveEventCount int    `yaml:"live_event_count"`
+	LastSeen       string `yaml:"last_seen"`
+	SentryStatus   string `yaml:"sentry_status"`
+	Understanding  string `yaml:"understanding"`
+	FixCertainty   string `yaml:"fix_certainty"`
+	RootCause      string `yaml:"root_cause"`
+	RecommendedFix string `yaml:"recommended_fix"`
 }
 
-// Valid verdict vocabulary (octopus-analyse-bugs, mirrored verbatim from the
-// source of truth; the downstream fix-PR trigger keys on U=High AND F=High).
+// Valid verdict vocabulary (the 6-verdict rubric, mirrored verbatim from
+// octopus-check-sentry / Sentry Triage Guide).
 var validVerdicts = map[string]bool{
-	"real bug":             true,
-	"noise":                true,
-	"duplicate":            true,
-	"closed-fixed-in-prod": true,
-	"not-a-defect":         true,
-	"track":                true,
+	"already-tracked": true,
+	"regression":      true,
+	"real bug":        true,
+	"noise":           true,
+	"duplicate":       true,
+	"not-a-defect":    true,
 }
 
-// validCertainty is the certainty vocabulary shared by understanding and
-// fix_certainty (octopus U/F rubric).
-var validCertainty = map[string]bool{
-	"High":   true,
-	"Medium": true,
-	"Low":    true,
+// validConfidence is the confidence vocabulary for real-bug verdicts.
+var validConfidence = map[string]bool{
+	"high":   true,
+	"medium": true,
+	"low":    true,
 }
 
 // Parse extracts the verdict YAML block from the ## Verdict section of the
@@ -94,8 +90,7 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 }
 
 // Validate checks the verdict against the schema. Returns an error for
-// unknown verdicts, missing required fields, invalid certainty, or a real-bug
-// verdict without the file:line the downstream fix-PR agent needs.
+// unknown verdicts, missing required fields, or invalid confidence.
 func Validate(ctx context.Context, v Verdict) error {
 	if v.SentryIssueID == "" {
 		return errors.New(ctx, "verdict missing required field sentry_issue_id")
@@ -103,42 +98,21 @@ func Validate(ctx context.Context, v Verdict) error {
 	if !validVerdicts[v.Verdict] {
 		return errors.Errorf(
 			ctx,
-			"unknown verdict %q (valid: real bug, noise, duplicate, closed-fixed-in-prod, not-a-defect, track)",
+			"unknown verdict %q (valid: already-tracked, regression, real bug, noise, duplicate, not-a-defect)",
 			v.Verdict,
 		)
 	}
-	if v.Verdict != "real bug" {
-		return nil
-	}
-	return validateRealBug(ctx, v)
-}
-
-// validateRealBug enforces the fields a real-bug verdict must carry for the
-// downstream fix-PR agent: High/Medium/Low U+F certainty plus the machine-
-// actionable root_cause / recommended_fix / file:line triple.
-func validateRealBug(ctx context.Context, v Verdict) error {
-	if !validCertainty[v.Understanding] {
-		return errors.Errorf(
-			ctx,
-			"invalid understanding %q (valid: High, Medium, Low)",
-			v.Understanding,
-		)
-	}
-	if !validCertainty[v.FixCertainty] {
-		return errors.Errorf(
-			ctx,
-			"invalid fix_certainty %q (valid: High, Medium, Low)",
-			v.FixCertainty,
-		)
-	}
-	if v.FileLine == "" {
-		return errors.New(ctx, "real-bug verdict missing required field file:line")
-	}
-	if v.RootCause == "" {
-		return errors.New(ctx, "real-bug verdict missing required field root_cause")
-	}
-	if v.RecommendedFix == "" {
-		return errors.New(ctx, "real-bug verdict missing required field recommended_fix")
+	if v.Verdict == "real bug" {
+		if v.Confidence == "" {
+			return errors.New(ctx, "real-bug verdict missing required field confidence")
+		}
+		if !validConfidence[strings.ToLower(v.Confidence)] {
+			return errors.Errorf(
+				ctx,
+				"invalid confidence %q (valid: high, medium, low)",
+				v.Confidence,
+			)
+		}
 	}
 	return nil
 }
