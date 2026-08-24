@@ -6,26 +6,29 @@ The task body contains ONE Sentry alert (created by the sentry-watcher): a stack
 
 ## Scope
 
-Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you have read-only source access.
+Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you have read-only source access via the constrained scripts.
 
 ## Steps
 
-### Step 1: Validate connections
+### Step 1: Validate Sentry access
 
-1. `mcp__sentry__whoami` — expect the Sentry user to be `Benjamin Borbe` (benjamin.borbe@seibert.group). If auth fails, STOP: return `needs_input` with the auth failure in `message`.
-2. If a Sentry MCP tool is unavailable (tool-not-found error), STOP: return `failed` with the missing tool named in `message`.
+1. `Bash(scripts/sentry-read.sh <sentry_link from task>)` — if the script fails (auth/network error), STOP: return `needs_input` with the failure in `message`. A working live fetch proves the token is valid.
 
 ### Step 2: Fetch LIVE state for this alert
 
-Call `mcp__sentry__get_sentry_resource url="<sentry_link from task>"` and capture: `live_event_count`, `last_seen`, `status` (`unresolved` / `resolved` / `regressed`), `first_seen`, `users_impacted`. The LIVE state overrides the task snapshot for every downstream decision (see [[Sentry Live State vs Ticket Snapshot]]).
+Call `Bash(scripts/sentry-read.sh <sentry_link from task>)` and capture: `live_event_count`, `last_seen`, `status` (`unresolved` / `resolved` / `regressed`), `first_seen`, `users_impacted`. The LIVE state overrides the task snapshot for every downstream decision (see [[Sentry Live State vs Ticket Snapshot]]).
 
 ### Step 3: Read the implicated source code
 
-From the stack trace identify the implicated repo + file (`file.go:line`). Clone or fetch the repo read-only at the failing commit (use the available git tools / `git-rest`), then read the implicated file(s) and nearby code:
+From the stack trace identify the implicated repo + file (`file.go:line`). Clone the repo read-only with the constrained script:
+
+`Bash(scripts/repo-clone.sh clone <repo>)`
+
+where `<repo>` is the owner/name (e.g. `bborbe/agent-sentry-issue-analyzer`) or an https/git@ URL from the stack trace. The script emits `clone_path`, `head_sha`, `default_branch`, and leaves the whole tree read-only — you can Read/Grep every file but cannot modify, commit, or push. Then read the implicated file(s) and nearby code:
 
 - the panicking function / error site (`file.go:line`)
 - the callers and data flow into it
-- recent commits touching that file (via git log) if the error looks like a regression
+- recent commits touching that file if the error looks like a regression: `Bash(scripts/repo-clone.sh log <clone_path> <file>)`
 
 You have READ-ONLY source access — never modify, commit, or push to any source repo.
 

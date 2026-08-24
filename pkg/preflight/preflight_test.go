@@ -61,3 +61,42 @@ var _ = Describe("ValidateSentryTools", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
+
+var _ = Describe("ValidateRepoCloneTools", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("passes when the constrained clone script tool is allowed", func() {
+		err := preflight.ValidateRepoCloneTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/repo-clone.sh:*)",
+			"Read",
+			"Grep",
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("fails when allowed tools is empty", func() {
+		err := preflight.ValidateRepoCloneTools(ctx, claudelib.AllowedTools{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("repo-clone preflight failed"))
+	})
+
+	It("fails and names the missing clone script tool", func() {
+		err := preflight.ValidateRepoCloneTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/sentry-read.sh:*)",
+			"Read",
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("scripts/repo-clone.sh"))
+	})
+
+	It("passes with a stricter clone script scope", func() {
+		err := preflight.ValidateRepoCloneTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/repo-clone.sh clone:*)",
+		})
+		Expect(err).NotTo(HaveOccurred())
+	})
+})

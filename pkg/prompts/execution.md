@@ -9,9 +9,9 @@ You are the execution phase of the Sentry issue analyzer agent. Your job: take t
 
 Re-fetch the live state — the analysis and the task snapshot can be stale:
 
-`mcp__sentry__get_sentry_resource url="<sentry_link from task>"`
+`Bash(scripts/sentry-read.sh <sentry_link from task>)`
 
-Capture: `live_event_count`, `last_seen`, `status` (`unresolved` / `resolved` / `regressed`), `first_seen`, `users_impacted`. The verdict MUST be against current live state. If Sentry MCP is unavailable, mark `needs_input` (do not guess).
+Capture: `live_event_count`, `last_seen`, `status` (`unresolved` / `resolved` / `regressed`), `first_seen`, `users_impacted`. The verdict MUST be against current live state. If the script fails (auth/network), mark `needs_input` (do not guess).
 
 ## The 6-verdict rubric
 

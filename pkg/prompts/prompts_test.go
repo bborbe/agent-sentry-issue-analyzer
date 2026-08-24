@@ -29,9 +29,15 @@ var _ = Describe("BuildPlanningInstructions", func() {
 		Expect(instrs[1].Content).NotTo(BeEmpty())
 	})
 
-	It("planning prompt contains the live-state tool invocation", func() {
+	It("planning prompt contains the token-REST live-state script invocation", func() {
 		instrs := prompts.BuildPlanningInstructions()
-		Expect(instrs[0].Content).To(ContainSubstring("mcp__sentry__get_sentry_resource"))
+		Expect(instrs[0].Content).To(ContainSubstring("scripts/sentry-read.sh"))
+	})
+
+	It("planning prompt contains the read-only repo clone invocation", func() {
+		instrs := prompts.BuildPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("scripts/repo-clone.sh clone"))
+		Expect(instrs[0].Content).To(ContainSubstring("scripts/repo-clone.sh log"))
 	})
 
 	It("planning prompt contains the ## Analysis section heading", func() {
@@ -74,7 +80,7 @@ var _ = Describe("BuildExecutionInstructions", func() {
 
 	It("execution prompt instructs live-state re-fetch before the verdict", func() {
 		instrs := prompts.BuildExecutionInstructions()
-		Expect(instrs[0].Content).To(ContainSubstring("mcp__sentry__get_sentry_resource"))
+		Expect(instrs[0].Content).To(ContainSubstring("scripts/sentry-read.sh"))
 	})
 
 	It("execution prompt defines the verdict YAML keys", func() {

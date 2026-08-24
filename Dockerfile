@@ -9,7 +9,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -in
 CMD ["/bin/bash"]
 
 FROM ${DOCKER_REGISTRY}/alpine:3.24 AS alpine
-RUN apk --no-cache add ca-certificates curl bash nodejs npm \
+RUN apk --no-cache add ca-certificates curl bash git python3 nodejs npm \
  && npm install -g --omit=dev --no-optional @anthropic-ai/claude-code \
  && npm cache clean --force \
  && apk del npm \
@@ -22,6 +22,7 @@ ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.version="${BUILD_GIT_VERSION}"
 COPY --from=build /main /main
 COPY agent/ /agent/
+COPY scripts/ /scripts/
 ENV HOME=/home/claude
 RUN mkdir -p /home/claude/.claude
 ENV ZONEINFO=/zoneinfo.zip

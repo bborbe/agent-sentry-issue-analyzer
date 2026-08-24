@@ -33,7 +33,7 @@ spec:
       memory: 128Mi
 
   env:
-    ALLOWED_TOOLS: "Bash(scripts/sentry-read.sh:*),Read,Edit,Grep"
+    ALLOWED_TOOLS: "Bash(scripts/sentry-read.sh:*),Bash(scripts/repo-clone.sh:*),Read,Edit,Grep"
     ANTHROPIC_BASE_URL: "http://claude-code-router-dev:8788"
     ANTHROPIC_MODEL: "MiniMax-M2.7-highspeed"
     CLAUDE_CONFIG_DIR: "/home/claude/.claude"

@@ -24,12 +24,21 @@ import (
 // constraint so the agent can call nothing but the read-only fetcher.
 const sentryReadToolPrefix = "Bash(scripts/sentry-read.sh"
 
+// repoCloneToolPrefix is the constrained Bash tool the planning prompt invokes
+// to clone the implicated source repo read-only. Like sentry-read.sh, it is
+// granted only under its script constraint — no bare Bash, no bare git.
+const repoCloneToolPrefix = "Bash(scripts/repo-clone.sh"
+
 // ValidateSentryTools returns an error if the token-based Sentry access path is
 // not wired: the `Bash(scripts/sentry-read.sh:*` tool must be present in
 // ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. Empty allowed tools or a
 // missing token are hard failures — the agent would run without any Sentry
 // access.
-func ValidateSentryTools(ctx context.Context, allowed claudelib.AllowedTools, apiToken string) error {
+func ValidateSentryTools(
+	ctx context.Context,
+	allowed claudelib.AllowedTools,
+	apiToken string,
+) error {
 	present := map[string]bool{}
 	for _, t := range allowed {
 		select {
@@ -67,4 +76,26 @@ func hasSentryReadTool(allowed claudelib.AllowedTools) bool {
 		}
 	}
 	return false
+}
+
+// ValidateRepoCloneTools returns an error if the read-only repo clone tool the
+// planning prompt depends on is not wired into ALLOWED_TOOLS: the
+// `Bash(scripts/repo-clone.sh:*` tool must be present. A missing tool is a
+// hard failure — the planning phase would have no way to read the implicated
+// source and resolve the root-cause file:line.
+func ValidateRepoCloneTools(ctx context.Context, allowed claudelib.AllowedTools) error {
+	for _, t := range allowed {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if strings.HasPrefix(t, repoCloneToolPrefix) {
+			return nil
+		}
+	}
+	return errors.Errorf(
+		ctx,
+		"repo-clone preflight failed: missing Bash(scripts/repo-clone.sh:*) tool. Grant it in the agent Config CRD ALLOWED_TOOLS.",
+	)
 }
