@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.6.1
 
 - fix: complete the sentry-collector rename — the rename PR left 4 dead `sentry-watcher`-named files on master (`pkg/steps/watcher.go`, `pkg/steps/watcher_test.go`, `pkg/prompts/watcher-planning.md`, `k8s/sentry-watcher-config.yaml`) because the deletions weren't committed; the stale test file referenced renamed-away symbols and broke `go vet`/`go test`. Removed; also adds the previously-uncommitted `k8s/sentry-collector-config-prod.yaml` (the prod collector Config CR used in the 2026-08-25 prod promotion).
 
