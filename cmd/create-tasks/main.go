@@ -65,15 +65,18 @@ type application struct {
 
 // compactAlert is the compact per-alert JSON shape emitted by
 // scripts/sentry-create-tasks.sh. project is the Sentry project slug string.
+// Count/UserCount are intentionally absent: Sentry returns them as a number
+// OR a formatted string (e.g. "1.2k"), and no downstream field uses them —
+// Go ignores the extra JSON keys from the script, so a string count can't
+// break task creation (observed 2026-08-25: unmarshal error on a string count
+// aborted the whole fan-out).
 type compactAlert struct {
 	ID        string `json:"id"`
 	ShortID   string `json:"shortId"`
 	Title     string `json:"title"`
 	LastSeen  string `json:"lastSeen"`
 	FirstSeen string `json:"firstSeen"`
-	Count     int64  `json:"count"`
 	Status    string `json:"status"`
-	UserCount int64  `json:"userCount"`
 	Permalink string `json:"permalink"`
 	Project   string `json:"project"`
 }
