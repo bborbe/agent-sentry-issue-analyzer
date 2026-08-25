@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.4.0
 
 - feat: wire the deep analyzer's dedicated GitHub App family into the deploy config — per-stage PEM teamvault keys in `dev.env`/`prod.env`, `PEM_KEY` in the agent secret (env-indirected via teamvault), and `APP_ID`/`INSTALLATION_ID` on the deep Config CRs (dev updated + new prod variant `k8s/sentry-deep-analyzer-config-prod.yaml`).
 
