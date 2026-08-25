@@ -27,16 +27,41 @@ TARGET_VAULT="${TARGET_VAULT:-personal}"
 STAGE="${STAGE:-dev}"
 
 tmp_file="$(mktemp)"
-trap 'rm -f "${tmp_file}"' EXIT
+pages_file="$(mktemp)"
+trap 'rm -f "${tmp_file}" "${pages_file}"' EXIT
 
-response="$(curl -fsS --max-time 30 \
-  -H "Authorization: Bearer ${SENTRY_API_TOKEN}" \
-  "${SENTRY_URL}/api/0/organizations/${SENTRY_ORG}/issues/?query=is:unresolved&limit=100")"
+# Paginate the Sentry issues API (Link-header cursor) so no active unresolved
+# alert is silently dropped past the first 100.
+base_url="${SENTRY_URL}/api/0/organizations/${SENTRY_ORG}/issues/?query=is:unresolved&limit=100"
+cursor=""
+while :; do
+  url="${base_url}"
+  if [ -n "${cursor}" ]; then
+    url="${url}&cursor=${cursor}"
+  fi
+  headers="$(mktemp)"
+  curl -fsS --max-time 30 -D "${headers}" \
+    -H "Authorization: Bearer ${SENTRY_API_TOKEN}" \
+    "${url}" >> "${pages_file}"
+  printf '\n' >> "${pages_file}"
+  # Extract the next-page cursor from the Link header's rel="next" URL.
+  link="$(grep -i '^Link:' "${headers}" | head -1)"
+  cursor="$(printf '%s' "${link}" | sed -n 's/.*<[^>]*cursor=\([^&>]*\)[^>]*>; rel="next".*/\1/p')"
+  rm -f "${headers}"
+  if [ -z "${cursor}" ]; then
+    break
+  fi
+done
 
-# Compact each issue to the shape /create-tasks consumes (project → slug string).
-printf '%s' "${response}" | python3 -c '
+# Merge all pages into one array, then compact to the /create-tasks shape
+# (project → slug string).
+python3 -c '
 import json, sys
-issues = json.load(sys.stdin)
+issues = []
+for line in open(sys.argv[1]):
+    line = line.strip()
+    if line:
+        issues.extend(json.loads(line))
 compact = [{
     "id": issue["id"],
     "shortId": issue["shortId"],
@@ -50,7 +75,7 @@ compact = [{
     "project": issue["project"]["slug"],
 } for issue in issues]
 json.dump(compact, sys.stdout)
-' > "${tmp_file}"
+' "${pages_file}" > "${tmp_file}"
 
 count="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' "${tmp_file}")"
 short_ids="$(python3 -c 'import json, sys; print(" ".join(issue["shortId"] for issue in json.load(open(sys.argv[1]))))' "${tmp_file}")"
