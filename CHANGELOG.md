@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 - chore: update github.com/bborbe/errors to v1.5.21, github.com/bborbe/maintainer to v0.50.2, github.com/bborbe/vault-cli to v0.116.2
+## v0.6.1
+
+- fix: complete the sentry-collector rename — the rename PR left 4 dead `sentry-watcher`-named files on master (`pkg/steps/watcher.go`, `pkg/steps/watcher_test.go`, `pkg/prompts/watcher-planning.md`, `k8s/sentry-watcher-config.yaml`) because the deletions weren't committed; the stale test file referenced renamed-away symbols and broke `go vet`/`go test`. Removed; also adds the previously-uncommitted `k8s/sentry-collector-config-prod.yaml` (the prod collector Config CR used in the 2026-08-25 prod promotion).
+
 ## v0.6.0
 
 - feat: rename the fan-out agent `sentry-watcher` → `sentry-collector` — the step's real job is collecting the day's active unresolved Sentry alerts and fanning them out into per-alert tasks (not watching); pairs `collector → analyzer` in the multi-agent workflow. Task type, Config CR (`k8s/sentry-collector-config.yaml`), step/prompt/preflight identifiers, and the Kafka producer name updated; the retired standalone Go `sentry-watcher` service references in comments/changelog are preserved as historical.
