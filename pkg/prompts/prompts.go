@@ -25,6 +25,9 @@ var deepPlanning string
 //go:embed deep-execution.md
 var deepExecution string
 
+//go:embed watcher-planning.md
+var watcherPlanning string
+
 //go:embed output-format.md
 var outputFormat string
 
@@ -44,6 +47,17 @@ func BuildPlanningInstructions() claudelib.Instructions {
 func BuildExecutionInstructions() claudelib.Instructions {
 	return claudelib.Instructions{
 		{Name: "execution", Content: execution},
+		{Name: "output-format", Content: outputFormat},
+	}
+}
+
+// BuildWatcherPlanningInstructions assembles the watcher planning-phase prompt:
+// the watcher module (fetch day's alerts + create per-alert tasks) plus the
+// shared output-format contract. Used by the sentry-watcher task type (the
+// daily-batch producer step that emits per-alert tasks for the triage agent).
+func BuildWatcherPlanningInstructions() claudelib.Instructions {
+	return claudelib.Instructions{
+		{Name: "watcher-planning", Content: watcherPlanning},
 		{Name: "output-format", Content: outputFormat},
 	}
 }

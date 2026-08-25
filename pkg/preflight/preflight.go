@@ -29,6 +29,11 @@ const sentryReadToolPrefix = "Bash(scripts/sentry-read.sh"
 // granted only under its script constraint — no bare Bash, no bare git.
 const repoCloneToolPrefix = "Bash(scripts/repo-clone.sh"
 
+// watcherScriptToolPrefix is the constrained Bash tool the watcher-step prompt
+// invokes to fetch the day's active unresolved Sentry alerts and publish the
+// per-alert tasks. It is granted only under its script constraint.
+const watcherScriptToolPrefix = "Bash(scripts/sentry-create-tasks.sh"
+
 // ValidateSentryTools returns an error if the token-based Sentry access path is
 // not wired: the `Bash(scripts/sentry-read.sh:*` tool must be present in
 // ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. Empty allowed tools or a
@@ -81,6 +86,46 @@ func hasSentryReadTool(ctx context.Context, allowed claudelib.AllowedTools) bool
 		}
 	}
 	return false
+}
+
+// ValidateWatcherTools returns an error if the watcher step's tool path is not
+// wired: the `Bash(scripts/sentry-create-tasks.sh:*` tool must be present in
+// ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. The watcher agent needs
+// none of the triage/deep tools (sentry-read.sh, repo-clone.sh), so it is
+// validated against its own constrained script instead.
+func ValidateWatcherTools(
+	ctx context.Context,
+	allowed claudelib.AllowedTools,
+	apiToken string,
+) error {
+	present := false
+	for _, t := range allowed {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if strings.HasPrefix(t, watcherScriptToolPrefix) {
+			present = true
+		}
+	}
+
+	var missing []string
+	if !present {
+		missing = append(missing, "Bash(scripts/sentry-create-tasks.sh:*)")
+	}
+	if apiToken == "" {
+		missing = append(missing, "SENTRY_API_TOKEN")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+	return errors.Errorf(
+		ctx,
+		"sentry-watcher preflight failed: missing required piece(s) for the watcher step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set SENTRY_API_TOKEN (teamvault-sourced).",
+		strings.Join(missing, ", "),
+	)
 }
 
 // ValidateRepoCloneTools returns an error if the read-only repo clone tool the

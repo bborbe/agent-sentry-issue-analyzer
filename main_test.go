@@ -13,14 +13,27 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"github.com/onsi/gomega/gexec"
 )
 
-// NOTE: Explicit "Compiles" spec removed because spawning a child
-// process from this race-instrumented test binary segfaults on the
-// GH Actions runner (works locally; only reproduces on Linux CI under
-// -race). The test binary itself IS package main built — if main.go
-// does not compile, `go test` fails immediately, so the assertion is
-// redundant. See vault note [[Github Workflow Actions]] gotchas.
+// NOTE: The "Compiles" spec spawns a child `go build` via gexec. This was
+// removed at one point because spawning a child process from a
+// race-instrumented test binary segfaults on the GH Actions runner (works
+// locally; only reproduces on Linux CI under -race). CI runs with -race=false
+// (Makefile.precommit default), so the check is safe here. See vault note
+// [[Github Workflow Actions]] gotchas for the full diagnosis.
+
+var _ = Describe("Main", func() {
+	It("Compiles", func() {
+		var err error
+		_, err = gexec.Build(".", "-mod=mod", "-buildvcs=false")
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = AfterSuite(func() {
+	gexec.CleanupBuildArtifacts()
+})
 
 func TestSuite(t *testing.T) {
 	time.Local = time.UTC

@@ -7,12 +7,14 @@ require (
 	github.com/bborbe/cqrs v0.6.8
 	github.com/bborbe/errors v1.5.20
 	github.com/bborbe/kafka v1.25.9
+	github.com/bborbe/log v1.6.24
 	github.com/bborbe/maintainer v0.50.0
 	github.com/bborbe/sentry v1.9.27
 	github.com/bborbe/service v1.10.9
 	github.com/bborbe/time v1.27.10
 	github.com/bborbe/vault-cli v0.115.0
 	github.com/golang/glog v1.2.5
+	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
 	github.com/prometheus/client_golang v1.24.1
@@ -27,7 +29,6 @@ require (
 	github.com/bborbe/http v1.26.24 // indirect
 	github.com/bborbe/k8s v1.14.11 // indirect
 	github.com/bborbe/kv v1.21.11 // indirect
-	github.com/bborbe/log v1.6.24 // indirect
 	github.com/bborbe/math v1.4.4 // indirect
 	github.com/bborbe/metrics v0.5.15 // indirect
 	github.com/bborbe/parse v1.10.21 // indirect
@@ -64,7 +65,6 @@ require (
 	github.com/google/go-github/v88 v88.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
