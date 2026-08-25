@@ -13,9 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"github.com/onsi/gomega/gexec"
 )
 
-func TestSuite(t *testing.T) {
+func TestCreateTasksSuite(t *testing.T) {
 	time.Local = time.UTC
 	format.TruncatedDiff = false
 	RegisterFailHandler(Fail)
@@ -23,6 +24,22 @@ func TestSuite(t *testing.T) {
 	suiteConfig.Timeout = 60 * time.Second
 	RunSpecs(t, "Create-Tasks Suite", suiteConfig, reporterConfig)
 }
+
+var _ = Describe("CreateTasks", func() {
+	It("Compiles", func() {
+		var err error
+		_, err = gexec.Build(
+			"github.com/bborbe/agent-sentry-issue-analyzer/cmd/create-tasks",
+			"-mod=mod",
+			"-buildvcs=false",
+		)
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = AfterSuite(func() {
+	gexec.CleanupBuildArtifacts()
+})
 
 var _ = Describe("create-tasks task builder", func() {
 	var (

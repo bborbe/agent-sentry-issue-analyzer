@@ -191,6 +191,11 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 
 	failed := 0
 	for _, alert := range alerts {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		date, err := deriveDate(ctx, alert.LastSeen)
 		if err != nil {
 			return errors.Wrapf(ctx, err, "derive date for %s", alert.ShortID)
@@ -206,11 +211,6 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 			failed++
 			continue
 		}
-		glog.V(2).Infof(
-			"published CreateTaskCommand taskID=%s title=%q",
-			string(cmd.TaskIdentifier),
-			cmd.Title,
-		)
 	}
 	if failed > 0 {
 		return errors.Errorf(
