@@ -122,5 +122,15 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	if err != nil {
 		return errors.Wrap(ctx, err, "agent run failed")
 	}
+	if result == nil {
+		// agent.Run returns (nil, nil) when every step in the phase skipped
+		// (ShouldRun=false, e.g. the phase's output section already exists from
+		// a prior run) — treat as a no-op completion rather than panicking.
+		return errors.Errorf(
+			ctx,
+			"agent run returned nil result (all steps skipped for phase %s)",
+			a.Phase,
+		)
+	}
 	return agentlib.PrintResult(ctx, result)
 }
