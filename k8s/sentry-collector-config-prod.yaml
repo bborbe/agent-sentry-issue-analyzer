@@ -1,0 +1,54 @@
+# Config CRD instance for the sentry-collector agent step (sentry-collector
+# task type, same binary as the triage agent) — PROD variant. The daily
+# recurring trigger creates one sentry-collector task; the agent runs
+# scripts/sentry-create-tasks.sh to fetch the day's active unresolved Sentry
+# alerts and publishes one per-alert task per (short-id, date) via /create-tasks
+# so the triage agent (sentry-issue-analyzer) processes each.
+# Apply with: kubectlnukeprod -n prod apply -f k8s/sentry-collector-config-prod.yaml
+
+apiVersion: agent.benjamin-borbe.de/v1
+kind: Config
+metadata:
+  name: sentry-collector
+  namespace: prod
+spec:
+  assignee: sentry-collector
+  image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:prod
+  heartbeat: 5m
+  maxConcurrentJobs: 1
+  priorityClassName: agent-sentry-issue-analyzer
+
+  taskTypes:
+    - sentry-collector
+    - healthcheck
+
+  trigger:
+    phases:
+      - planning
+    statuses:
+      - in_progress
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  env:
+    ALLOWED_TOOLS: "Bash(scripts/sentry-create-tasks.sh:*)"
+    ANTHROPIC_BASE_URL: "http://claude-code-router-prod:8788"
+    ANTHROPIC_MODEL: "MiniMax-M2.7-highspeed"
+    CLAUDE_CONFIG_DIR: "/home/claude/.claude"
+    LOGLEVEL: "2"
+    # KAFKA_BROKERS is injected by the executor (repo convention); the
+    # collector script receives it in the subprocess env via buildClaudeEnv.
+    # TARGET_VAULT / STAGE default in scripts/sentry-create-tasks.sh
+    # (personal / dev) and are overridden for prod via the Schedule CR
+    # frontmatter (stage: prod).
+
+  secretName: agent-sentry-issue-analyzer
+
+  volumeClaim: agent-sentry-issue-analyzer
+  volumeMountPath: /home/claude/.claude
