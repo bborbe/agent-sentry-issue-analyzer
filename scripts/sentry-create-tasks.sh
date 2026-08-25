@@ -44,11 +44,16 @@ while :; do
     -H "Authorization: Bearer ${SENTRY_API_TOKEN}" \
     "${url}" >> "${pages_file}"
   printf '\n' >> "${pages_file}"
-  # Extract the next-page cursor from the Link header's rel="next" URL.
+  # Extract the next-page cursor + results flag from the Link header's
+  # rel="next" entry. Sentry always returns a next cursor, even on the last
+  # page — results="false" is the real "no more pages" signal. Breaking only
+  # on an empty cursor loops forever on 0-item pages (observed 2026-08-25:
+  # page 1 = 68 items, then identical 0-item pages ad infinitum).
   link="$(grep -i '^Link:' "${headers}" | head -1)"
   cursor="$(printf '%s' "${link}" | sed -n 's/.*<[^>]*cursor=\([^&>]*\)[^>]*>; rel="next".*/\1/p')"
+  results="$(printf '%s' "${link}" | sed -n 's/.*; rel="next"; results="\([^"]*\)".*/\1/p')"
   rm -f "${headers}"
-  if [ -z "${cursor}" ]; then
+  if [ -z "${cursor}" ] || [ "${results}" = "false" ]; then
     break
   fi
 done
