@@ -63,9 +63,7 @@ var _ = Describe("create-tasks task builder", func() {
 		Title:     "Example unresolved error",
 		LastSeen:  "2026-08-23T04:00:00Z",
 		FirstSeen: "2026-08-20T01:00:00Z",
-		Count:     12,
 		Status:    "unresolved",
-		UserCount: 3,
 		Permalink: "https://bborbe.sentry.io/organizations/bborbe/issues/42/",
 		Project:   "nuke-prod",
 	}
