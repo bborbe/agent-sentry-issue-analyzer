@@ -62,7 +62,7 @@ type application struct {
 	// required for App auth.
 	AppID          int64  `required:"false" arg:"app-id"          env:"APP_ID"          usage:"GitHub App ID (numeric); required for App auth"`
 	InstallationID int64  `required:"false" arg:"installation-id" env:"INSTALLATION_ID" usage:"GitHub App installation ID; required for App auth"`
-	PEMKey         string `required:"false" arg:"pem-key"         env:"PEM_KEY"         usage:"GitHub App private key (PEM) as env var content" display:"length"`
+	PEMKey         string `required:"false" arg:"pem-key"         env:"PEM_KEY"         usage:"GitHub App private key (PEM) as env var content"   display:"length"`
 
 	// Claude Code CLI configuration
 	ClaudeConfigDir claudelib.ClaudeConfigDir `required:"false" arg:"claude-config-dir" env:"CLAUDE_CONFIG_DIR" usage:"Claude Code config directory"`
@@ -251,6 +251,18 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
 		jobMetrics.RecordDuration(time.Since(start))
 		return errors.Wrap(ctx, err, "agent run failed")
+	}
+	if result == nil {
+		// agent.Run returns (nil, nil) when every step in the phase skipped
+		// (ShouldRun=false, e.g. the phase's output section already exists from
+		// a prior run) — treat as a no-op completion rather than panicking.
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return errors.Errorf(
+			ctx,
+			"agent run returned nil result (all steps skipped for phase %s)",
+			a.Phase,
+		)
 	}
 	jobMetrics.RecordRun(result.Status)
 	jobMetrics.RecordDuration(time.Since(start))
