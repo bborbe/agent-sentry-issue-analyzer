@@ -4,7 +4,7 @@
 
 // Package verdict defines the structured verdict schema the Sentry analyzer's
 // execution phase writes into the ## Verdict section of the task body. One
-// verdict per task (per-alert architecture: the watcher creates one task per
+// verdict per task (per-alert architecture: the collector creates one task per
 // new Sentry alert, this agent analyzes that single alert).
 package verdict
 
@@ -72,6 +72,11 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 		return v, err
 	}
 	for _, block := range blocks {
+		select {
+		case <-ctx.Done():
+			return v, ctx.Err()
+		default:
+		}
 		var parsed Verdict
 		if err := yaml.Unmarshal([]byte(block), &parsed); err != nil {
 			errs = append(errs, errors.Wrapf(ctx, err, "parse verdict block").Error())

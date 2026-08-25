@@ -172,7 +172,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	syncProducer, err := libkafka.NewSyncProducerWithName(
 		ctx,
 		a.KafkaBrokers,
-		"sentry-watcher-agent-step",
+		"sentry-collector-agent-step",
 	)
 	if err != nil {
 		return errors.Wrap(ctx, err, "create sync producer")

@@ -96,36 +96,36 @@ var _ = Describe("BuildExecutionInstructions (triage)", func() {
 	})
 })
 
-var _ = Describe("BuildWatcherPlanningInstructions", func() {
+var _ = Describe("BuildCollectorPlanningInstructions", func() {
 	It("returns exactly 2 instructions", func() {
-		instrs := prompts.BuildWatcherPlanningInstructions()
+		instrs := prompts.BuildCollectorPlanningInstructions()
 		Expect(instrs).To(HaveLen(2))
 	})
 
-	It("first instruction is watcher-planning", func() {
-		instrs := prompts.BuildWatcherPlanningInstructions()
-		Expect(instrs[0].Name).To(Equal("watcher-planning"))
+	It("first instruction is collector-planning", func() {
+		instrs := prompts.BuildCollectorPlanningInstructions()
+		Expect(instrs[0].Name).To(Equal("collector-planning"))
 		Expect(instrs[0].Content).NotTo(BeEmpty())
 	})
 
 	It("second instruction is output-format", func() {
-		instrs := prompts.BuildWatcherPlanningInstructions()
+		instrs := prompts.BuildCollectorPlanningInstructions()
 		Expect(instrs[1].Name).To(Equal("output-format"))
 		Expect(instrs[1].Content).NotTo(BeEmpty())
 	})
 
-	It("watcher prompt contains the sentry-create-tasks.sh invocation", func() {
-		instrs := prompts.BuildWatcherPlanningInstructions()
+	It("collector prompt contains the sentry-create-tasks.sh invocation", func() {
+		instrs := prompts.BuildCollectorPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/sentry-create-tasks.sh"))
 	})
 
-	It("watcher prompt writes the ## Analysis summary section", func() {
-		instrs := prompts.BuildWatcherPlanningInstructions()
+	It("collector prompt writes the ## Analysis summary section", func() {
+		instrs := prompts.BuildCollectorPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("## Analysis"))
 	})
 
-	It("watcher prompt filters is:unresolved (no resolved/regressed tasks)", func() {
-		instrs := prompts.BuildWatcherPlanningInstructions()
+	It("collector prompt filters is:unresolved (no resolved/regressed tasks)", func() {
+		instrs := prompts.BuildCollectorPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("is:unresolved"))
 	})
 })

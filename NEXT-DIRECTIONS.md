@@ -17,18 +17,16 @@ Deferred-not-cut work captured during `/launch-agent` proof-of-life scaffold on 
   - `pkg/prompts/execution.md` — 6-verdict rubric + noise disqualifiers verbatim, write `## Verdict` YAML
   - `pkg/verdict/` — verdict YAML schema + parser + validator (6-verdict fixture tests)
   - `pkg/preflight/` — fail-fast check that `mcp__sentry__*` tools are in ALLOWED_TOOLS
-  - Architecture (operator decision 2026-08-22): **watcher creates one task per new alert; agent analyzes that single alert** — same shape as all other agents. Bug-task creation moved OUT of the agent (watcher's job).
+  - Architecture (operator decision 2026-08-22): **collector creates one task per active alert; agent analyzes that single alert** — same shape as all other agents. Bug-task creation moved OUT of the agent (collector's job).
 
 ## v2 (next)
 
-- **Build `sentry-watcher` as the upstream producer**
-  - **Why deferred**: v1 uses manual task creation; the watcher needs Sentry API integration + poll loop
-  - **How**: separate repo `bborbe/sentry-watcher` (future `/launch-watcher` plugin); emit one `sentry-issue-analyzer` task per new Sentry issue
-  - **Effort**: 1-2 days (after `/launch-watcher` plugin exists)
+- ~~**Build `sentry-watcher` as the upstream producer**~~ **DONE** — implemented as the `sentry-collector` agent step (2026-08-25): the collector agent (single planning phase, `scripts/sentry-create-tasks.sh` token-REST fetch + `/create-tasks` Kafka publish) emits one `sentry-issue-analyzer` task per active unresolved Sentry alert on the daily recurring trigger. Retires the standalone Go watcher. Fleet's first multi-agent workflow (collector fans out → analyzer consumes).
+- **Remaining**: port any leftover upstream-producer ideas from the separate-repo plan (e.g. alert dedup tuning, pagination limits) into the collector if still valuable
 
 - **Go-side repo checkout step** (pr-reviewer `CheckoutExecutionStep` shape)
   - **Why deferred**: v1 planning prompt tells Claude to read source via its own git/Bash tools; a Go checkout step (RepoManager.EnsureWorktree → Claude WorkingDirectory=worktree) hardens allowlist + auth, matching the pr-reviewer pattern
-  - **How**: import/port `pkg/git` RepoManager; add `clone_url`/`ref` frontmatter from watcher
+  - **How**: import/port `pkg/git` RepoManager; add `clone_url`/`ref` frontmatter from collector
   - **Effort**: 1 day
 
 ## v2 (medium-term — quality / robustness improvements)
