@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 - chore: update github.com/bborbe/errors to v1.5.21, github.com/bborbe/maintainer to v0.50.2, github.com/bborbe/vault-cli to v0.116.2
+## v0.6.0
+
+- feat: rename the fan-out agent `sentry-watcher` → `sentry-collector` — the step's real job is collecting the day's active unresolved Sentry alerts and fanning them out into per-alert tasks (not watching); pairs `collector → analyzer` in the multi-agent workflow. Task type, Config CR (`k8s/sentry-collector-config.yaml`), step/prompt/preflight identifiers, and the Kafka producer name updated; the retired standalone Go `sentry-watcher` service references in comments/changelog are preserved as historical.
+- fix: add the missing `ctx.Done()` guard to the verdict-YAML parsing loop in `pkg/verdict/verdict.go` (`Parse`), matching the existing guards in `extractVerdictSection`/`fencedYAMLBlocks` so a cancelled context can't block shutdown (review finding on the rename PR).
+
+## v0.5.2
+
+- fix: `create-tasks` no longer parses Sentry's `count`/`userCount` — Sentry returns them as a number OR a formatted string (e.g. `"1.2k"`), and no downstream field uses them; the strict `int64` unmarshal aborted the whole fan-out (observed in the dev e2e: 68 alerts fetched, then `json: cannot unmarshal string into Go struct field .0.count` → zero tasks created). The fields are dropped from `compactAlert`; Go ignores the script's extra JSON keys.
+
+## v0.5.1
+
+- fix: `sentry-create-tasks.sh` pagination loop — Sentry always returns a `rel="next"` cursor, so the loop broke only on an empty cursor and spun forever on 0-item pages once `results="false"` (observed in the dev e2e: page 1 = 68 items, then identical 0-item pages ad infinitum; the pod agent misdiagnosed it as a network failure). The loop now breaks when the next link's `results="false"` — fetch terminates after the last real page.
+
+## v0.5.0
+
+- feat: sentry-watcher as an agent step — new `sentry-watcher` task type + `cmd/create-tasks` publisher (one CreateTaskCommand per active unresolved Sentry alert, byte-identical task shape to the retired Go watcher: UUID5 `DeriveTaskID`, title/frontmatter/body defaults) + `scripts/sentry-create-tasks.sh` (constrained fetch + Kafka publish) + watcher planning prompt. Establishes the fleet's first multi-agent workflow: the daily recurring-task-creator task triggers the watcher agent step (fans out per-alert tasks), and the triage agent consumes each. Retires the separate Go `sentry-watcher` service.
 
 ## v0.4.0
 

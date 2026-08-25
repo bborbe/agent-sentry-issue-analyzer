@@ -44,6 +44,12 @@ import (
 // agentName is the identity string used for Prometheus metric grouping and logging.
 const agentName = "claude-agent"
 
+// taskTypeSentryCollector is the collector step's task-type literal (mirrors
+// factory.taskTypeSentryCollector). The collector has a single planning phase and
+// a different tool contract (scripts/sentry-create-tasks.sh instead of
+// sentry-read.sh / repo-clone.sh), so it gets its own preflight.
+const taskTypeSentryCollector = "sentry-collector"
+
 func main() {
 	app := &application{}
 	os.Exit(service.Main(context.Background(), app, &app.SentryDSN, &app.SentryProxy))
@@ -97,6 +103,16 @@ type application struct {
 
 	// Explicit Kafka topic prefix (independent of Branch; empty means unprefixed topics)
 	TopicPrefix base.TopicPrefix `required:"false" arg:"topic-prefix" env:"TOPIC_PREFIX" usage:"Explicit Kafka topic prefix; empty means unprefixed topics"`
+
+	// Stage is the deployment stage (dev|prod), forwarded to the collector script
+	// as STAGE so scripts/sentry-create-tasks.sh can pass --stage to
+	// /create-tasks. Empty means the collector script's default (dev).
+	Stage string `required:"false" arg:"stage" env:"STAGE" usage:"Deployment stage (dev|prod); forwarded to the collector script"`
+
+	// TargetVault is the Obsidian vault slug the collector's /create-tasks
+	// publishes per-alert tasks into (e.g. "personal"), forwarded to the
+	// collector script as TARGET_VAULT.
+	TargetVault string `required:"false" arg:"target-vault" env:"TARGET_VAULT" usage:"Obsidian vault slug for collector-published per-alert tasks"`
 
 	// Phase to run (framework requires explicit phase)
 	Phase domain.TaskPhase `required:"false" arg:"phase" env:"PHASE" usage:"Agent phase: planning | execution | ai_review" default:"execution"`
@@ -167,6 +183,22 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	if a.SentryAPIToken != "" {
 		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
 	}
+	// The collector step's Bash tool contract (scripts/sentry-create-tasks.sh)
+	// needs the Kafka brokers + per-alert task knobs in the subprocess env —
+	// the pod secret alone is not enough (buildSubprocessEnv strips
+	// non-allowlisted vars). Forward only when non-empty.
+	if len(a.KafkaBrokers) > 0 {
+		claudeEnv["KAFKA_BROKERS"] = a.KafkaBrokers.String()
+	}
+	if a.TopicPrefix != "" {
+		claudeEnv["TOPIC_PREFIX"] = string(a.TopicPrefix)
+	}
+	if a.TargetVault != "" {
+		claudeEnv["TARGET_VAULT"] = a.TargetVault
+	}
+	if a.Stage != "" {
+		claudeEnv["STAGE"] = a.Stage
+	}
 	// Mint a GitHub App installation token and expose it as GIT_CLONE_TOKEN so
 	// scripts/repo-clone.sh can clone private bborbe/seibert repos (e.g. trading).
 	// Same shared App as github-pr-review-agent. Optional: when App auth is not
@@ -184,6 +216,30 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 		claudeEnv["GIT_CLONE_TOKEN"] = iat
 	}
 	return claudeEnv, nil
+}
+
+// validatePreflight runs the task-type-appropriate fail-fast tool/token check.
+// The collector step uses its own constrained script (scripts/sentry-create-tasks.sh)
+// instead of sentry-read.sh / repo-clone.sh, so it is preflighted against its
+// own tool contract; all other task types keep the triage/deep checks.
+func (a *application) validatePreflight(
+	ctx context.Context,
+	allowedTools claudelib.AllowedTools,
+) error {
+	if a.TaskType == taskTypeSentryCollector {
+		return errors.Wrap(
+			ctx,
+			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken),
+			"sentry-collector preflight",
+		)
+	}
+	if err := preflight.ValidateSentryTools(ctx, allowedTools, a.SentryAPIToken); err != nil {
+		return errors.Wrap(ctx, err, "sentry preflight")
+	}
+	if err := preflight.ValidateRepoCloneTools(ctx, allowedTools); err != nil {
+		return errors.Wrap(ctx, err, "repo-clone preflight")
+	}
+	return nil
 }
 
 func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
@@ -220,15 +276,10 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 
 	allowedTools := claudelib.ParseAllowedTools(a.AllowedToolsRaw)
-	if err := preflight.ValidateSentryTools(ctx, allowedTools, a.SentryAPIToken); err != nil {
+	if err := a.validatePreflight(ctx, allowedTools); err != nil {
 		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
 		jobMetrics.RecordDuration(time.Since(start))
-		return errors.Wrap(ctx, err, "sentry preflight")
-	}
-	if err := preflight.ValidateRepoCloneTools(ctx, allowedTools); err != nil {
-		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
-		jobMetrics.RecordDuration(time.Since(start))
-		return errors.Wrap(ctx, err, "repo-clone preflight")
+		return err
 	}
 
 	provider := factory.CreateAgentProvider(

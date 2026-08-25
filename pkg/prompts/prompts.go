@@ -25,6 +25,9 @@ var deepPlanning string
 //go:embed deep-execution.md
 var deepExecution string
 
+//go:embed collector-planning.md
+var collectorPlanning string
+
 //go:embed output-format.md
 var outputFormat string
 
@@ -44,6 +47,17 @@ func BuildPlanningInstructions() claudelib.Instructions {
 func BuildExecutionInstructions() claudelib.Instructions {
 	return claudelib.Instructions{
 		{Name: "execution", Content: execution},
+		{Name: "output-format", Content: outputFormat},
+	}
+}
+
+// BuildCollectorPlanningInstructions assembles the collector planning-phase prompt:
+// the collector module (fetch day's alerts + create per-alert tasks) plus the
+// shared output-format contract. Used by the sentry-collector task type (the
+// daily-batch producer step that emits per-alert tasks for the triage agent).
+func BuildCollectorPlanningInstructions() claudelib.Instructions {
+	return claudelib.Instructions{
+		{Name: "collector-planning", Content: collectorPlanning},
 		{Name: "output-format", Content: outputFormat},
 	}
 }

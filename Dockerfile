@@ -6,6 +6,9 @@ ARG BUILD_DATE=unknown
 COPY . /workspace
 WORKDIR /workspace
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -installsuffix cgo -o /main
+# The collector step's per-alert task publisher — spawned by
+# scripts/sentry-create-tasks.sh (Bash tool of the sentry-collector agent).
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -installsuffix cgo -o /create-tasks ./cmd/create-tasks
 CMD ["/bin/bash"]
 
 FROM ${DOCKER_REGISTRY}/alpine:3.24 AS alpine
@@ -21,6 +24,7 @@ ARG BUILD_GIT_COMMIT=none
 ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.version="${BUILD_GIT_VERSION}"
 COPY --from=build /main /main
+COPY --from=build /create-tasks /create-tasks
 COPY agent/ /agent/
 # Scripts live under /agent/scripts/ so the agent's cwd-relative Bash tool
 # contract (prompts + preflight + ALLOWED_TOOLS use scripts/... from /agent)
