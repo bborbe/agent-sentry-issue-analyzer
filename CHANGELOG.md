@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: wire the deep analyzer's dedicated GitHub App family into the deploy config — per-stage PEM teamvault keys in `dev.env`/`prod.env`, `PEM_KEY` in the agent secret (env-indirected via teamvault), and `APP_ID`/`INSTALLATION_ID` on the deep Config CRs (dev updated + new prod variant `k8s/sentry-deep-analyzer-config-prod.yaml`).
+
 ## v0.3.5
 
 - fix: guard nil agent result in both mains — `agent.Run` returns `(nil, nil)` when every step in the phase skips (`ShouldRun=false`, e.g. the phase's output section already exists from a prior run); both `main.go` and `cmd/run-task/main.go` now return a clear error instead of panicking on `result.Status`. Caught by the dev e2e: re-triggering a completed deep task (with `## Context`/`## Verdict` still in the body) crashed the pod with SIGSEGV at `main.go:255`.

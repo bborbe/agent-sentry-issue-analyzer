@@ -2,16 +2,16 @@
 # task type, same binary as the triage agent). The triage execution phase
 # reassigns a task to this assignee on a `verdict: real bug`, and the executor
 # routes it here — one deep run per flagged alert, never batch.
-# Apply with: kubectlnukedev -n dev apply -f k8s/sentry-deep-analyzer-config.yaml
+# Apply with: kubectlnukeprod -n prod apply -f k8s/sentry-deep-analyzer-config.yaml
 
 apiVersion: agent.benjamin-borbe.de/v1
 kind: Config
 metadata:
   name: sentry-deep-analyzer
-  namespace: dev
+  namespace: prod
 spec:
   assignee: sentry-deep-analyzer
-  image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:dev
+  image: docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:prod
   heartbeat: 5m
   maxConcurrentJobs: 1
   priorityClassName: agent-sentry-issue-analyzer
@@ -37,7 +37,7 @@ spec:
 
   env:
     ALLOWED_TOOLS: "Bash(scripts/sentry-read.sh:*),Bash(scripts/repo-clone.sh:*),Read,Edit,Grep"
-    ANTHROPIC_BASE_URL: "http://claude-code-router-dev:8788"
+    ANTHROPIC_BASE_URL: "http://claude-code-router-prod:8788"
     ANTHROPIC_MODEL: "MiniMax-M2.7-highspeed"
     CLAUDE_CONFIG_DIR: "/home/claude/.claude"
     LOGLEVEL: "2"
@@ -47,9 +47,9 @@ spec:
     # App. PEM_KEY comes from the mounted secret (agent-sentry-issue-analyzer)
     # and is minted to an IAT at startup. APP_ID/INSTALLATION_ID are public
     # values (safe in manifests); the PEM is secret, in teamvault → secret.
-    # Dev App: "Ben's Sentry Deep Analyzer Dev" (installed on bborbe/go-skeleton).
-    APP_ID: "4710983"
-    INSTALLATION_ID: "156399284"
+    # Prod App: "Ben's Sentry Deep Analyzer" (installed on bborbe/*).
+    APP_ID: "4710998"
+    INSTALLATION_ID: "156399409"
 
   secretName: agent-sentry-issue-analyzer
 
