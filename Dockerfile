@@ -6,8 +6,8 @@ ARG BUILD_DATE=unknown
 COPY . /workspace
 WORKDIR /workspace
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -installsuffix cgo -o /main
-# The watcher step's per-alert task publisher — spawned by
-# scripts/sentry-create-tasks.sh (Bash tool of the sentry-watcher agent).
+# The collector step's per-alert task publisher — spawned by
+# scripts/sentry-create-tasks.sh (Bash tool of the sentry-collector agent).
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -installsuffix cgo -o /create-tasks ./cmd/create-tasks
 CMD ["/bin/bash"]
 

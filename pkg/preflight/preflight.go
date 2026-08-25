@@ -29,10 +29,10 @@ const sentryReadToolPrefix = "Bash(scripts/sentry-read.sh"
 // granted only under its script constraint — no bare Bash, no bare git.
 const repoCloneToolPrefix = "Bash(scripts/repo-clone.sh"
 
-// watcherScriptToolPrefix is the constrained Bash tool the watcher-step prompt
+// collectorScriptToolPrefix is the constrained Bash tool the collector-step prompt
 // invokes to fetch the day's active unresolved Sentry alerts and publish the
 // per-alert tasks. It is granted only under its script constraint.
-const watcherScriptToolPrefix = "Bash(scripts/sentry-create-tasks.sh"
+const collectorScriptToolPrefix = "Bash(scripts/sentry-create-tasks.sh"
 
 // ValidateSentryTools returns an error if the token-based Sentry access path is
 // not wired: the `Bash(scripts/sentry-read.sh:*` tool must be present in
@@ -88,12 +88,12 @@ func hasSentryReadTool(ctx context.Context, allowed claudelib.AllowedTools) bool
 	return false
 }
 
-// ValidateWatcherTools returns an error if the watcher step's tool path is not
+// ValidateCollectorTools returns an error if the collector step's tool path is not
 // wired: the `Bash(scripts/sentry-create-tasks.sh:*` tool must be present in
-// ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. The watcher agent needs
+// ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. The collector agent needs
 // none of the triage/deep tools (sentry-read.sh, repo-clone.sh), so it is
 // validated against its own constrained script instead.
-func ValidateWatcherTools(
+func ValidateCollectorTools(
 	ctx context.Context,
 	allowed claudelib.AllowedTools,
 	apiToken string,
@@ -105,7 +105,7 @@ func ValidateWatcherTools(
 			return ctx.Err()
 		default:
 		}
-		if strings.HasPrefix(t, watcherScriptToolPrefix) {
+		if strings.HasPrefix(t, collectorScriptToolPrefix) {
 			present = true
 		}
 	}
@@ -123,7 +123,7 @@ func ValidateWatcherTools(
 	sort.Strings(missing)
 	return errors.Errorf(
 		ctx,
-		"sentry-watcher preflight failed: missing required piece(s) for the watcher step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set SENTRY_API_TOKEN (teamvault-sourced).",
+		"sentry-collector preflight failed: missing required piece(s) for the collector step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set SENTRY_API_TOKEN (teamvault-sourced).",
 		strings.Join(missing, ", "),
 	)
 }

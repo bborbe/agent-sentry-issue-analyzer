@@ -1,6 +1,6 @@
 # Agent Sentry Issue Analyzer
 
-Analyzes Sentry issues and classifies them (severity + fixability) for the Sentry resolution pipeline. Consumes one `sentry-issue-analyzer` task per run — the sentry-watcher (separate component) creates one vault task per new Sentry alert; this agent is triggered per task and analyzes that single alert.
+Analyzes Sentry issues and classifies them (severity + fixability) for the Sentry resolution pipeline. Consumes one `sentry-issue-analyzer` task per run — the `sentry-collector` agent step (fleet's first multi-agent workflow: collector fans out, analyzer consumes) creates one vault task per active Sentry alert; this agent is triggered per task and analyzes that single alert.
 
 ## Role
 

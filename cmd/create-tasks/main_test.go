@@ -85,7 +85,7 @@ var _ = Describe("create-tasks task builder", func() {
 		Expect(cmd1.TaskIdentifier).NotTo(Equal(cmd2.TaskIdentifier))
 	})
 
-	It("builds the exact watcher title", func() {
+	It("builds the exact collector title", func() {
 		cmd := buildCreateCommand(alert, "2026-08-23", cfg)
 		Expect(cmd.Title).To(Equal("Analyze Sentry issue SENTRY-TEST-1 - 2026-08-23"))
 	})

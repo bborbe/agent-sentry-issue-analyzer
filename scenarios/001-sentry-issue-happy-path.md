@@ -2,13 +2,13 @@
 
 **Purpose**: prove the agent works end-to-end on a single Sentry alert. Run before any deploy; run again after any non-trivial change.
 
-**Architecture**: the sentry-watcher (separate component) creates one vault task per new Sentry alert; this agent is triggered per task and analyzes THAT single alert. This scenario simulates the watcher by creating one task manually.
+**Architecture**: the sentry-collector agent step creates one vault task per active Sentry alert; this agent is triggered per task and analyzes THAT single alert. This scenario simulates the collector by creating one task manually.
 
 **Setup**:
 - Agent `bborbe/agent-sentry-issue-analyzer` deployed to dev
 - Config CRD applied: `kubectlquant -n dev get config.agent.benjamin-borbe.de sentry-issue-analyzer` shows it
 - Sentry MCP configured with the required `mcp__sentry__*` tools in ALLOWED_TOOLS (fail-fast preflight enforces this)
-- Operator creates a synthetic Sentry-issue task manually (v0: sentry-watcher not built yet)
+- Operator creates a synthetic Sentry-issue task manually (v0: sentry-collector not built yet)
 
 **Acceptance**: agent processes the task end-to-end (planning → execution → done) within 15 minutes; planning writes `## Analysis` (root cause + implicated `file.go:line`), execution writes `## Verdict` YAML with one of the 6 verdicts.
 

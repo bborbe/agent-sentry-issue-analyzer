@@ -68,18 +68,18 @@ var _ = Describe("CreateAgentProvider", func() {
 		Expect(deepAgent).NotTo(BeIdenticalTo(sentryAgent))
 	})
 
-	It("Get returns the watcher agent for taskTypeSentryWatcher", func() {
-		agent, err := provider.Get(ctx, agentlib.TaskType("sentry-watcher"))
+	It("Get returns the collector agent for taskTypeSentryCollector", func() {
+		agent, err := provider.Get(ctx, agentlib.TaskType("sentry-collector"))
 		Expect(err).To(BeNil())
 		Expect(agent).NotTo(BeNil())
 	})
 
-	It("watcher agent is distinct from the triage agent", func() {
+	It("collector agent is distinct from the triage agent", func() {
 		sentryAgent, err := provider.Get(ctx, agentlib.TaskType("sentry-issue-analyzer"))
 		Expect(err).To(BeNil())
-		watcherAgent, err := provider.Get(ctx, agentlib.TaskType("sentry-watcher"))
+		collectorAgent, err := provider.Get(ctx, agentlib.TaskType("sentry-collector"))
 		Expect(err).To(BeNil())
-		Expect(watcherAgent).NotTo(BeIdenticalTo(sentryAgent))
+		Expect(collectorAgent).NotTo(BeIdenticalTo(sentryAgent))
 	})
 
 	It("Get returns the liveness agent for TaskTypeHealthcheck", func() {
@@ -122,7 +122,7 @@ var _ = Describe("CreateAgentProvider", func() {
 		It("error message contains the sorted accepted-types list", func() {
 			Expect(
 				err.Error(),
-			).To(ContainSubstring("[healthcheck llm oauth-probe sentry-deep-analyzer sentry-issue-analyzer sentry-watcher]"))
+			).To(ContainSubstring("[healthcheck llm oauth-probe sentry-collector sentry-deep-analyzer sentry-issue-analyzer]"))
 		})
 	})
 })

@@ -44,11 +44,11 @@ import (
 // agentName is the identity string used for Prometheus metric grouping and logging.
 const agentName = "claude-agent"
 
-// taskTypeSentryWatcher is the watcher step's task-type literal (mirrors
-// factory.taskTypeSentryWatcher). The watcher has a single planning phase and
+// taskTypeSentryCollector is the collector step's task-type literal (mirrors
+// factory.taskTypeSentryCollector). The collector has a single planning phase and
 // a different tool contract (scripts/sentry-create-tasks.sh instead of
 // sentry-read.sh / repo-clone.sh), so it gets its own preflight.
-const taskTypeSentryWatcher = "sentry-watcher"
+const taskTypeSentryCollector = "sentry-collector"
 
 func main() {
 	app := &application{}
@@ -104,15 +104,15 @@ type application struct {
 	// Explicit Kafka topic prefix (independent of Branch; empty means unprefixed topics)
 	TopicPrefix base.TopicPrefix `required:"false" arg:"topic-prefix" env:"TOPIC_PREFIX" usage:"Explicit Kafka topic prefix; empty means unprefixed topics"`
 
-	// Stage is the deployment stage (dev|prod), forwarded to the watcher script
+	// Stage is the deployment stage (dev|prod), forwarded to the collector script
 	// as STAGE so scripts/sentry-create-tasks.sh can pass --stage to
-	// /create-tasks. Empty means the watcher script's default (dev).
-	Stage string `required:"false" arg:"stage" env:"STAGE" usage:"Deployment stage (dev|prod); forwarded to the watcher script"`
+	// /create-tasks. Empty means the collector script's default (dev).
+	Stage string `required:"false" arg:"stage" env:"STAGE" usage:"Deployment stage (dev|prod); forwarded to the collector script"`
 
-	// TargetVault is the Obsidian vault slug the watcher's /create-tasks
+	// TargetVault is the Obsidian vault slug the collector's /create-tasks
 	// publishes per-alert tasks into (e.g. "personal"), forwarded to the
-	// watcher script as TARGET_VAULT.
-	TargetVault string `required:"false" arg:"target-vault" env:"TARGET_VAULT" usage:"Obsidian vault slug for watcher-published per-alert tasks"`
+	// collector script as TARGET_VAULT.
+	TargetVault string `required:"false" arg:"target-vault" env:"TARGET_VAULT" usage:"Obsidian vault slug for collector-published per-alert tasks"`
 
 	// Phase to run (framework requires explicit phase)
 	Phase domain.TaskPhase `required:"false" arg:"phase" env:"PHASE" usage:"Agent phase: planning | execution | ai_review" default:"execution"`
@@ -183,7 +183,7 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	if a.SentryAPIToken != "" {
 		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
 	}
-	// The watcher step's Bash tool contract (scripts/sentry-create-tasks.sh)
+	// The collector step's Bash tool contract (scripts/sentry-create-tasks.sh)
 	// needs the Kafka brokers + per-alert task knobs in the subprocess env —
 	// the pod secret alone is not enough (buildSubprocessEnv strips
 	// non-allowlisted vars). Forward only when non-empty.
@@ -219,18 +219,18 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 }
 
 // validatePreflight runs the task-type-appropriate fail-fast tool/token check.
-// The watcher step uses its own constrained script (scripts/sentry-create-tasks.sh)
+// The collector step uses its own constrained script (scripts/sentry-create-tasks.sh)
 // instead of sentry-read.sh / repo-clone.sh, so it is preflighted against its
 // own tool contract; all other task types keep the triage/deep checks.
 func (a *application) validatePreflight(
 	ctx context.Context,
 	allowedTools claudelib.AllowedTools,
 ) error {
-	if a.TaskType == taskTypeSentryWatcher {
+	if a.TaskType == taskTypeSentryCollector {
 		return errors.Wrap(
 			ctx,
-			preflight.ValidateWatcherTools(ctx, allowedTools, a.SentryAPIToken),
-			"sentry-watcher preflight",
+			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken),
+			"sentry-collector preflight",
 		)
 	}
 	if err := preflight.ValidateSentryTools(ctx, allowedTools, a.SentryAPIToken); err != nil {
