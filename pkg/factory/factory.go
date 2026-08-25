@@ -37,6 +37,14 @@ var taskTypeSentryIssueAnalyzer = agentlib.TaskType("sentry-issue-analyzer")
 // the executor routes it to the sentry-deep-analyzer Config CR.
 var taskTypeSentryDeepAnalyzer = agentlib.TaskType("sentry-deep-analyzer")
 
+// taskTypeSentryWatcher is the agent-lib TaskType literal for the watcher
+// step's domain task. The daily recurring trigger creates one task of this
+// type; the agent fetches the day's active unresolved Sentry alerts and
+// publishes one per-alert task per (short-id, date) for the triage agent.
+// Keep the literal exactly "sentry-watcher" — the Config CR taskTypes list
+// must match.
+var taskTypeSentryWatcher = agentlib.TaskType("sentry-watcher")
+
 // CreateClaudeRunner constructs a ClaudeRunner pre-configured with tools,
 // model, working directory, and CLI environment.
 func CreateClaudeRunner(
@@ -160,15 +168,36 @@ func CreateDeepAgentFromRunner(
 	)
 }
 
+// CreateWatcherAgentFromRunner builds the watcher agent given a
+// pre-constructed ClaudeRunner. The watcher has a single planning phase — it
+// fetches the day's active unresolved Sentry alerts and publishes one
+// per-alert task per (short-id, date) so the triage agent processes each. It
+// replaces the retired standalone sentry-watcher service.
+func CreateWatcherAgentFromRunner(
+	runner claudelib.ClaudeRunner,
+	envContext map[string]string,
+) *agentlib.Agent {
+	planning := steps.NewWatcherPlanningStep(
+		runner,
+		prompts.BuildWatcherPlanningInstructions(),
+		envContext,
+	)
+	return agentlib.NewAgent(
+		agentlib.NewPhase("planning", planning),
+	)
+}
+
 // CreateAgentProvider wires the per-task-type dispatch table for agent-sentry-issue-analyzer.
 // Returns lib.AgentProvider — main.go calls Get(ctx, taskType) to select the
 // appropriate *Agent. Pure plumbing; no conditional, no error.
 //
 // taskTypeSentryIssueAnalyzer and TaskTypeLLM (legacy alias) both route to the
 // triage agent. taskTypeSentryDeepAnalyzer routes to the deep analyzer (its
-// own prompts + octopus verdict). TaskTypeHealthcheck and TaskTypeOAuthProbe
-// (transition alias) both route to the shared healthcheck-Claude liveness
-// agent, reusing the same ClaudeRunner.
+// own prompts + octopus verdict). taskTypeSentryWatcher routes to the watcher
+// agent (single planning phase, fetches the day's alerts + publishes per-alert
+// tasks). TaskTypeHealthcheck and TaskTypeOAuthProbe (transition alias) both
+// route to the shared healthcheck-Claude liveness agent, reusing the same
+// ClaudeRunner.
 func CreateAgentProvider(
 	claudeConfigDir claudelib.ClaudeConfigDir,
 	agentDir claudelib.AgentDir,
@@ -180,10 +209,12 @@ func CreateAgentProvider(
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(runner, envContext)
 	deepAgent := CreateDeepAgentFromRunner(runner, envContext)
+	watcherAgent := CreateWatcherAgentFromRunner(runner, envContext)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{
 		taskTypeSentryIssueAnalyzer:  domainAgent,
 		taskTypeSentryDeepAnalyzer:   deepAgent,
+		taskTypeSentryWatcher:        watcherAgent,
 		agentlib.TaskTypeLLM:         domainAgent,
 		agentlib.TaskTypeHealthcheck: livenessAgent,
 		agentlib.TaskTypeOAuthProbe:  livenessAgent,
