@@ -53,9 +53,11 @@ var validConfidence = map[string]bool{
 	"low":    true,
 }
 
-// Parse extracts the verdict YAML block from the ## Verdict section of the
-// given markdown content. Returns the parsed verdict, or zero Verdict + nil
-// when no verdict block is present.
+// Parse extracts the verdict block from the ## Verdict section of the given
+// markdown content. The verdict may arrive as a fenced ```yaml or ```json
+// block (JSON is a YAML subset) or as legacy unfenced raw JSON; both shapes
+// parse. Returns the parsed verdict, or zero Verdict + nil when no verdict
+// block is present.
 func Parse(ctx context.Context, content string) (Verdict, error) {
 	section, err := extractVerdictSection(ctx, content)
 	if err != nil {
@@ -67,7 +69,7 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 
 	var v Verdict
 	var errs []string
-	blocks, err := fencedYAMLBlocks(ctx, section)
+	blocks, err := fencedBlocks(ctx, section)
 	if err != nil {
 		return v, err
 	}
@@ -88,7 +90,18 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 		v = parsed
 		break
 	}
-	if len(errs) > 0 {
+	if v.Verdict != "" {
+		return v, nil
+	}
+	// Legacy unfenced raw JSON: the LLM may have written the verdict JSON with
+	// no fence at all. JSON is a YAML subset, so the same unmarshal applies.
+	parsed, err := parseUnfencedVerdict(ctx, section)
+	if err != nil {
+		errs = append(errs, errors.Wrapf(ctx, err, "parse unfenced verdict").Error())
+	} else if parsed.Verdict != "" {
+		v = parsed
+	}
+	if len(errs) > 0 && v.Verdict == "" {
 		return v, errors.Errorf(ctx, "verdict parse errors: %s", strings.Join(errs, "; "))
 	}
 	return v, nil
@@ -150,9 +163,10 @@ func extractVerdictSection(ctx context.Context, content string) (string, error) 
 	return strings.Join(out, "\n"), nil
 }
 
-// fencedYAMLBlocks extracts the bodies of all ```yaml fenced code blocks in
-// content.
-func fencedYAMLBlocks(ctx context.Context, content string) ([]string, error) {
+// fencedBlocks extracts the bodies of all ```yaml and ```json fenced code
+// blocks in content. JSON verdict blocks are extracted too because JSON is a
+// YAML subset — the same yaml.Unmarshal parses both shapes.
+func fencedBlocks(ctx context.Context, content string) ([]string, error) {
 	var blocks []string
 	lines := strings.Split(content, "\n")
 	var current []string
@@ -165,8 +179,8 @@ func fencedYAMLBlocks(ctx context.Context, content string) ([]string, error) {
 		}
 		trimmed := strings.TrimSpace(line)
 		if !inBlock && strings.HasPrefix(trimmed, "```") {
-			lang := strings.TrimPrefix(trimmed, "```")
-			if strings.TrimSpace(lang) == "yaml" {
+			lang := strings.TrimSpace(strings.TrimPrefix(trimmed, "```"))
+			if lang == "yaml" || lang == "json" {
 				inBlock = true
 				current = nil
 			}
@@ -186,4 +200,44 @@ func fencedYAMLBlocks(ctx context.Context, content string) ([]string, error) {
 		blocks = append(blocks, strings.Join(current, "\n"))
 	}
 	return blocks, nil
+}
+
+// lastJSONBlock returns the last balanced {...} substring in s, or "", false
+// if none exists. Walks from the end finding the closing brace, then walks
+// back tracking brace depth to find the matching open. Mirrors
+// github-pr-review-agent extractVerdict's fallback for legacy unfenced output.
+func lastJSONBlock(_ context.Context, s string) (string, bool) {
+	end := strings.LastIndex(s, "}")
+	if end < 0 {
+		return "", false
+	}
+	depth := 0
+	for i := end; i >= 0; i-- {
+		switch s[i] {
+		case '}':
+			depth++
+		case '{':
+			depth--
+			if depth == 0 {
+				return s[i : end+1], true
+			}
+		}
+	}
+	return "", false
+}
+
+// parseUnfencedVerdict extracts a legacy unfenced raw JSON verdict from the
+// section body. JSON is a YAML subset, so the same yaml.Unmarshal applies.
+// Mirrors github-pr-review-agent extractVerdict's last-balanced-block
+// fallback. Returns a zero Verdict when no JSON object is present.
+func parseUnfencedVerdict(ctx context.Context, section string) (Verdict, error) {
+	block, ok := lastJSONBlock(ctx, section)
+	if !ok {
+		return Verdict{}, nil
+	}
+	var parsed Verdict
+	if err := yaml.Unmarshal([]byte(block), &parsed); err != nil {
+		return Verdict{}, err
+	}
+	return parsed, nil
 }

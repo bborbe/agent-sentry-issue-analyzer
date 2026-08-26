@@ -52,6 +52,18 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 	})
 })
 
+var _ = Describe("output-format shared contract", func() {
+	It("mandates a fenced json block instead of forbidding fences", func() {
+		instrs := prompts.BuildPlanningInstructions()
+		Expect(instrs[1].Name).To(Equal("output-format"))
+		Expect(instrs[1].Content).To(ContainSubstring("fenced code block"))
+		Expect(instrs[1].Content).To(ContainSubstring("```json"))
+		Expect(
+			instrs[1].Content,
+		).NotTo(ContainSubstring("Do NOT wrap the JSON in markdown code fences"))
+	})
+})
+
 var _ = Describe("BuildExecutionInstructions (triage)", func() {
 	It("returns exactly 2 instructions", func() {
 		instrs := prompts.BuildExecutionInstructions()
