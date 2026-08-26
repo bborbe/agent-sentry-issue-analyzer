@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update github.com/bborbe/agent to v0.83.1, github.com/bborbe/maintainer to v0.50.3
+
 ## v0.6.2
 
 - chore: update github.com/bborbe/errors to v1.5.21, github.com/bborbe/maintainer to v0.50.2, github.com/bborbe/vault-cli to v0.116.2
