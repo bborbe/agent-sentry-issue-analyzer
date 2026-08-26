@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: point the `create-tasks` default assignee at `sentry-analyzer-agent`. The 2026-08-26 consolidation of the 4 sentry Config CRs into 2 renamed the analyzer's assignee, but the fan-out kept stamping the retired `sentry-issue-analyzer` on every per-alert task. `agent-task-executor` resolves the agent Config by exact assignee string and skips unknown names silently (`skipped_unknown_assignee`), so the collector would have kept creating tasks that no agent ever picked up — a severed pipeline with no error anywhere.
+
 ## v0.6.2
 
 - chore: update github.com/bborbe/errors to v1.5.21, github.com/bborbe/maintainer to v0.50.2, github.com/bborbe/vault-cli to v0.116.2
