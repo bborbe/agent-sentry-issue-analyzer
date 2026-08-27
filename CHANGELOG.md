@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: opt into `autoMerge.trivial` for mechanically-trivial update PRs
+
 ## v0.6.4
 
 - fix: mandate fenced ```json blocks for the agent's `<output-format>` JSON envelope — `## Analysis`/`## Verdict` now render as formatted, syntax-highlighted JSON in Obsidian per-alert tasks instead of raw unreadable text (mirrors github-pr-review-agent); the verdict parser strips ```json fences and falls back to legacy unfenced raw JSON so both output shapes parse.
