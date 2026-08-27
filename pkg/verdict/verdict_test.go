@@ -73,6 +73,29 @@ recommended_fix: add nil guard
 		_, err := verdict.Parse(ctx, content)
 		Expect(err).To(HaveOccurred())
 	})
+
+	It("parses a verdict JSON block fenced as json", func() {
+		content := "## Verdict\n\n" + "```json\n" + `{"sentry_issue_id":"OCTOPUS-PROD-1J","verdict":"real bug","confidence":"high","live_event_count":142}` + "\n```\n"
+		v, err := verdict.Parse(ctx, content)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Verdict).To(Equal("real bug"))
+		Expect(v.Confidence).To(Equal("high"))
+		Expect(v.LiveEventCount).To(Equal(142))
+	})
+
+	It("parses a legacy unfenced raw JSON verdict", func() {
+		content := "## Verdict\n\n" + `{"sentry_issue_id":"OCTOPUS-PROD-C","verdict":"noise","reason":"kafka metadata sync"}` + "\n"
+		v, err := verdict.Parse(ctx, content)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Verdict).To(Equal("noise"))
+	})
+
+	It("skips a fenced JSON envelope without a verdict key", func() {
+		content := "## Verdict\n\n" + "```json\n" + `{"status":"done","message":"Verdict written","files":[]}` + "\n```\n"
+		v, err := verdict.Parse(ctx, content)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Verdict).To(BeEmpty())
+	})
 })
 
 var _ = Describe("Validate", func() {

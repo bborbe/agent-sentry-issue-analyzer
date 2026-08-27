@@ -57,8 +57,13 @@ type application struct {
 	TargetVault string `required:"false" arg:"target-vault" env:"TARGET_VAULT" usage:"Obsidian vault slug for materialized tasks" default:"personal"`
 	// Stage / Assignee / Status / Phase are the per-task frontmatter knobs
 	// (same defaults as the retired watcher's TaskConfig).
-	Stage    string `required:"false" arg:"stage"        env:"STAGE"        usage:"Frontmatter stage (dev|prod)"               default:"dev"`
-	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                       default:"sentry-issue-analyzer"`
+	Stage string `required:"false" arg:"stage"        env:"STAGE"        usage:"Frontmatter stage (dev|prod)"               default:"dev"`
+	// Assignee must match a live agent Config's `assignee` exactly —
+	// agent-task-executor resolves the Config by that string and silently skips
+	// unknown names (`skipped_unknown_assignee`). Renamed 2026-08-26 when the
+	// 4 sentry Config CRs folded into 2 (`sentry-collector-agent` +
+	// `sentry-analyzer-agent`); the old `sentry-issue-analyzer` no longer resolves.
+	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                       default:"sentry-analyzer-agent"`
 	Status   string `required:"false" arg:"status"       env:"STATUS"       usage:"Frontmatter status"                         default:"in_progress"`
 	Phase    string `required:"false" arg:"phase"        env:"PHASE"        usage:"Frontmatter phase"                          default:"planning"`
 }

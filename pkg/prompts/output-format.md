@@ -13,4 +13,4 @@ Field rules:
 - `message`: required — concise summary, one or two sentences
 - `files`: optional — list of file paths created or modified during execution
 
-Do NOT wrap the JSON in markdown code fences. Output raw JSON only.
+Output the JSON inside a fenced code block (```json ... ```). No prose before or after the fence. The fence renders the JSON readably in Obsidian and other markdown viewers; downstream consumers strip the fence before parsing.
