@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update github.com/bborbe/agent to v0.83.1, github.com/bborbe/maintainer to v0.50.3
+
 ## v0.7.0
 
 - feat: opt into `autoMerge.trivial` for mechanically-trivial update PRs
