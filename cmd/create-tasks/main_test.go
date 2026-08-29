@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -156,5 +157,24 @@ var _ = Describe("deriveStage", func() {
 			Project: "nuke-prod",
 		}, "2026-08-30", localCfg)
 		Expect(cmd.Frontmatter["stage"]).To(Equal("prod"))
+	})
+})
+
+var _ = Describe("application defaults", func() {
+	// The executor resolves an agent Config by the exact `assignee` string and
+	// silently skips unknown names (`skipped_unknown_assignee`). The default
+	// was reverted to the retired `sentry-issue-analyzer` once already
+	// (2026-08-29); this pins it so a struct-tag rewrite cannot regress it
+	// unnoticed again.
+	It("defaults assignee to the live sentry-analyzer-agent Config", func() {
+		field, ok := reflect.TypeOf(application{}).FieldByName("Assignee")
+		Expect(ok).To(BeTrue())
+		Expect(field.Tag.Get("default")).To(Equal("sentry-analyzer-agent"))
+	})
+
+	It("defaults stage to dev as the non-derivable fallback", func() {
+		field, ok := reflect.TypeOf(application{}).FieldByName("Stage")
+		Expect(ok).To(BeTrue())
+		Expect(field.Tag.Get("default")).To(Equal("dev"))
 	})
 })

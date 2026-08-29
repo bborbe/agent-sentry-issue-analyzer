@@ -62,8 +62,13 @@ type application struct {
 	// and project slug do not indicate a stage (NUKE-PROD-*/nuke-prod → prod,
 	// NUKE-DEV-*/nuke-dev → dev). Previously it was stamped uniformly onto every
 	// task, mislabeling prod issues as dev (2026-08-29).
-	Stage    string `required:"false" arg:"stage"        env:"STAGE"        usage:"Frontmatter stage fallback (dev|prod) for alerts with no derivable stage" default:"dev"`
-	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                                                     default:"sentry-issue-analyzer"`
+	Stage string `required:"false" arg:"stage"        env:"STAGE"        usage:"Frontmatter stage fallback (dev|prod) for alerts with no derivable stage" default:"dev"`
+	// Assignee must match a live agent Config's `assignee` exactly —
+	// agent-task-executor resolves the Config by that string and silently skips
+	// unknown names (`skipped_unknown_assignee`). Renamed 2026-08-26 when the
+	// 4 sentry Config CRs folded into 2 (`sentry-collector-agent` +
+	// `sentry-analyzer-agent`); the old `sentry-issue-analyzer` no longer resolves.
+	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                                                     default:"sentry-analyzer-agent"`
 	Status   string `required:"false" arg:"status"       env:"STATUS"       usage:"Frontmatter status"                                                       default:"in_progress"`
 	Phase    string `required:"false" arg:"phase"        env:"PHASE"        usage:"Frontmatter phase"                                                        default:"planning"`
 }
