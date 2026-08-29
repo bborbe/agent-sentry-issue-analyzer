@@ -29,7 +29,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 		runner = &claudemocks.ClaudeRunner{}
 	})
 
-	It("writes the ## Analysis summary section and stays done (terminal in-place save)", func() {
+	It("writes the ## Analysis summary section and advances to done (terminates the task)", func() {
 		runner.RunReturns(&claudelib.ClaudeResult{Result: "2 tasks: SENTRY-X-1 SENTRY-X-2"}, nil)
 
 		step := steps.NewCollectorPlanningStep(
@@ -47,7 +47,11 @@ var _ = Describe("CollectorPlanningStep", func() {
 		result, err := step.Run(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
-		Expect(result.NextPhase).To(BeEmpty())
+		// NextPhase "done" is the terminal-literal path (agent_agent.go:91): the
+		// task flips to phase done / status completed, so the executor stops
+		// re-dispatching — without it the success-section re-dispatch churns
+		// (deadline_exceeded, trigger_count climb) per spec 051 follow-up.
+		Expect(result.NextPhase).To(Equal("done"))
 
 		section, ok := md.FindSection("## Analysis")
 		Expect(ok).To(BeTrue())

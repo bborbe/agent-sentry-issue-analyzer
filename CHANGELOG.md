@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: sentry-collector planning step advances to `done` on success (`NextPhase: "done"`) — a successful fan-out now terminates the task so the executor stops re-dispatching; previously the empty NextPhase left the task planning/in_progress, and each re-dispatch after the success section skipped the step → nil result → `deadline_exceeded` → `trigger_count` churn (spec 051 follow-up)
+
 ## v0.7.2
 
 - chore: update github.com/bborbe/agent to v0.84.1 (fixes `agentStep.ShouldRun` re-dispatch poisoning — a failed collector run no longer blocks re-dispatch)
