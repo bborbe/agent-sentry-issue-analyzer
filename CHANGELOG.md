@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update github.com/bborbe/agent to v0.84.1 (fixes `agentStep.ShouldRun` re-dispatch poisoning — a failed collector run no longer blocks re-dispatch)
+
 ## v0.7.1
 
 - chore: update github.com/bborbe/agent to v0.83.1, github.com/bborbe/maintainer to v0.50.3
