@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: create-tasks derives `stage` per alert instead of stamping a uniform default — `buildCreateCommand` now derives the frontmatter `stage` from the alert's `short_id` prefix (`NUKE-PROD-*` → `prod`, `NUKE-DEV-*` → `dev`) or its project slug (`nuke-prod`/`nuke-dev`), falling back to the `--stage` default only when neither matches; previously every task got the global `dev` default, silently mislabeling NUKE-PROD issues as dev for any stage-filtering consumer (2026-08-29)
+
 ## v0.7.2
 
 - chore: update github.com/bborbe/agent to v0.84.1 (fixes `agentStep.ShouldRun` re-dispatch poisoning — a failed collector run no longer blocks re-dispatch)

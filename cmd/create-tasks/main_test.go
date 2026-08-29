@@ -122,3 +122,39 @@ var _ = Describe("create-tasks task builder", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("deriveStage", func() {
+	DescribeTable(
+		"derives the stage from short_id or project",
+		func(shortID, project, fallback, want string) {
+			alert := compactAlert{ShortID: shortID, Project: project}
+			Expect(deriveStage(alert, fallback)).To(Equal(want))
+		},
+		Entry("NUKE-PROD short_id", "NUKE-PROD-9K", "nuke-prod", "dev", "prod"),
+		Entry("NUKE-DEV short_id", "NUKE-DEV-A4", "nuke-dev", "dev", "dev"),
+		Entry("nuke-prod project slug", "SENTRY-TEST-1", "nuke-prod", "dev", "prod"),
+		Entry("nuke-dev project slug", "SENTRY-TEST-2", "nuke-dev", "dev", "dev"),
+		Entry("unknown short_id and project falls back", "SENTRY-TEST-3", "other", "dev", "dev"),
+		Entry(
+			"unknown short_id and project falls back to custom stage",
+			"SENTRY-TEST-4",
+			"other",
+			"prod",
+			"prod",
+		),
+	)
+
+	It("stamps the derived stage into the built task frontmatter", func() {
+		localCfg := taskConfig{
+			Stage:    "dev",
+			Assignee: "sentry-issue-analyzer",
+			Status:   "in_progress",
+			Phase:    "planning",
+		}
+		cmd := buildCreateCommand(compactAlert{
+			ShortID: "NUKE-PROD-9K",
+			Project: "nuke-prod",
+		}, "2026-08-30", localCfg)
+		Expect(cmd.Frontmatter["stage"]).To(Equal("prod"))
+	})
+})
