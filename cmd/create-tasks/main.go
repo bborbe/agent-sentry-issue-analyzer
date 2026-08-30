@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
 
 	agentlib "github.com/bborbe/agent"
@@ -54,18 +55,22 @@ type application struct {
 	// TargetVault is the Obsidian vault slug the task-controller materializes
 	// the task into (e.g. "personal"). Passed to the CreateCommandSender which
 	// substitutes it into each command when unset.
-	TargetVault string `required:"false" arg:"target-vault" env:"TARGET_VAULT" usage:"Obsidian vault slug for materialized tasks" default:"personal"`
+	TargetVault string `required:"false" arg:"target-vault" env:"TARGET_VAULT" usage:"Obsidian vault slug for materialized tasks"                               default:"personal"`
 	// Stage / Assignee / Status / Phase are the per-task frontmatter knobs
 	// (same defaults as the retired watcher's TaskConfig).
-	Stage string `required:"false" arg:"stage"        env:"STAGE"        usage:"Frontmatter stage (dev|prod)"               default:"dev"`
+	// Stage is the frontmatter stage fallback for alerts whose short_id prefix
+	// and project slug do not indicate a stage (NUKE-PROD-*/nuke-prod → prod,
+	// NUKE-DEV-*/nuke-dev → dev). Previously it was stamped uniformly onto every
+	// task, mislabeling prod issues as dev (2026-08-29).
+	Stage string `required:"false" arg:"stage"        env:"STAGE"        usage:"Frontmatter stage fallback (dev|prod) for alerts with no derivable stage" default:"dev"`
 	// Assignee must match a live agent Config's `assignee` exactly —
 	// agent-task-executor resolves the Config by that string and silently skips
 	// unknown names (`skipped_unknown_assignee`). Renamed 2026-08-26 when the
 	// 4 sentry Config CRs folded into 2 (`sentry-collector-agent` +
 	// `sentry-analyzer-agent`); the old `sentry-issue-analyzer` no longer resolves.
-	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                       default:"sentry-analyzer-agent"`
-	Status   string `required:"false" arg:"status"       env:"STATUS"       usage:"Frontmatter status"                         default:"in_progress"`
-	Phase    string `required:"false" arg:"phase"        env:"PHASE"        usage:"Frontmatter phase"                          default:"planning"`
+	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                                                     default:"sentry-analyzer-agent"`
+	Status   string `required:"false" arg:"status"       env:"STATUS"       usage:"Frontmatter status"                                                       default:"in_progress"`
+	Phase    string `required:"false" arg:"phase"        env:"PHASE"        usage:"Frontmatter phase"                                                        default:"planning"`
 }
 
 // compactAlert is the compact per-alert JSON shape emitted by
@@ -120,6 +125,24 @@ func deriveDate(ctx context.Context, lastSeen string) (string, error) {
 	return t.UTC().Format("2006-01-02"), nil
 }
 
+// deriveStage returns the frontmatter stage for one alert, derived from its
+// short_id prefix (NUKE-PROD-* → prod, NUKE-DEV-* → dev) or its project slug
+// (nuke-prod → prod, nuke-dev → dev). Values that match neither fall back to
+// the global stage so a non-nuke project still gets a valid stage.
+func deriveStage(alert compactAlert, fallback string) string {
+	switch {
+	case strings.HasPrefix(strings.ToLower(alert.ShortID), "nuke-prod"):
+		return "prod"
+	case strings.HasPrefix(strings.ToLower(alert.ShortID), "nuke-dev"):
+		return "dev"
+	case strings.HasPrefix(strings.ToLower(alert.Project), "nuke-prod"):
+		return "prod"
+	case strings.HasPrefix(strings.ToLower(alert.Project), "nuke-dev"):
+		return "dev"
+	}
+	return fallback
+}
+
 // buildCreateCommand assembles the CreateTaskCommand for one active Sentry
 // alert — shape-identical to the retired sentry-watcher's BuildCreateCommand
 // (title/frontmatter/body rendered from the default templates). date is the
@@ -141,7 +164,7 @@ func buildCreateCommand(alert compactAlert, date string, cfg taskConfig) task.Cr
 			"assignee":        cfg.Assignee,
 			"phase":           cfg.Phase,
 			"status":          cfg.Status,
-			"stage":           cfg.Stage,
+			"stage":           deriveStage(alert, cfg.Stage),
 			"task_identifier": taskIDStr,
 			"title":           title,
 			"short_id":        alert.ShortID,

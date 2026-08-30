@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -120,5 +121,60 @@ var _ = Describe("create-tasks task builder", func() {
 		Expect(err).To(HaveOccurred())
 		_, err = deriveDate(ctx, "not-a-time")
 		Expect(err).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("deriveStage", func() {
+	DescribeTable(
+		"derives the stage from short_id or project",
+		func(shortID, project, fallback, want string) {
+			alert := compactAlert{ShortID: shortID, Project: project}
+			Expect(deriveStage(alert, fallback)).To(Equal(want))
+		},
+		Entry("NUKE-PROD short_id", "NUKE-PROD-9K", "nuke-prod", "dev", "prod"),
+		Entry("NUKE-DEV short_id", "NUKE-DEV-A4", "nuke-dev", "dev", "dev"),
+		Entry("nuke-prod project slug", "SENTRY-TEST-1", "nuke-prod", "dev", "prod"),
+		Entry("nuke-dev project slug", "SENTRY-TEST-2", "nuke-dev", "dev", "dev"),
+		Entry("unknown short_id and project falls back", "SENTRY-TEST-3", "other", "dev", "dev"),
+		Entry(
+			"unknown short_id and project falls back to custom stage",
+			"SENTRY-TEST-4",
+			"other",
+			"prod",
+			"prod",
+		),
+	)
+
+	It("stamps the derived stage into the built task frontmatter", func() {
+		localCfg := taskConfig{
+			Stage:    "dev",
+			Assignee: "sentry-issue-analyzer",
+			Status:   "in_progress",
+			Phase:    "planning",
+		}
+		cmd := buildCreateCommand(compactAlert{
+			ShortID: "NUKE-PROD-9K",
+			Project: "nuke-prod",
+		}, "2026-08-30", localCfg)
+		Expect(cmd.Frontmatter["stage"]).To(Equal("prod"))
+	})
+})
+
+var _ = Describe("application defaults", func() {
+	// The executor resolves an agent Config by the exact `assignee` string and
+	// silently skips unknown names (`skipped_unknown_assignee`). The default
+	// was reverted to the retired `sentry-issue-analyzer` once already
+	// (2026-08-29); this pins it so a struct-tag rewrite cannot regress it
+	// unnoticed again.
+	It("defaults assignee to the live sentry-analyzer-agent Config", func() {
+		field, ok := reflect.TypeOf(application{}).FieldByName("Assignee")
+		Expect(ok).To(BeTrue())
+		Expect(field.Tag.Get("default")).To(Equal("sentry-analyzer-agent"))
+	})
+
+	It("defaults stage to dev as the non-derivable fallback", func() {
+		field, ok := reflect.TypeOf(application{}).FieldByName("Stage")
+		Expect(ok).To(BeTrue())
+		Expect(field.Tag.Get("default")).To(Equal("dev"))
 	})
 })
