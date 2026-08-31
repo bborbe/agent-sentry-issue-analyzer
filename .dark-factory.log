@@ -1,0 +1,37 @@
+time=2026-09-01T00:30:49.835+02:00 level=INFO msg="effective config" maxContainers=8 maxContainersSource=global containerImage=docker.io/bborbe/claude-yolo:v0.15.0 model=deepseek-v4-flash[1m] modelSource=global workflow=direct workflowSource=project pr=false prSource=project autoRelease=false autoReleaseSource=arg autoMerge=false autoMergeSource=project verificationGate=false validationCommand="make precommit" testCommand="make test" debounceMs=500 hideGit=true hideGitSource=arg autoApprovePrompts=false autoApprovePromptsSource=default autoGeneratePrompts=true autoGeneratePromptsSource=project dirtyFileThreshold=0 dirtyFileThresholdSource=default promptsInboxDir=prompts promptsInProgressDir=prompts/in-progress promptsCompletedDir=prompts/completed promptsLogDir=prompts/log preflightCommand="make precommit" preflightInterval=8h healthcheckEnabled=true healthcheckEnabledSource=default healthcheckInterval=8h healthcheckIntervalSource=default backend=docker backendSource=default envFromGlobal=[] envProjectOverrides="[ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_DEFAULT_FABLE_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL]" envProjectOnly=[]
+time=2026-09-01T00:30:49.835+02:00 level=INFO msg="watching for queued prompts" dir=prompts/in-progress
+time=2026-09-01T00:30:49.836+02:00 level=INFO msg="preflight: running baseline check" command="make precommit"
+time=2026-09-01T00:31:13.226+02:00 level=INFO msg="preflight: baseline check passed"
+time=2026-09-01T00:31:13.227+02:00 level=INFO msg="healthcheck startup gate starting"
+time=2026-09-01T00:31:13.227+02:00 level=INFO msg="healthcheck probe starting" probe=docker
+time=2026-09-01T00:31:13.265+02:00 level=INFO msg="healthcheck probe passed" probe=docker
+time=2026-09-01T00:31:13.266+02:00 level=INFO msg="healthcheck probe starting" probe=image
+time=2026-09-01T00:31:13.311+02:00 level=INFO msg="healthcheck probe passed" probe=image image=docker.io/bborbe/claude-yolo:v0.15.0
+time=2026-09-01T00:31:13.311+02:00 level=INFO msg="healthcheck probe starting" probe=boot
+time=2026-09-01T00:31:13.892+02:00 level=INFO msg="healthcheck probe passed" probe=boot container=agent-sentry-issue-analyzer-sc1-healthcheck-boot-ce256a172f29186e
+time=2026-09-01T00:31:13.892+02:00 level=INFO msg="healthcheck probe starting" probe=claude
+time=2026-09-01T00:31:17.230+02:00 level=INFO msg="healthcheck probe passed" probe=claude container=agent-sentry-issue-analyzer-sc1-healthcheck-claude-bd23d76031bc62cf
+time=2026-09-01T00:31:17.230+02:00 level=INFO msg="healthcheck probe starting" probe=mount
+time=2026-09-01T00:31:17.627+02:00 level=INFO msg="healthcheck probe passed" probe=mount container=agent-sentry-issue-analyzer-sc1-healthcheck-mount-780d34ef772a33b2
+time=2026-09-01T00:31:17.627+02:00 level=INFO msg="healthcheck startup gate ok" elapsed=4.400541667s
+time=2026-09-01T00:31:17.627+02:00 level=INFO msg="watcher started" dir=/Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-sc1/prompts/in-progress
+time=2026-09-01T00:31:17.627+02:00 level=INFO msg="spec watcher started" dir=/Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-sc1/specs/in-progress
+time=2026-09-01T00:31:17.628+02:00 level=INFO msg="spec file created in in-progress, triggering generation" path=/Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-sc1/specs/in-progress/001-sentry-read-event-payload.md
+time=2026-09-01T00:31:17.628+02:00 level=INFO msg="processor started"
+time=2026-09-01T00:31:22.631+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:32:27.630+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:33:27.631+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:34:27.631+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:35:32.632+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:36:32.632+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:37:32.633+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:38:17.632+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T00:38:32.633+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T00:39:06.532+02:00 level=INFO msg="lock acquired" prompt_id=001-spec-001-sentry-read-event-payload.md
+time=2026-09-01T00:39:06.533+02:00 level=INFO msg="found queued prompt" prompt_id=001-spec-001-sentry-read-event-payload.md
+time=2026-09-01T00:39:06.533+02:00 level=INFO msg="executing prompt" prompt_id=001-spec-001-sentry-read-event-payload spec_id=001-sentry-read-event-payload container="" workflow_type=direct title="Extend the Sentry read script with latest-event stack trace frames"
+time=2026-09-01T00:39:06.533+02:00 level=INFO msg="syncing with remote default branch" prompt_id=001-spec-001-sentry-read-event-payload spec_id=001-sentry-read-event-payload container="" workflow_type=direct
+time=2026-09-01T00:39:07.090+02:00 level=INFO msg="container assigned" prompt_id=001-spec-001-sentry-read-event-payload spec_id=001-sentry-read-event-payload container="" workflow_type=direct container_old="" container=agent-sentry-issue-analyzer-sc1-exec-001-spec-001-sentry-read-event-payload workflow_step=acquire_container
+time=2026-09-01T00:44:16.097+02:00 level=INFO msg="docker container exited" prompt_id=001-spec-001-sentry-read-event-payload spec_id=001-sentry-read-event-payload container="" workflow_type=direct container=agent-sentry-issue-analyzer-sc1-exec-001-spec-001-sentry-read-event-payload exit_code=0 workflow_step=run_claude
+time=2026-09-01T00:44:16.099+02:00 level=INFO msg="completion report" status=success summary="Extended scripts/sentry-read.sh to accept bare numeric issue ids and emit up to 30 file:line in function stack trace frames from the latest event via a best-effort guarded fetch with a stack_trace unavailable marker, added the CHANGELOG Unreleased entry, and validated with bash -n, make test, and make precommit (exit 0)."
+time=2026-09-01T00:44:16.125+02:00 level=INFO msg="moved to completed" prompt_id=001-spec-001-sentry-read-event-payload spec_id=001-sentry-read-event-payload container="" workflow_type=direct container=agent-sentry-issue-analyzer-sc1-exec-001-spec-001-sentry-read-event-payload

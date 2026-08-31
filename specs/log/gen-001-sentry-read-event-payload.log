@@ -1,0 +1,1121 @@
+[00:31:18] Starting headless session...
+[00:31:18] [init] session=5d6cc7de model=deepseek-v4-flash[1m] cwd=/workspace tools=28
+[claude-code:unrecognized_model] {"model":"deepseek-v4-flash[1m]","query_source":"sdk"}
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:19] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:20] [system: thinking_tokens]
+[00:31:21] 💭 . Automatically commits its findings to the fallback output path.
+- execute-cicd: Read cicd-pipeline.md file, verify the token, then execute the CICD pipeline
+- openbrain:explorer-assistant, claude, dark-factory:prompt-creator, dark-factory:prompt-auditor, and coding:check-guides all use AskUserQuestion
+
+Note: the `/generate-prompts-for-spec` command invokes the `prompt-creator` agent, which may need AskUserQuestion — but mode is non-interactive, so the agent MUST NOT call AskUserQuestion.
+
+I ne…
+[00:31:21] $ pwd && echo "DARK_FACTORY_MANAGED=${DARK_FACTORY_MANAGED:-unset}" && ls -la /Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-sc1/specs/in-progress/001-sentry-read-event-payload.md 2>&1 …
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:21] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] [system: thinking_tokens]
+[00:31:22] 💭 The environment:
+- cwd is `/workspace` (the docker backend — but the command says the repo root is cwd and I should use relative paths; the mac path doesn't exist here, so I'm in the docker container with the repo mounted at /workspace).
+- DARK_FACTORY_MANAGED=true → Mode 1, daemon-managed. **SKIP** the mark-prompted step.
+- The spec exists at `specs/in-progress/001-sentry-read-event-payload.md`.
+
+Now invoke the prompt-creator agent with the repo-root-relative spec path `specs/in-progress/001-se…
+[00:31:24] Environment confirmed:
+- `DARK_FACTORY_MANAGED=true` → **Mode 1 (daemon-managed)**, so I'll **skip** the `mark-prompted` step.
+- Spec exists at `specs/in-progress/001-sentry-read-event-payload.md` (repo-root-relative).
+
+Launching the prompt-creator agent now.
+
+
+[00:31:24] [agent:dark-factory:prompt-creator] Generate prompts from approved spec
+    prompt: You are generating dark-factory prompt files from an approved spec, in **non-interactive mode** (daemon-triggered).\n\n## Spec path (repo-root-relative, do NOT…
+[00:31:24] [system: task_started]
+[00:31:24] [system: task_progress]
+[00:31:24] [read] /workspace/specs/in-progress/001-sentry-read-event-payload.md
+[00:31:24] [system: task_progress]
+[00:31:24] $ ls /workspace && echo "---PROMPTS---" && ls /workspace/prompts 2>/dev/null && echo "---COMPLETED---" && ls /workspace/prompts/completed 2>/dev/null
+[00:31:24]   → 113 lines read
+[00:31:25] [system: task_progress]
+[00:31:25] [read] /workspace/scripts/sentry-read.sh
+[00:31:25] [system: task_progress]
+[00:31:26] $ ls /workspace/prompts/completed/ 2>/dev/null | head -50; echo "---INPROGRESS---"; ls /workspace/prompts/in-progress/ 2>/dev/null; echo "---SPECS---"; ls /workspace/specs/ 2>/dev/null; ls /workspace/s…
+[00:31:26]   → 47 lines read
+[00:31:27] [system: task_progress]
+[00:31:27] $ cat /workspace/.dark-factory.yaml 2>/dev/null; echo "---GIT---"; ls -a /workspace | grep -E '^\.git' ; echo "---PROJECT DOCS---"; ls /workspace/docs 2>/dev/null; echo "---CODING DOCS HOST---"; ls ~/.…
+[00:31:27] ⚠ [bash output]
+/home/node/.claude/plugins/marketplaces/coding/docs/python-ioc-guide.md
+/home/node/.claude/plugins/marketplaces/coding/docs/python-logging-guide.md
+/home/node/.claude/plugins/marketplaces/coding/docs/python-makefile-commands.md
+/home/node/.claude/plugins/marketplaces/coding/docs/python-project-structure.md
+/home/node/.claude/plugins/marketplaces/coding/docs/python-pydantic-guide.md
+/home/node/.claude/plugins/marketplaces/coding/docs/readme-guide.md
+/home/node/.claude/plugins/marketplaces/coding/docs/releasing-coding.md
+/home/node/.claude/plugins/marketplaces/coding/docs/rule-block-schema.md
+/home/node/.claude/plugins/marketplaces/coding/docs/selector-mode-guide.md
+/home/node/.claude/plugins/marketplaces/coding/docs/tdd-guide.md
+/home/node/.claude/plugins/marketplaces/coding/docs/teamvault-conventions.md
+/home/node/.claude/plugins/marketplaces/coding/docs/test-pyramid-triggers.md
+/home/node/.claude/plugins/marketplaces/coding/docs/three-command-review-split.md
+/home/node/.claude/plugins/marketplaces/coding/docs/vue3-typescript-frontend-guide.md
+---DARKFACTORY RULES---
+logging-conventions.md
+prompt-writing.md
+scenario-execution.md
+scenario-writing.md
+spec-writing.md
+[00:31:28] [system: task_progress]
+[00:31:28] $ ls -la /workspace/scripts/ 2>/dev/null; echo "---OTHER SCRIPTS---"; find /workspace/scripts -maxdepth 1 -type f 2>/dev/null; echo "---SCENARIOS---"; ls /workspace/scenarios/ 2>/dev/null; echo "---MAK…
+[00:31:28] ⚠ [bash output]
+/workspace/scripts/sentry-create-tasks.sh
+/workspace/scripts/sentry-read.sh
+---SCENARIOS---
+001-sentry-issue-happy-path.md
+---MAKEFILE precommit---
+/workspace/Makefile:2:include Makefile.precommit
+/workspace/Makefile.folder:3:default: precommit
+/workspace/Makefile.folder:5:.PHONY: precommit
+/workspace/Makefile.folder:6:precommit:
+/workspace/Makefile.folder:8:		echo "precommit $${i}"; \
+/workspace/Makefile.folder:9:		(cd $(CURDIR)/$$i && make precommit) || exit 1; \
+/workspace/Makefile.folder:83:# gocommit: Commit only if dirty, run precommit, soft reset on failure.
+/workspace/Makefile.folder:88:		echo "precommit + commit started for $${dir}" && \
+/workspace/Makefile.folder:91:		(make precommit && \
+/workspace/Makefile.folder:94:		echo "nothing changed after precommit => skip" || \
+/workspace/Makefile.folder:95:		(git commit -m"make precommit of $${dir}" -- . && \
+/workspace/Makefile.folder:96:		echo "precommit + commit completed for $${dir}"))) || \
+/workspace/Makefile.folder:98:		echo "precommit + commit failed for $${dir}")) \
+/workspace/Makefile.precommit:3:default: precommit
+/workspace/Makefile.precommit:5:precommit: ensure format generate test check addlicense
+[00:31:29] [system: task_progress]
+[00:31:29] [read] /workspace/scripts/sentry-create-tasks.sh
+[00:31:29] [system: task_progress]
+[00:31:29] [read] /home/node/.claude/plugins/marketplaces/dark-factory/docs/rules/prompt-writing.md
+[00:31:29]   → 95 lines read
+[00:31:29]   → 619 lines read
+[00:31:31] [system: task_progress]
+[00:31:31] [read] /workspace/Makefile.precommit
+[00:31:31] [system: task_progress]
+[00:31:31] $ cat /workspace/docs/dod.md 2>/dev/null | head -80; echo "===MAKE==="; sed -n '1,60p' /workspace/Makefile
+[00:31:31]   → 99 lines read
+[00:31:33] [system: task_progress]
+[00:31:33] $ head -60 /workspace/scenarios/001-sentry-issue-happy-path.md; echo "===SCENARIO-WRITING==="; cat /home/node/.claude/plugins/marketplaces/dark-factory/docs/rules/scenario-writing.md 2>/dev/null | head…
+[00:31:33] ⚠ [bash output]
+- **Spec 055** — config field wiring dropped by the loader. Unit tests on the field passed; production didn't see it.
+
+Each one: load-bearing, runtime-only failure mode, no test double can fake the boundary.
+
+### Counter-examples — when a scenario is NOT justified
+
+- A new public method on a struct, with a unit test asserting its return value.
+- A new config field whose handler is unit-tested and whose effect is also unit-tested.
+- An additional `slog.Info` log line.
+- A refactor that splits one function into two; behavior unchanged.
+- A bug fix where the original failure was caught by a unit test that simply hadn't existed before — write the unit test, no scenario needed.
+
+If the test pyramid says it should be unit or integration, write it as unit or integration. Don't reach for a scenario because "this touches an integration seam."
+
+## Format
+
+```markdown
+---
+status: draft
+---
+[00:32:31] [system: task_progress]
+[00:32:31] $ head -40 /workspace/CHANGELOG.md; echo "===DOD==="; ls -la /workspace/docs/dod.md 2>/dev/null && head -40 /workspace/docs/dod.md; echo "===GIT LOG==="; git log --oneline -8 2>/dev/null; git status --…
+[00:32:31] ⚠ [bash output]
+
+- feat: opt into `autoMerge.trivial` for mechanically-trivial update PRs
+
+## v0.6.4
+
+- fix: mandate fenced ```json blocks for the agent's `<output-format>` JSON envelope — `## Analysis`/`## Verdict` now render as formatted, syntax-highlighted JSON in Obsidian per-alert tasks instead of raw unreadable text (mirrors github-pr-review-agent); the verdict parser strips ```json fences and falls back to legacy unfenced raw JSON so both output shapes parse.
+
+## v0.6.3
+
+- fix: point the `create-tasks` default assignee at `sentry-analyzer-agent`. The 2026-08-26 consolidation of the 4 sentry Config CRs into 2 renamed the analyzer's assignee, but the fan-out kept stamping the retired `sentry-issue-analyzer` on every per-alert task. `agent-task-executor` resolves the agent Config by exact assignee string and skips unknown names silently (`skipped_unknown_assignee`), so the collector would have kept creating tasks that no agent ever picked up — a severed pipeline with no error anywhere.
+
+## v0.6.2
+
+- chore: update github.com/bborbe/errors to v1.5.21, github.com/bborbe/maintainer to v0.50.2, github.com/bborbe/vault-cli to v0.116.2
+## v0.6.1
+
+- fix: complete the sentry-collector rename — the rename PR left 4 dead `sentry-watcher`-named files on master (`pkg/steps/watcher.go`, `pkg/steps/watcher_test.go`, `pkg/prompts/watcher-planning.md`, `k8s/sentry-watcher-config.yaml`) because the deletions weren't committed; the stale test file referenced renamed-away symbols and broke `go vet`/`go test`. Removed; also adds the previously-uncommitted `k8s/sentry-collector-config-prod.yaml` (the prod collector Config CR used in the 2026-08-25 prod promotion).
+
+===DOD===
+===GIT LOG===
+[00:32:33] [system: task_progress]
+[00:32:33] $ git log --oneline -5 2>&1 | head; echo "---STATUS---"; git status --short 2>&1 | head -20; echo "---BRANCH---"; git branch -a 2>&1 | head; echo "---DOD---"; ls docs/dod.md 2>&1; echo "---TAGS/SCRIPTS…
+[00:32:33] ⚠ [bash output]
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+---STATUS---
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+---BRANCH---
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+---DOD---
+ls: cannot access 'docs/dod.md': No such file or directory
+---TAGS/SCRIPTS grep---
+[00:32:34] [system: task_progress]
+[00:32:34] $ pwd; echo "---"; ls -la /workspace/.git 2>&1 | head; echo "---GIT DIR?---"; cat /workspace/.git 2>&1 | head -3; echo "---"; git log --oneline -3 2>&1 | head
+[00:32:34] ⚠ [bash output]
+/workspace
+---
+crw-rw-rw- 1 root root 1, 3 Aug 31 22:40 /workspace/.git
+---GIT DIR?---
+---
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+[00:32:40] [system: task_progress]
+[00:32:40] $ ls -la /workspace/prompts/log/ 2>/dev/null; echo "---"; ls /workspace/prompts/ 2>/dev/null; echo "---agent prompts dir---"; find /workspace/agent -maxdepth 3 -type d 2>/dev/null | head -20; echo "---…
+[00:32:42] [system: task_progress]
+[00:32:42] $ ls -la /workspace/agent/.claude/ 2>/dev/null; echo "---CLAUDE.md---"; find /workspace -maxdepth 2 -name "CLAUDE.md" 2>/dev/null; echo "---"; ls /workspace/agent/.claude/plugins/marketplaces/coding/do…
+[00:32:43] [system: task_progress]
+[00:32:43] [read] /workspace/agent/.claude/CLAUDE.md
+[00:32:43]   → 36 lines read
+[00:32:46] [system: task_progress]
+[00:32:46] $ ls /home/node/.claude/plugins/marketplaces/dark-factory/docs/; echo "---"; cat /home/node/.claude/plugins/marketplaces/dark-factory/docs/choosing-a-flow.md 2>/dev/null | head -60
+[00:32:48] [system: task_progress]
+[00:32:48] $ grep -rn "shellcheck\|bash -n" /workspace/Makefile* /workspace/.github 2>/dev/null | head; echo "---gitignore scripts?---"; cat /workspace/.gitignore 2>/dev/null | head -30; echo "---check bash versi…
+[00:33:16] [system: task_progress]
+[00:33:16] $ cat /home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md 2>/dev/null | head -60
+[00:34:33] [system: task_progress]
+[00:34:33] [write] /workspace/prompts/1-spec-001-sentry-read-event-payload.md (12326 chars)
+[00:34:33]   → File created successfully at: /workspace/prompts/1-spec-001-sentry-read-event-payload.md (file state is current in your…
+[00:34:42] [system: task_progress]
+[00:34:42] [write] /workspace/prompts/2-spec-001-sentry-read-event-payload.md (8976 chars)
+[00:34:42]   → File created successfully at: /workspace/prompts/2-spec-001-sentry-read-event-payload.md (file state is current in your…
+[00:34:54] [system: task_updated]
+[00:34:54] [system: task_notification]
+[00:34:54]   ← agent reply: Both prompt files are written and self-audited. Report below.
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:55] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] [system: thinking_tokens]
+[00:34:56] 💭 The prompt-creator produced two prompt files:
+- `prompts/1-spec-001-sentry-read-event-payload.md`
+- `prompts/2-spec-001-sentry-read-event-payload.md`
+
+Now run the audit pass: invoke the `prompt-auditor` agent on each prompt file. Both audits are independent, so I can run them in parallel.
+
+Also note: since DARK_FACTORY_MANAGED=true, I skip mark-prompted. Both prompts were written (2 new files), so no skip conditions apply for the transition — but since Mode 1, skip it anyway.
+
+Let me run both au…
+[00:34:57] Creator wrote 2 prompt files. Now running the audit pass — invoking the prompt-auditor on each file in parallel.
+
+
+[00:34:57] [agent:dark-factory:prompt-auditor] Audit prompt 1
+    prompt: Audit the dark-factory prompt file at `prompts/1-spec-001-sentry-read-event-payload.md` (path relative to the current working directory, which is the repo root…
+[00:34:57] [system: task_started]
+[00:34:57] [agent:dark-factory:prompt-auditor] Audit prompt 2
+    prompt: Audit the dark-factory prompt file at `prompts/2-spec-001-sentry-read-event-payload.md` (path relative to the current working directory, which is the repo root…
+[00:34:57] [system: task_started]
+[00:34:58] [system: task_progress]
+[00:34:58] $ ls -la && echo "---PROMPTS---" && ls -la prompts/ 2>/dev/null && echo "---INBOX---" && ls -la prompts/in-progress/ 2>/dev/null
+[00:34:58] [system: task_progress]
+[00:34:58] [read] /workspace/prompts/2-spec-001-sentry-read-event-payload.md
+[00:34:58]   → 84 lines read
+[00:34:59] [system: task_progress]
+[00:34:59] $ ls -la /workspace/ && echo "---" && ls -la /workspace/prompts/ 2>/dev/null && echo "---" && ls -la /workspace/prompts/in-progress/ 2>/dev/null
+[00:34:59] [system: task_progress]
+[00:34:59] $ ls -la /workspace/specs/ 2>/dev/null; echo "---"; ls -la /workspace/.dark-factory.yaml 2>/dev/null && cat /workspace/.dark-factory.yaml
+[00:35:00] [system: task_progress]
+[00:35:00] [read] /workspace/prompts/1-spec-001-sentry-read-event-payload.md
+[00:35:00] [system: task_progress]
+[00:35:00] [read] /workspace/.dark-factory.yaml
+[00:35:00]   → 152 lines read
+[00:35:00]   → 7 lines read
+[00:35:01] [system: task_progress]
+[00:35:01] $ echo "=== .dark-factory.yaml ===" && cat /workspace/.dark-factory.yaml && echo "" && echo "=== specs dir ===" && ls -la /workspace/specs/ && echo "=== specs/in-progress ===" && ls -la /workspace/spec…
+[00:35:01] [system: task_progress]
+[00:35:01] [read] /workspace/prompts/1-spec-001-sentry-read-event-payload.md
+[00:35:01] ⚠ [bash output]
+total 16
+drwxr-x--- 1 node node    96 Sep  1 00:30 .
+drwxr-xr-x 1 node node   160 Sep  1 00:30 ..
+-rw-r--r-- 1 node node 15778 Sep  1 00:31 001-sentry-read-event-payload.md
+=== scripts ===
+total 16
+drwxr-xr-x 1 node node  160 Sep  1 00:14 .
+drwxr-xr-x 1 node node 1408 Sep  1 00:31 ..
+-rwxr-xr-x 1 node node 4601 Sep  1 00:14 repo-clone.sh
+-rwxr-xr-x 1 node node 3577 Sep  1 00:14 sentry-create-tasks.sh
+-rwxr-xr-x 1 node node 2367 Sep  1 00:14 sentry-read.sh
+=== prompts/completed ===
+total 0
+drwxr-x--- 1 node node  64 Sep  1 00:30 .
+drwxr-x--- 1 node node 224 Sep  1 00:34 ..
+=== git ===
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+[00:35:01]   → 152 lines read
+[00:35:02] [system: task_progress]
+[00:35:02] $ which dark-factory 2>/dev/null; dark-factory config 2>&1 | head -50; echo "EXIT: $?"
+[00:35:02] [system: task_progress]
+[00:35:02] $ ls -la /workspace/specs/in-progress/ /workspace/specs/completed/ /workspace/specs/log/ 2>/dev/null
+[00:35:03] [system: task_progress]
+[00:35:03] [read] /workspace/specs/in-progress/001-sentry-read-event-payload.md
+[00:35:03] [system: task_progress]
+[00:35:03] [read] /workspace/scripts/sentry-read.sh
+[00:35:03]   → 47 lines read
+[00:35:03] [system: task_progress]
+[00:35:03] [read] /workspace/specs/in-progress/001-sentry-read-event-payload.md
+[00:35:03] [system: task_progress]
+[00:35:03] [read] /workspace/scripts/sentry-read.sh
+[00:35:03]   → 113 lines read
+[00:35:03]   → 47 lines read
+[00:35:03]   → 113 lines read
+[00:35:04] [system: task_progress]
+[00:35:04] [read] /workspace/prompts/2-spec-001-sentry-read-event-payload.md
+[00:35:04] [system: task_progress]
+[00:35:04] [read] /workspace/scripts/sentry-create-tasks.sh
+[00:35:04]   → 84 lines read
+[00:35:04]   → 95 lines read
+[00:35:05] [system: task_progress]
+[00:35:05] [read] /workspace/scripts/sentry-create-tasks.sh
+[00:35:05] [system: task_progress]
+[00:35:05] $ echo "=== Dockerfile ===" && cat /workspace/Dockerfile && echo "" && echo "=== dark-factory CLI ===" && which dark-factory 2>&1; dark-factory config 2>&1 | head -40
+[00:35:05]   → 95 lines read
+[00:35:30] [system: task_progress]
+[00:35:31] $ head -40 /workspace/CHANGELOG.md; echo "===DOD==="; ls -la /workspace/docs/ 2>/dev/null; echo "===DOD file==="; ls -la /workspace/docs/dod.md 2>/dev/null
+[00:35:31] [system: task_progress]
+[00:35:31] $ ls -la /home/node/.claude/plugins/marketplaces/coding/docs/ 2>/dev/null | head -60; echo "EXIT: $?"
+[00:35:31] ⚠ [Bash] error: Exit code 2\n# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## v0.7.4\n\n- fix: create-tasks derives `stage` per alert instead of stamping a uniform default — `buildCreateCommand` now derives the frontmatter `stage` from the alert's `short_id` prefix (`NUKE-PROD-*` → `prod`, `NUKE-DEV-*` → `dev`) or its project slug (`nuke-prod`/`nuke-dev`), falling back to…
+[00:35:31] ⚠ [bash output]
+-rw-r--r-- 1 node node 11125 Aug 23 22:06 go-licensing-guide.md
+-rw-r--r-- 1 node node 16156 Aug 23 22:06 go-linting-guide.md
+-rw-r--r-- 1 node node 20048 Aug 23 22:06 go-logging-guide.md
+-rw-r--r-- 1 node node  8491 Aug 23 22:06 go-makefile-commands.md
+-rw-r--r-- 1 node node 33564 Aug 23 22:06 go-mocking-guide.md
+-rw-r--r-- 1 node node  8546 Aug 23 22:06 go-mod-dependency-fix-guide.md
+-rw-r--r-- 1 node node  5189 Aug 23 22:06 go-mod-replace-guide.md
+-rw-r--r-- 1 node node  6857 Aug 23 22:06 go-package-layout-guide.md
+-rw-r--r-- 1 node node  9828 Aug 23 22:06 go-parse-pattern.md
+-rw-r--r-- 1 node node  7388 Aug 23 22:06 go-patterns.md
+-rw-r--r-- 1 node node  2550 Aug 23 22:06 go-precommit.md
+-rw-r--r-- 1 node node 15364 Aug 23 22:06 go-prometheus-metrics-guide.md
+-rw-r--r-- 1 node node  5032 Aug 23 22:06 go-security-linting.md
+-rw-r--r-- 1 node node 18650 Aug 23 22:06 go-service-implementation-patterns.md
+-rw-r--r-- 1 node node 21417 Aug 23 22:06 go-state-machine-pattern.md
+-rw-r--r-- 1 node node 28157 Aug 23 22:06 go-test-types-guide.md
+-rw-r--r-- 1 node node 20087 Aug 23 22:06 go-testing-guide.md
+-rw-r--r-- 1 node node  5887 Aug 23 22:06 go-time-injection.md
+-rw-r--r-- 1 node node 27188 Aug 23 22:06 go-tools-versioning-guide.md
+EXIT: 0
+[00:35:36] [system: task_progress]
+[00:35:36] $ echo "=== docs/ ===" && ls -la /workspace/docs/ && echo "" && echo "=== root CLAUDE.md? ===" && ls -la /workspace/CLAUDE.md 2>&1; echo "" && echo "=== Makefile.precommit ===" && cat /workspace/Makefi…
+[00:35:36] [system: task_progress]
+[00:35:36] $ echo "=== docs/dod.md ===" && cat /workspace/docs/dod.md 2>&1 | head -120; echo "" && echo "=== .dark-factory.log ===" && cat /workspace/.dark-factory.log 2>&1 | head -60
+[00:35:45] [system: task_progress]
+[00:35:45] $ cat /workspace/Makefile.precommit; echo "===SCRIPTS==="; ls -la /workspace/scripts/
+[00:35:45] [system: task_progress]
+[00:35:45] $ grep -rn "sentry-read" /workspace --include="*.go" --include="*.md" --include="*.yaml" --include="*.yml" --include="*.sh" --include="*.env" 2>/dev/null | grep -v "prompts/\|specs/\|\.dark-factory\|ge…
+[00:35:45] ⚠ [bash output]
+/workspace/k8s/sentry-deep-analyzer-config-prod.yaml:39:    ALLOWED_TOOLS: "Bash(scripts/sentry-read.sh:*),Bash(scripts/repo-clone.sh:*),Read,Edit,Grep"
+/workspace/pkg/preflight/preflight_test.go:26:			"Bash(scripts/sentry-read.sh:*)",
+/workspace/pkg/preflight/preflight_test.go:45:		Expect(err.Error()).To(ContainSubstring("scripts/sentry-read.sh"))
+/workspace/pkg/preflight/preflight_test.go:50:			"Bash(scripts/sentry-read.sh:*)",
+/workspace/pkg/preflight/preflight_test.go:59:			"Bash(scripts/sentry-read.sh:*)",
+/workspace/pkg/preflight/preflight_test.go:89:			"Bash(scripts/sentry-read.sh:*)",
+/workspace/pkg/preflight/preflight.go:7:// the agent config: the constrained `scripts/sentry-read.sh` Bash tool in
+/workspace/pkg/preflight/preflight.go:25:const sentryReadToolPrefix = "Bash(scripts/sentry-read.sh"
+/workspace/pkg/preflight/preflight.go:28:// to clone the implicated source repo read-only. Like sentry-read.sh, it is
+/workspace/pkg/preflight/preflight.go:38:// not wired: the `Bash(scripts/sentry-read.sh:*` tool must be present in
+/workspace/pkg/preflight/preflight.go:59:		missing = append(missing, "Bash(scripts/sentry-read.sh:*)")
+/workspace/pkg/preflight/preflight.go:70:		"sentry preflight failed: missing required piece(s) for token-based Sentry access: %s. Grant the Bash(scripts/sentry-read.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set SENTRY_API_TOKEN (teamvault-sourced).",
+/workspace/pkg/preflight/preflight.go:76:// tool (prefix match: "Bash(scripts/sentry-read.sh:*" or a stricter scope).
+/workspace/pkg/preflight/preflight.go:94:// none of the triage/deep tools (sentry-read.sh, repo-clone.sh), so it is
+===SED PATTERN===
+===GIT REMOTE===
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+fatal: not a git repository (or any parent up to mount point /)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+[00:36:01] [system: task_progress]
+[00:36:01] $ echo "=== coding plugin docs ===" && ls /home/node/.claude/plugins/marketplaces/coding/docs/ 2>&1 | head -60; echo "" && echo "=== grep git commands in prompt ===" && grep -nE '^\s*git\s' /workspace/…
+[00:36:01] ⚠ [bash output]
+go-time-injection.md
+go-tools-versioning-guide.md
+go-validation-framework-guide.md
+k8s-manifest-guide.md
+markdown-todo-guide.md
+
+=== grep git commands in prompt ===
+(exit 1)
+
+=== grep operator-only commands ===
+(exit 1)
+
+=== grep go mod vendor ===
+(exit 1)
+
+=== grep clone/push/gh ===
+(exit 1)
+
+=== grep absolute/home paths ===
+(exit 1)
+[00:36:04] [system: task_progress]
+[00:36:04] $ grep -n "## Unreleased" /workspace/CHANGELOG.md; echo "EXIT: $?"; echo "===SCENARIOS==="; ls -la /workspace/scenarios/ /workspace/scenarios/*/ 2>/dev/null; echo "===DOCS RULES==="; ls /workspace/docs…
+[00:36:04] [system: task_progress]
+[00:36:04] $ sed -n '1,60p' /home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md
+[00:36:08] [system: task_progress]
+[00:36:08] $ ls -la /workspace/scenarios/; echo "===DOCKERFILE tools==="; grep -nE "apk|bash|curl|python|git" /workspace/Dockerfile; echo "===GO consumers of script output==="; grep -rn "short_id\|live_event_coun…
+[00:36:34] [system: task_progress]
+[00:36:34] $ echo "=== operator-only / git / vendor scan in prompt ==="; grep -nE 'kubectl|kubectlquant|docker|podman|helm|kind|k3d|make buca|gh (pr|release|api)|go mod vendor|git (clone|push|commit|log|status|di…
+[00:36:38] [system: task_progress]
+[00:36:38] $ cd /tmp && for arg in "5192501045" "https://bborbe.sentry.io/issues/5192501045/" "not-a-number"; do\n  issue_id="$arg"\n  if printf '%s' "$issue_id" | grep -qE '^[0-9]+$'; then\n    result="PASS bare…
+[00:36:38] [system: task_progress]
+[00:36:38] $ cd /tmp && python3 - <<'EOF'\nimport json\n# simulate sentry event with 40 frames (matching sibling prompt 2 fixture shape)\nframes = []\nfor i in range(1, 41):\n    frames.append({"abs_path": "/usr/…
+[00:36:38] ⚠ [bash output]
+arg='5192501045' -> PASS bare numeric (exit 0)
+arg='https://bborbe.sentry.io/issues/5192501045/' -> PASS url extract -> 5192501045 (exit 0)
+arg='not-a-number' -> ERROR could not extract (exit 2)
+[00:36:42] [system: task_progress]
+[00:36:42] $ cd /tmp && python3 - <<'EOF'\nimport json\n# 45 frames: frames 1-5 and 7 have numeric lineno; frame 6 and 8-45 lack lineno\nframes = []\nfor i in range(1, 46):\n    f = {"abs_path": "/usr/src/app/pkg…
+[00:36:44] [system: task_updated]
+[00:36:44] [system: task_notification]
+[00:36:44]   ← agent reply: I have completed a full audit. Let me compile the final report.
+[00:37:06] [system: task_updated]
+[00:37:06] [system: task_notification]
+[00:37:06]   ← agent reply: I have completed the audit. All referenced files and inline code have been verified against the repo, and the load-bearing snippets were executed to confirm behavior. Here is the full report.
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:06] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] [system: thinking_tokens]
+[00:37:07] 💭 Both audits complete. Since `DARK_FACTORY_MANAGED=true`, I **skip** the `mark-prompted` step (Mode 1 — daemon-managed, host-side generator finalizes the spec).
+
+Now produce the combined report:
+- Creator's summary
+- Per-prompt audit reports verbatim
+
+Format per the command instructions.
+[00:37:29] Both audits complete. Since `DARK_FACTORY_MANAGED=true` (daemon-managed, Mode 1), I'm skipping the `mark-prompted` transition — the host-side generator finalizes the spec itself after this container exits. The creator wrote 2 new prompt files (no skip conditions apply, and the transition is intentionally skipped in daemon mode regardless).
+
+## Generated Prompts
+
+**Files created:**
+- `prompts/1-spec-001-sentry-read-event-payload.md` — the feature: extends `scripts/sentry-read.sh` (bare-id acceptance, best-effort `events/latest` fetch, ≤30 frame emission, `stack_trace unavailable (<reason>)` marker, header comment, CHANGELOG)
+- `prompts/2-spec-001-sentry-read-event-payload.md` — the deterministic mock-API test: new `scripts/test-sentry-read.sh` (embedded python3 http.server fixture server on `127.0.0.1` ephemeral port) asserting the AC1–AC5 output contract
+
+**Execution order:** `1-` then `2-` (prompt 2 depends on prompt 1 having shipped the script extension; prompt 2's context includes a fail-loud STOP if the `events/latest` fetch isn't present yet).
+
+**Key decisions:**
+- **Two prompts, matching the spec's Suggested Decomposition exactly.** No scenario prompt — the spec explicitly declares "Scenario coverage: none" and the four-condition test fails on condition (a): the behavior is fully reachable by the container-executable mock test. Existing scenario 001 covers the E2E journey.
+- **Frame extraction spelled out as an exact python3 program** (Level 2 detail): novel logic with no in-tree exemplar, and the PII invariant depends on reading exactly three scalar fields (`abs_path`/`filename` basename, `lineno`, `function`) and never `context`/raw JSON. The 30-cap is applied post-skip (`frames[:30]` of non-numeric-lineno frames), header reports the emitted count.
+- **Best-effort guard design**: event fetch uses `curl -sS` (no `-f`, so HTTP status is readable via `-w '%{http_code}'`) into a `mktemp` file, wrapped in `set +e`/`set -e`; failure classification decision tree (28→`timeout`, 404→`no events`, 401/403→`auth`, else→`fetch failed`) then empty/err extraction→`no exception entry`. Metadata block always emitted first and never wrapped.
+- **Failure-mode coverage**: all spec Failure Modes rows map to requirement steps — 404/auth/timeout/malformed (prompt 1 req 3-4), 429/metadata-down (explicitly unchanged behavior), oversized payload bounded by the cap + no-PII (req 4), concurrency-safe via `mktemp` (no shared state). The 401 stub was added to the test (beyond the spec's minimal list) to lock the `auth` reason string — the one failure-mode reason that's novel classification logic with no other boundary test.
+- **Git discipline**: `.dark-factory.yaml` is `workflow: direct`, no `hideGit`; no git commands appear in either `<verification>` regardless (none needed). CHANGELOG entry lives in prompt 1 (the user-facing change); prompt 2 explicitly forbids one for test-only infrastructure.
+
+**Constraints repeated in each prompt:** Copied from the spec per prompt: frozen 7-key metadata block + order, env contract unchanged, metadata failure still fails the run, exit 2 on bad args, 30-cap fixed with no knob/opt-out/retry, script-only (no Go/CRD/preflight/ALLOWED_TOOLS/prompt-text changes), PII invariant, no commit, existing tests green.
+
+**Open question surfaced for the reviewer:** the generic event-fetch failure reason string is `fetch failed` — the spec names no reason for non-404/auth/timeout failures, so this is a best-effort choice; flag it if a specific string is wanted.
+
+## Audit Findings
+
+### prompts/1-spec-001-sentry-read-event-payload.md
+
+# Prompt Audit Report: Extend the Sentry read script with latest-event stack trace frames
+
+**File**: `/workspace/prompts/1-spec-001-sentry-read-event-payload.md`
+**Score**: 9/10
+**Status**: Excellent
+
+## DoD Checklist
+- [x] `<summary>` present and plain-language — 8 bullets, no file paths / function signatures; describes observable outcomes
+- [x] `<objective>` states end state — single sentence, end-state + why, not implementation-level
+- [x] `<context>` present — names CLAUDE.md, both scripts, CHANGELOG, changelog-guide, and the spec
+- [x] `<requirements>` numbered and specific — 7 numbered requirements with exact paths, anchored old→new code, inlined load-bearing snippets
+- [x] `<constraints>` present — mirrors spec Constraints section verbatim (frozen 7 keys, env contract, exit-code 2, script-only scope, data-privacy invariant, no knob, no commit)
+- [x] `<verification>` present with runnable command — `bash -n scripts/sentry-read.sh` + `make precommit` (both container-executable)
+- [x] All paths repo-relative — the two `/home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md` references are the YOLO container's canonical coding-plugin doc location (verified present at that path in this environment); not host-absolute, not `~/`. Note: `dark-factory config` was not runnable here (CLI not installed), so mounts were assessed from `.dark-factory.yaml` (`workflow: direct`, no explicit mounts, default `/workspace`). All prompt paths are repo-relative, so no portability risk.
+- [x] No bare `git ` commands in `<verification>` when git masked — N/A: `.dark-factory.yaml` is `workflow: direct`, no `hideGit: true`; and the only `git` mention in the prompt is the constraint "Do NOT commit — dark-factory handles git." (line 145), which is a prohibition, not a command
+- [x] No operator-only commands in `<verification>` — verified by grep: no docker/kubectl/`make buca`/`dark-factory`/`scripts/*.sh`/`gh` in verification or requirements
+- [x] File in `prompts/` inbox (not `prompts/in-progress/`)
+- [x] Filename not prefixed with dark-factory global number — `1-spec-001-sentry-read-event-payload.md` matches the allowed multi-prompt ordering pattern `^[1-9]-spec-\d{3}-.*\.md$` (sibling `2-` prompt confirmed present)
+- [x] Filename reflects primary change — `spec-001-sentry-read-event-payload` is the spec slug; content matches the spec's scope
+- [x] Status is `draft` (valid), frontmatter only has `spec`/`status`/`created`, `spec` uses canonical full-slug form
+
+## Failure Mode Coverage
+- [x] Spec failure modes addressed in requirements — all 8 table rows mapped:
+  - 404 → `no events` (req 3), 401/403 → `auth` (req 3), timeout → `timeout` (req 3), malformed/truncated + missing exception → `no exception entry` (req 4), metadata endpoint fails → non-zero unchanged (req 2), large payload → ≤30 frames (req 4), concurrency → per-invocation `mktemp` temp file, no shared state (req 3), clock skew → N/A
+- [x] Security concerns from spec addressed — input validation (`[0-9]+` before URL interpolation, req 1 bullet), credential handling (Bearer header only, never printed), trust-boundary (python parses read-only, three scalar fields only, req 4), PII (constraint + req 4), hangs/retries (`--max-time 30` on both GETs), rate limiting (429 → `fetch failed` marker)
+- [x] External calls have timeout/cancellation behavior specified — both GETs carry `--max-time 30`; event fetch guarded under `set +e`/`set -e` so it cannot fail the run
+- [x] New constants / strings that flow through library validators have a test calling the validator — the marker strings and frame format are asserted by sibling prompt `2-spec-001-...md` (404/no-events, 401/auth, no-exception, 30-cap, no-PII, bare-id). I executed the inlined python against a 40-frame fixture: output matches sibling prompt 2's exact assertion regexes (`bar1.go:41 in Func1`, 30 lines, `bar31.go` absent, no sentinel, no JSON keys). Gap: `timeout` (curl exit 28), generic `fetch failed`, and malformed-JSON branches have no contract test — see Recommendations
+- [x] No `go mod vendor` in requirements or verification (grep confirmed none)
+- [x] No cross-repo writes — no `git clone`/`push`/`gh pr create` anywhere in the prompt (grep confirmed); git remote unverifiable here (sandbox masks `.git`) but irrelevant since no git operations are instructed
+- [x] Container-autonomous — no kubectl/kubectlquant, no deploy/rollout, no "observe pods/logs", no operator-vs-agent split; the work is pure file edits + build checks. The operator-side live checks correctly live in the spec's "Operator-executable" Verification section, not the prompt
+- [x] Sibling entry points covered — N/A for Go (no Go code touched; `Bash(scripts/sentry-read.sh:*)` contract in `k8s/*.yaml` and `pkg/preflight/preflight.go` is unchanged since the path/name don't change). No other script duplicates the id-extraction logic (grep for the sed pattern returned nothing in `scripts/`)
+
+## Documentation Placement
+- [x] No inlined reusable patterns (>10 lines) that should be in a doc — the inlined bash/python is the concrete feature implementation, not a reusable generic pattern; ~70 lines total, far under the 200-line volume threshold; no pattern collision (bash script change; the Go-specific collision checks are N/A). Inlining here is good practice: it pins exact behavior and is verified executable
+- [x] Existing project docs referenced in `<context>` where relevant — `docs/` contains only `claude-oauth-setup.md`/`creating-claude-agents.md`, neither relevant to bash scripts; changelog-guide is correctly referenced
+- [x] Existing coding plugin docs referenced — `changelog-guide.md` is referenced in `<context>` (line 31) and req 6
+- [x] Domain knowledge that outlives the prompt is in docs — the Sentry event schema detail is spec-owned; the prompt correctly defers to the spec rather than inlining knowledge other prompts will need
+
+## Code Reference Verification
+| Reference | File | Status |
+|-----------|------|--------|
+| Id-extraction sed line + comment "Extract a numeric issue id from a URL like .../issues/1234567890/ or accept a bare id." | `scripts/sentry-read.sh:29-30` | Verified — matches verbatim |
+| "single GET" header claim to correct | `scripts/sentry-read.sh:14` | Verified — header says "single GET"; req 5 corrects it to two GETs |
+| Seven `printf` metadata lines + order | `scripts/sentry-read.sh:41-47` | Verified — short_id, status, live_event_count, first_seen, last_seen, users_impacted, title |
+| Usage check `usage: sentry-read.sh <issue-url-or-id>` + `exit 2` | `scripts/sentry-read.sh:24-27` | Verified |
+| `mktemp` + `trap 'rm -f ...' EXIT` and `python3 -c '...' "${file}"` / `sys.argv[1]` pattern | `scripts/sentry-create-tasks.sh:29-31, 63-83` | Verified |
+| Spec contract DB1–DB5, Failure Modes, Security, AC1–AC5 | `specs/in-progress/001-sentry-read-event-payload.md` | Verified — prompt's decision tree and marker strings match the spec's failure-mode table; classification is spec-derived, not author-invented |
+| Sibling mock-API test assertions | `prompts/2-spec-001-sentry-read-event-payload.md` | Verified — executed the inlined python against the sibling's 40-frame fixture; byte-for-byte output matches its regexes |
+| `changelog-guide.md` `## Unreleased` placement | `/home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md` | Verified — file exists; placement rule matches; repo's CHANGELOG currently has no `## Unreleased` (confirmed) |
+| `Bash(scripts/sentry-read.sh:*)` tool contract | `k8s/*.yaml`, `pkg/preflight/preflight.go` | Unchanged (path/name not modified) — no doc/config reference becomes stale |
+
+## Coding Guidelines Compliance
+| Guideline | File | Status |
+|-----------|------|--------|
+| Go guidelines (error wrapping, factories, handlers, time-injection) | `go-*.md` | N/A — no Go code in this prompt |
+| Test-only package-level mutable state | `go-composition.md` | N/A |
+| Bash style parity (set -euo pipefail, curl -fsS --max-time 30, Bearer header, mktemp+trap, python3 -c) | `scripts/sentry-read.sh` / `scripts/sentry-create-tasks.sh` | Compliant — req 1/3/4 explicitly mirror existing repo patterns |
+| `make precommit` scope | `Makefile.precommit` | Correct — single Go module at repo root; precommit (ensure/format/generate/test/check/addlicense) does not run shellcheck but keeps Go green as claimed |
+
+## YAGNI Pass (scope-creep detector)
+- [x] No opt-out flag for the very behavior the prompt ships — the constraints (line 142) explicitly reject "a frame-count cap knob, an opt-out flag for the event fetch, or any retry/backoff logic — the cap is fixed at 30 and the fetch is always attempted". This is the spec's Non-goal restated, and it is exactly the YAGNI guard the auditor would otherwise demand
+- [x] Every config field / threshold / branch is demanded by the spec — the only classification addition beyond the spec table is the catch-all `fetch failed` reason, which is required for completeness (Sentry 429 / 5xx on `events/latest` must map somewhere; the spec's Security section implies it). Not scope creep
+- [x] No "future-proofing" knobs without a named consumer
+
+## Critical Issues
+None. All required sections present, all code references verified accurate, all spec failure modes and security items addressed across the prompt batch, no container-autonomy / hideGit / cross-repo / vendor violations, and the inlined implementation was executed and matches the sibling test's contract.
+
+## Recommendations
+1. **30-frame cap prose/code mismatch (req 4).** The inline program applies the cap to the RAW frames list first (`for frame in frames[:30]:`), then skips non-numeric `lineno`. The prose says the cap is "the first 30 frames from `stacktrace.frames` AFTER skipping frames without a numeric `lineno`", which implies filter-then-cap — a different iteration order. I demonstrated the divergence: with a mixed fixture (some of the first 30 frames lacking `lineno`), the code emits fewer than 30 frames even though numeric frames exist later, while the prose would emit up to 30. Both prompts' fixtures are all-numeric so tests pass either way, and the spec DB3 wording is genuinely ambiguous, but the prompt contradicts its own load-bearing code. Suggest replacing:
+   - Old: "The 30-frame cap is the first 30 frames from `stacktrace.frames` AFTER skipping frames without a numeric `lineno`; the header `stack_trace=<N> frames` reports N = the number of emitted frame lines (N ≤ 30)."
+   - New: "The 30-frame cap takes the first 30 frames from `stacktrace.frames` and then skips any lacking a numeric `lineno` (matching the inline program); the header `stack_trace=<N> frames` reports N = the number of emitted frame lines (N ≤ 30)."
+
+2. **Prompt 1 ships no behavioral test and does not reference its test sibling.** `<requirements>` changes `scripts/sentry-read.sh` and `<verification>` only checks syntax + Go-suite green; the behavioral verification (AC1–AC5) is entirely delegated to sibling prompt `2-spec-001-sentry-read-event-payload.md`. This is fine per the spec's decomposition, but prompt 1 alone reads as "changes code with no tests" (the DoD's test-coverage warning trigger). Suggest adding one line to req 7 or `<verification>`: "The deterministic AC1–AC5 contract test ships in sibling prompt `2-spec-001-sentry-read-event-payload.md` (same spec batch); this prompt's verification is intentionally syntax + Go-suite only." Also consider flagging in the spec that the two prompts should ship as a batch before release (atomic-batch constraints belong in the spec per the global conventions).
+
+3. **Timeout / generic `fetch failed` / malformed-JSON marker branches have no contract test.** Sibling prompt 2 covers `no events`, `auth`, `no exception entry`, the 30-cap, and no-PII, but not the `timeout` (curl exit 28), generic `fetch failed`, or malformed-JSON degradation paths. These are graceful-degradation strings, so severity is low, but they are the exact class of "marker string crossing the subprocess/stdout boundary" the boundary-contract rule targets. Suggest adding to the sibling test a hanging stub with a short `--max-time` override (e.g. `--max-time 1`) to exercise the `timeout` branch, and a malformed-JSON fixture for `no exception entry`; if that is deemed too fiddly, note explicitly that these branches are covered only by the operator live check.
+
+4. **Spec-side doc gap (out of prompt scope, for the spec author).** The spec cites `docs/rules/scenario-writing.md` ("When to Write a Scenario") and asserts "existing scenario 001" exists — `docs/rules/` does not exist in this repo and `scenarios/001-sentry-issue-happy-path.md` is present (so the scenario claim is true, but the cited rules doc is missing). Not a prompt defect; the prompt correctly does not reference it.
+
+## Strengths
+- Load-bearing implementation is inlined verbatim (id-extraction block, curl guard, python frame extractor) and I verified each by execution: bare-id/URL/garbage argument handling and the 40-frame fixture output match the spec DB1/DB3 and sibling prompt 2's assertion regexes exactly.
+- Anchoring is exemplary: req 1 pins the exact existing sed line + comment text and shows old→new, avoiding line-number drift.
+- Cross-prompt contract consistency is real, not just claimed — the marker strings and frame format are identical between prompt 1's code and prompt 2's grep assertions.
+- Constraints are faithfully copied from the spec (agent has no memory), include "do NOT commit", and actively YAGNI-guard the cap-knob/opt-out/retry escapes.
+- Verification is strictly container-executable; the operator-only live checks correctly remain in the spec's operator ladder rather than leaking into the prompt.
+
+## Summary
+This is a high-quality, well-scoped prompt with a complete DoD structure, fully verified code references, and cross-prompt test coverage in its sibling. The two marker branches (`timeout`, `fetch failed`) lack a contract test and req 4's cap-ordering prose contradicts its own inline code, but neither threatens the shipped behavior. Recommended action: apply Recommendation 1's find/replace (prose alignment) and add the sibling cross-reference from Recommendation 2 before approving; no critical blockers.
+
+Relevant files (absolute paths): `/workspace/prompts/1-spec-001-sentry-read-event-payload.md`, `/workspace/prompts/2-spec-001-sentry-read-event-payload.md`, `/workspace/specs/in-progress/001-sentry-read-event-payload.md`, `/workspace/scripts/sentry-read.sh`, `/workspace/scripts/sentry-create-tasks.sh`, `/workspace/.dark-factory.yaml`, `/workspace/Makefile.precommit`, `/workspace/CHANGELOG.md`.
+
+### prompts/2-spec-001-sentry-read-event-payload.md
+
+# Prompt Audit Report: Add a deterministic mock-API test for the Sentry read script
+
+**File**: `/workspace/prompts/2-spec-001-sentry-read-event-payload.md`
+**Score**: 8/10
+**Status**: Good — one localized critical wording bug, otherwise exemplary
+
+## DoD Checklist
+- [x] `<summary>` present and plain-language (6 bullets, observable outcomes; minor format-string jargon — see Recommendations)
+- [x] `<objective>` states end state, not steps (1 sentence, what + why)
+- [x] `<context>` present; references only existing files; correctly states "no project-level CLAUDE.md" (verified — no `/workspace/CLAUDE.md`)
+- [x] `<requirements>` numbered and specific (5 steps, exact file paths, command forms)
+- [x] `<constraints>` present, copied from spec (frozen 7-key order, 30-frame cap with "no cap knob", no-PII, dummy token `x`, "Do NOT commit", existing tests stay green)
+- [x] `<verification>` present with runnable container-executable commands (`bash -n`, `bash scripts/test-sentry-read.sh`, `make precommit`)
+- [x] All paths repo-relative (`scripts/sentry-read.sh`, `scripts/sentry-create-tasks.sh`, `specs/in-progress/001-sentry-read-event-payload.md` — all verified to exist). No `/Users/`, `/home/`, `~/`, or `$HOME` paths anywhere (grep-verified).
+- [x] No bare `git ` commands in `<verification>` or `<requirements>` (grep-verified). Note: `.dark-factory.log` shows `hideGit=true` is active (source=arg), so git is masked in the container — but the prompt contains zero git commands, so no violation.
+- [x] No operator-only commands in `<verification>` (`docker`, `make buca`, `dark-factory`, `kubectl*`, `scripts/*.sh`, `gh ...` — grep-verified clean)
+- [x] File in `prompts/` inbox, not `prompts/in-progress/` (verified — `prompts/in-progress/` is empty)
+- [x] Filename not prefixed with dark-factory global number; `2-spec-001-...` matches the allowed multi-prompt ordering pattern `^[1-9]-spec-\d{3}-.*\.md$` (sibling `1-spec-001-...` exists)
+- [x] Filename reflects primary change (deterministic mock-API test; matches `<objective>`/`<summary>`)
+- [x] `status: draft` (valid inbox status)
+- [x] Frontmatter: `spec: ["001-sentry-read-event-payload"]` canonical full-slug form, only `spec`/`status`/`created` fields — compliant
+
+## Failure Mode Coverage
+- [x] Spec failure triggers addressed across the prompt set (spec's Suggested Decomposition: prompt 1 implements, prompt 2 tests):
+  - 404 no events → req 4 `out_404` → `stack_trace unavailable (no events)` ✓
+  - 401/403 auth → req 4 `out_auth` → `stack_trace unavailable (auth)` ✓
+  - no exception entry → req 4 `out_noexc` → `stack_trace unavailable (no exception entry)` ✓ (fixture 456 drives the extraction-empty path)
+  - timeout → implemented in sibling prompt 1 (curl rc 28 → `timeout`); not fixture-tested (see Recommendations)
+  - metadata-fetch failure → explicitly preserved in sibling prompt 1 req 2 ("do not touch"); unchanged existing behavior, not re-tested (acceptable per scope note)
+- [x] Security concerns from spec addressed: no-PII invariant asserted (AC5 greps), dummy non-secret token `x` required by constraint, no input-interpolation surface changed (test-only)
+- [x] External calls have timeout/cancellation: fixture binds 127.0.0.1 ephemeral port, harness port-poll is bounded (50 × 0.1 s), script-under-test carries `--max-time 30`; no unbounded loops
+- [x] Boundary-contract tests: this prompt IS the boundary test — it drives the real script through a real local HTTP server (subprocess + HTTP + exit-code boundaries). Level-2 integration testing of the exact output contract; fixture 123's 40 frames exercise the 30-cap, `RAW-CONTEXT-SENTINEL` exercises the no-PII invariant
+- [x] No `go mod vendor` in `<requirements>`/`<verification>` (grep-verified)
+- [x] No cross-repo writes: no `git clone`/`git push`/`gh pr` anywhere (grep-verified)
+- [x] Container-autonomous: fully executable by the container agent (bash + python3 + curl, all in the image per Dockerfile `RUN apk --no-cache add ... bash ... curl python3 ...`); no operator steps, no operator/agent split, no cluster access needed
+- [x] Sibling entry points: N/A — creates a new `scripts/test-sentry-read.sh`; no existing gate/setup function is modified. The prompt correctly guards its dependency on sibling prompt 1 (`sentry-read.sh` must already contain the `events/latest` fetch, else STOP — a correct fail-loud sequencing sentinel)
+
+## Documentation Placement
+- [x] No inlined reusable patterns (>10 lines): the fixture server and harness are described, not inlined as copyable blocks; the only inlined snippets are small assertion one-liners specific to this test
+- [x] Existing project docs referenced in `<context>`: the spec (behavioral contract AC1–AC5, Verification §) is cited; `scripts/sentry-create-tasks.sh` cited as the style reference for `mktemp`/`trap`/`python3 -c '...'`
+- [x] Coding plugin docs: N/A — no Go code in this prompt (bash-only test); no changelog doc needed since req 5 explicitly forbids a CHANGELOG entry
+- [x] Domain knowledge (output contract, fixture shapes) lives in the spec, not inlined
+
+## Code Reference Verification
+| Reference | File | Status |
+|-----------|------|--------|
+| `scripts/sentry-read.sh` (script under test; dependency guard) | `/workspace/scripts/sentry-read.sh` | Verified — exists; currently does NOT yet contain `events/latest` fetch (pre-prompt-1 state), so the context's "STOP if out of order" guard is correct |
+| `scripts/sentry-create-tasks.sh` (style: `mktemp`+`trap`, `python3 -c '...'`+`sys.argv[1]`) | `/workspace/scripts/sentry-create-tasks.sh` | Verified — lines 29-31, 63-83 match the described pattern exactly |
+| `specs/in-progress/001-sentry-read-event-payload.md` (AC1–AC5, Verification §, Failure Modes) | `/workspace/specs/in-progress/001-sentry-read-event-payload.md` | Verified — AC/DB/failure-table text matches every assertion in the prompt |
+| Dockerfile `apk ... bash ... curl python3` claim (context line 32) | `/workspace/Dockerfile` | Verified — `RUN apk --no-cache add ca-certificates curl bash git python3 nodejs npm` |
+
+## Coding Guidelines Compliance
+| Guideline | File | Status |
+|-----------|------|--------|
+| Go patterns / error wrapping / testing | (all `go-*.md`) | N/A — no Go code in this prompt; `make precommit` keeps the Go suite green unchanged |
+| Bash style parity with repo (`set -euo pipefail`, `mktemp` + `trap 'rm -f ...' EXIT`, `python3 -c '...' "${file}"`) | `/workspace/scripts/sentry-create-tasks.sh` | Compliant — req 1 and context 28 explicitly mirror the repo's established style |
+| Container-executable dependencies (busybox provides `paste`, `tr`, `grep`, `sed`, `printf`, `mktemp`; python3/curl in image) | `Dockerfile` | Compliant — all assertion-tool commands (`grep`, `paste`, `tr`, `printf`) are busybox coreutils, present in the alpine image |
+
+## YAGNI Pass (scope-creep detector)
+- [x] No opt-out flag or escape hatch negating the spec Goal — the 30-frame cap is explicitly "fixed at 30 (no cap knob)" (constraint line 74)
+- [x] Every fixture (123/456/789/999) maps to a spec failure mode or AC — no invented variations
+- [x] No tunable thresholds, no future-proofing knobs, no unrequested configurability. The `RAW-CONTEXT-SENTINEL` and `bar{n}.go` values are test fixtures, not knobs
+- [x] No test cases exercising a non-existent opt-out path
+
+## Critical Issues
+
+**1. Negative `grep -q` assertions written in bare form will spuriously abort the harness under its own `set -euo pipefail`.**
+- Location: requirement 3, lines 58 and 59.
+- Old text (line 58): `and the 31st+ frame files are absent (e.g. \`grep -q 'bar31.go'\` must fail)`
+- Old text (line 59): `no quoted JSON keys on stdout — \`grep -qE '"context"|"frames"|stacktrace'\` must fail — and the sentinel from the fixture's \`context\` arrays (e.g. \`RAW-CONTEXT-SENTINEL\`) must not appear in stdout.`
+
+Requirement 1 declares the harness runs `set -euo pipefail`. A bare `grep -q 'bar31.go'` that finds no match exits 1, and — being a standalone command (not inside `if`/`&&`/`!`) — triggers `set -e`, aborting the whole harness. The result: every time the assertion *passes* (31st frame absent), the test dies with a non-zero exit, so the suite can never go green. Same for `grep -qE '"context"|"frames"|stacktrace'` on line 59. A careful executor may infer the negation, but the prompt presents the bare form as the example, so it is exactly the verbatim-copy foot-gun this audit exists to catch.
+
+**Fix (find/replace):**
+- Replace line 58 with:
+  `and the 31st+ frame files are absent (e.g. \`! grep -q 'bar31.go' <<< "$out_bare"\` — note the \`!\` negation: a bare \`grep -q\` that finds nothing exits 1 and would abort the harness under its \`set -e\`)`
+- Replace line 59 with:
+  `no quoted JSON keys on stdout — \`! grep -qE '"context"|"frames"|stacktrace' <<< "$out_bare"\` (same \`!\` negation caveat as above) — and the sentinel from the fixture's \`context\` arrays (e.g. \`RAW-CONTEXT-SENTINEL\`) must not appear in stdout.`
+
+## Recommendations
+
+1. **Coverage of the `fetch failed` classification branch (Recommendation, non-blocking).** Prompt 1's decision tree has four failure reasons (`timeout`, `no events`, `auth`, `fetch failed`) plus the no-exception marker; this harness only exercises `no events` (789/404), `auth` (999/401), and no-exception (456). A cheap 500-status stub (e.g. issue `555` → `/events/latest/` returns 500) would exercise the `stack_trace unavailable (fetch failed)` branch that currently ships untested. The `timeout` branch (curl rc 28) is impractical to fixture deterministically (needs a hang longer than `--max-time 30`) and is reasonably left untested — worth a one-line comment stating that choice.
+
+2. **Metadata-before-stack-trace position is not asserted (Recommendation).** The AC1 order check (req 3) extracts the 7 metadata keys in their *relative* line order, but never asserts the metadata block precedes the `stack_trace`/frame block or the failure marker. AC4's "never suppresses or reorders the metadata block" would survive a reordering regression. Cheap fix: assert line 1 is `short_id=*` and that the `stack_trace` header/marker line number is > 7 (e.g. `[ "$(printf '%s\n' "$out_bare" | sed -n '1p' | grep -c '^short_id=')" -eq 1 ]`).
+
+3. **Fixture path routing underspecified (Recommendation).** Requirement 2 says "The server routes on the request path" without pinning the exact path match (metadata endpoint `/api/0/organizations/test/issues/{id}/` vs `/issues/{id}/events/latest/`, and how the issue id is keyed). Since the harness also validates that `SENTRY_URL=http://127.0.0.1:${PORT}` + `SENTRY_ORG=test` produce those paths, pinning two explicit route patterns (e.g. `path.endswith('/events/latest/')` → event fixture keyed by id in path; else metadata fixture) removes the only remaining executor guess.
+
+4. **Minor: summary bullet 2 uses `file:line in function` / `stack_trace unavailable` markers.** These are the observable output contract, so acceptable, but they are format-level jargon for a "plain-language, human reviewer" summary. Consider "frame lines in `file:line` format" if a rewrite is convenient. Non-blocking.
+
+## Strengths
+- Correctly scoped as a test-only prompt: constraints forbid touching `sentry-read.sh`, Go code, CRD, preflight, and ALLOWED_TOOLS, matching the spec's Non-goals.
+- The harness design is the right shape for the boundary rule: it drives the real script through a real local HTTP server (subprocess + HTTP + exit-code boundaries), with a bounded port poll and loud named-FAIL failures — a genuine level-2 integration contract test of AC1–AC5.
+- All fixture values and assertions are mutually consistent and mentally compilable: fixture 123's 40 frames with `lineno=40+i` produce exactly `bar1.go:41 in Func1` … `bar30.go:70 in Func30`, so the `grep -c '^[^=]+:[0-9]+ in ' == 30`, `grep '^bar1.go:41 in Func1$'`, and `grep -q 'bar31.go'` (absent) assertions line up; the `stack_trace=30 frames` header does not collide with the `stacktrace` (no underscore) no-PII regex.
+- The dependency guard on sibling prompt 1 ("if the script does NOT yet contain an events/latest fetch, STOP") is a correct fail-loud sequencing sentinel, and the byte-identity AC3 assertion is sound because both invocations resolve to the identical URL.
+- Container-autonomy is airtight: everything runs with image-provided tools on 127.0.0.1, no git, no Docker socket, no operator handoff, no cross-repo writes.
+
+## Summary
+An exemplary, well-scoped, container-autonomous test-locking prompt whose assertions are mutually consistent with the spec and the fixture design. One localized critical wording bug — the two negative `grep -q ... must fail` assertions, written bare under the harness's own `set -euo pipefail`, will abort the harness on the passing path — must be fixed (add `!` negation) before approval; the remaining findings are optional coverage and specificity improvements. Priority action: apply the Critical Issue find/replace on requirement 3 lines 58-59, then approve.
+
+Relevant files: `/workspace/prompts/2-spec-001-sentry-read-event-payload.md`, `/workspace/prompts/1-spec-001-sentry-read-event-payload.md`, `/workspace/specs/in-progress/001-sentry-read-event-payload.md`, `/workspace/scripts/sentry-read.sh`, `/workspace/scripts/sentry-create-tasks.sh`, `/workspace/.dark-factory.yaml`, `/workspace/.dark-factory.log`.
+
+---
+
+**Note:** Per the command instructions, I did not retry, rewrite, or merge prompts based on audit findings — the human reviewer owns that decision. Both prompt files remain in `prompts/` unchanged, and the spec stays at its current status (`approved`; the `mark-prompted` transition was intentionally skipped because `DARK_FACTORY_MANAGED=true`).
+[00:37:29] result: Both audits complete. Since `DARK_FACTORY_MANAGED=true` (daemon-managed, Mode 1), I'm skipping the `mark-prompted` transition — the host-side generator finalizes the spec itself after this container exits. The creator wrote 2 new prompt files (no skip conditions apply, and the transition is intentionally skipped in daemon mode regardless).
+
+## Generated Prompts
+
+**Files created:**
+- `prompts/1-spec-001-sentry-read-event-payload.md` — the feature: extends `scripts/sentry-read.sh` (bare-id acceptance, best-effort `events/latest` fetch, ≤30 frame emission, `stack_trace unavailable (<reason>)` marker, header comment, CHANGELOG)
+- `prompts/2-spec-001-sentry-read-event-payload.md` — the deterministic mock-API test: new `scripts/test-sentry-read.sh` (embedded python3 http.server fixture server on `127.0.0.1` ephemeral port) asserting the AC1–AC5 output contract
+
+**Execution order:** `1-` then `2-` (prompt 2 depends on prompt 1 having shipped the script extension; prompt 2's context includes a fail-loud STOP if the `events/latest` fetch isn't present yet).
+
+**Key decisions:**
+- **Two prompts, matching the spec's Suggested Decomposition exactly.** No scenario prompt — the spec explicitly declares "Scenario coverage: none" and the four-condition test fails on condition (a): the behavior is fully reachable by the container-executable mock test. Existing scenario 001 covers the E2E journey.
+- **Frame extraction spelled out as an exact python3 program** (Level 2 detail): novel logic with no in-tree exemplar, and the PII invariant depends on reading exactly three scalar fields (`abs_path`/`filename` basename, `lineno`, `function`) and never `context`/raw JSON. The 30-cap is applied post-skip (`frames[:30]` of non-numeric-lineno frames), header reports the emitted count.
+- **Best-effort guard design**: event fetch uses `curl -sS` (no `-f`, so HTTP status is readable via `-w '%{http_code}'`) into a `mktemp` file, wrapped in `set +e`/`set -e`; failure classification decision tree (28→`timeout`, 404→`no events`, 401/403→`auth`, else→`fetch failed`) then empty/err extraction→`no exception entry`. Metadata block always emitted first and never wrapped.
+- **Failure-mode coverage**: all spec Failure Modes rows map to requirement steps — 404/auth/timeout/malformed (prompt 1 req 3-4), 429/metadata-down (explicitly unchanged behavior), oversized payload bounded by the cap + no-PII (req 4), concurrency-safe via `mktemp` (no shared state). The 401 stub was added to the test (beyond the spec's minimal list) to lock the `auth` reason string — the one failure-mode reason that's novel classification logic with no other boundary test.
+- **Git discipline**: `.dark-factory.yaml` is `workflow: direct`, no `hideGit`; no git commands appear in either `<verification>` regardless (none needed). CHANGELOG entry lives in prompt 1 (the user-facing change); prompt 2 explicitly forbids one for test-only infrastructure.
+
+**Constraints repeated in each prompt:** Copied from the spec per prompt: frozen 7-key metadata block + order, env contract unchanged, metadata failure still fails the run, exit 2 on bad args, 30-cap fixed with no knob/opt-out/retry, script-only (no Go/CRD/preflight/ALLOWED_TOOLS/prompt-text changes), PII invariant, no commit, existing tests green.
+
+**Open question surfaced for the reviewer:** the generic event-fetch failure reason string is `fetch failed` — the spec names no reason for non-404/auth/timeout failures, so this is a best-effort choice; flag it if a specific string is wanted.
+
+## Audit Findings
+
+### prompts/1-spec-001-sentry-read-event-payload.md
+
+# Prompt Audit Report: Extend the Sentry read script with latest-event stack trace frames
+
+**File**: `/workspace/prompts/1-spec-001-sentry-read-event-payload.md`
+**Score**: 9/10
+**Status**: Excellent
+
+## DoD Checklist
+- [x] `<summary>` present and plain-language — 8 bullets, no file paths / function signatures; describes observable outcomes
+- [x] `<objective>` states end state — single sentence, end-state + why, not implementation-level
+- [x] `<context>` present — names CLAUDE.md, both scripts, CHANGELOG, changelog-guide, and the spec
+- [x] `<requirements>` numbered and specific — 7 numbered requirements with exact paths, anchored old→new code, inlined load-bearing snippets
+- [x] `<constraints>` present — mirrors spec Constraints section verbatim (frozen 7 keys, env contract, exit-code 2, script-only scope, data-privacy invariant, no knob, no commit)
+- [x] `<verification>` present with runnable command — `bash -n scripts/sentry-read.sh` + `make precommit` (both container-executable)
+- [x] All paths repo-relative — the two `/home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md` references are the YOLO container's canonical coding-plugin doc location (verified present at that path in this environment); not host-absolute, not `~/`. Note: `dark-factory config` was not runnable here (CLI not installed), so mounts were assessed from `.dark-factory.yaml` (`workflow: direct`, no explicit mounts, default `/workspace`). All prompt paths are repo-relative, so no portability risk.
+- [x] No bare `git ` commands in `<verification>` when git masked — N/A: `.dark-factory.yaml` is `workflow: direct`, no `hideGit: true`; and the only `git` mention in the prompt is the constraint "Do NOT commit — dark-factory handles git." (line 145), which is a prohibition, not a command
+- [x] No operator-only commands in `<verification>` — verified by grep: no docker/kubectl/`make buca`/`dark-factory`/`scripts/*.sh`/`gh` in verification or requirements
+- [x] File in `prompts/` inbox (not `prompts/in-progress/`)
+- [x] Filename not prefixed with dark-factory global number — `1-spec-001-sentry-read-event-payload.md` matches the allowed multi-prompt ordering pattern `^[1-9]-spec-\d{3}-.*\.md$` (sibling `2-` prompt confirmed present)
+- [x] Filename reflects primary change — `spec-001-sentry-read-event-payload` is the spec slug; content matches the spec's scope
+- [x] Status is `draft` (valid), frontmatter only has `spec`/`status`/`created`, `spec` uses canonical full-slug form
+
+## Failure Mode Coverage
+- [x] Spec failure modes addressed in requirements — all 8 table rows mapped:
+  - 404 → `no events` (req 3), 401/403 → `auth` (req 3), timeout → `timeout` (req 3), malformed/truncated + missing exception → `no exception entry` (req 4), metadata endpoint fails → non-zero unchanged (req 2), large payload → ≤30 frames (req 4), concurrency → per-invocation `mktemp` temp file, no shared state (req 3), clock skew → N/A
+- [x] Security concerns from spec addressed — input validation (`[0-9]+` before URL interpolation, req 1 bullet), credential handling (Bearer header only, never printed), trust-boundary (python parses read-only, three scalar fields only, req 4), PII (constraint + req 4), hangs/retries (`--max-time 30` on both GETs), rate limiting (429 → `fetch failed` marker)
+- [x] External calls have timeout/cancellation behavior specified — both GETs carry `--max-time 30`; event fetch guarded under `set +e`/`set -e` so it cannot fail the run
+- [x] New constants / strings that flow through library validators have a test calling the validator — the marker strings and frame format are asserted by sibling prompt `2-spec-001-...md` (404/no-events, 401/auth, no-exception, 30-cap, no-PII, bare-id). I executed the inlined python against a 40-frame fixture: output matches sibling prompt 2's exact assertion regexes (`bar1.go:41 in Func1`, 30 lines, `bar31.go` absent, no sentinel, no JSON keys). Gap: `timeout` (curl exit 28), generic `fetch failed`, and malformed-JSON branches have no contract test — see Recommendations
+- [x] No `go mod vendor` in requirements or verification (grep confirmed none)
+- [x] No cross-repo writes — no `git clone`/`push`/`gh pr create` anywhere in the prompt (grep confirmed); git remote unverifiable here (sandbox masks `.git`) but irrelevant since no git operations are instructed
+- [x] Container-autonomous — no kubectl/kubectlquant, no deploy/rollout, no "observe pods/logs", no operator-vs-agent split; the work is pure file edits + build checks. The operator-side live checks correctly live in the spec's "Operator-executable" Verification section, not the prompt
+- [x] Sibling entry points covered — N/A for Go (no Go code touched; `Bash(scripts/sentry-read.sh:*)` contract in `k8s/*.yaml` and `pkg/preflight/preflight.go` is unchanged since the path/name don't change). No other script duplicates the id-extraction logic (grep for the sed pattern returned nothing in `scripts/`)
+
+## Documentation Placement
+- [x] No inlined reusable patterns (>10 lines) that should be in a doc — the inlined bash/python is the concrete feature implementation, not a reusable generic pattern; ~70 lines total, far under the 200-line volume threshold; no pattern collision (bash script change; the Go-specific collision checks are N/A). Inlining here is good practice: it pins exact behavior and is verified executable
+- [x] Existing project docs referenced in `<context>` where relevant — `docs/` contains only `claude-oauth-setup.md`/`creating-claude-agents.md`, neither relevant to bash scripts; changelog-guide is correctly referenced
+- [x] Existing coding plugin docs referenced — `changelog-guide.md` is referenced in `<context>` (line 31) and req 6
+- [x] Domain knowledge that outlives the prompt is in docs — the Sentry event schema detail is spec-owned; the prompt correctly defers to the spec rather than inlining knowledge other prompts will need
+
+## Code Reference Verification
+| Reference | File | Status |
+|-----------|------|--------|
+| Id-extraction sed line + comment "Extract a numeric issue id from a URL like .../issues/1234567890/ or accept a bare id." | `scripts/sentry-read.sh:29-30` | Verified — matches verbatim |
+| "single GET" header claim to correct | `scripts/sentry-read.sh:14` | Verified — header says "single GET"; req 5 corrects it to two GETs |
+| Seven `printf` metadata lines + order | `scripts/sentry-read.sh:41-47` | Verified — short_id, status, live_event_count, first_seen, last_seen, users_impacted, title |
+| Usage check `usage: sentry-read.sh <issue-url-or-id>` + `exit 2` | `scripts/sentry-read.sh:24-27` | Verified |
+| `mktemp` + `trap 'rm -f ...' EXIT` and `python3 -c '...' "${file}"` / `sys.argv[1]` pattern | `scripts/sentry-create-tasks.sh:29-31, 63-83` | Verified |
+| Spec contract DB1–DB5, Failure Modes, Security, AC1–AC5 | `specs/in-progress/001-sentry-read-event-payload.md` | Verified — prompt's decision tree and marker strings match the spec's failure-mode table; classification is spec-derived, not author-invented |
+| Sibling mock-API test assertions | `prompts/2-spec-001-sentry-read-event-payload.md` | Verified — executed the inlined python against the sibling's 40-frame fixture; byte-for-byte output matches its regexes |
+| `changelog-guide.md` `## Unreleased` placement | `/home/node/.claude/plugins/marketplaces/coding/docs/changelog-guide.md` | Verified — file exists; placement rule matches; repo's CHANGELOG currently has no `## Unreleased` (confirmed) |
+| `Bash(scripts/sentry-read.sh:*)` tool contract | `k8s/*.yaml`, `pkg/preflight/preflight.go` | Unchanged (path/name not modified) — no doc/config reference becomes stale |
+
+## Coding Guidelines Compliance
+| Guideline | File | Status |
+|-----------|------|--------|
+| Go guidelines (error wrapping, factories, handlers, time-injection) | `go-*.md` | N/A — no Go code in this prompt |
+| Test-only package-level mutable state | `go-composition.md` | N/A |
+| Bash style parity (set -euo pipefail, curl -fsS --max-time 30, Bearer header, mktemp+trap, python3 -c) | `scripts/sentry-read.sh` / `scripts/sentry-create-tasks.sh` | Compliant — req 1/3/4 explicitly mirror existing repo patterns |
+| `make precommit` scope | `Makefile.precommit` | Correct — single Go module at repo root; precommit (ensure/format/generate/test/check/addlicense) does not run shellcheck but keeps Go green as claimed |
+
+## YAGNI Pass (scope-creep detector)
+- [x] No opt-out flag for the very behavior the prompt ships — the constraints (line 142) explicitly reject "a frame-count cap knob, an opt-out flag for the event fetch, or any retry/backoff logic — the cap is fixed at 30 and the fetch is always attempted". This is the spec's Non-goal restated, and it is exactly the YAGNI guard the auditor would otherwise demand
+- [x] Every config field / threshold / branch is demanded by the spec — the only classification addition beyond the spec table is the catch-all `fetch failed` reason, which is required for completeness (Sentry 429 / 5xx on `events/latest` must map somewhere; the spec's Security section implies it). Not scope creep
+- [x] No "future-proofing" knobs without a named consumer
+
+## Critical Issues
+None. All required sections present, all code references verified accurate, all spec failure modes and security items addressed across the prompt batch, no container-autonomy / hideGit / cross-repo / vendor violations, and the inlined implementation was executed and matches the sibling test's contract.
+
+## Recommendations
+1. **30-frame cap prose/code mismatch (req 4).** The inline program applies the cap to the RAW frames list first (`for frame in frames[:30]:`), then skips non-numeric `lineno`. The prose says the cap is "the first 30 frames from `stacktrace.frames` AFTER skipping frames without a numeric `lineno`", which implies filter-then-cap — a different iteration order. I demonstrated the divergence: with a mixed fixture (some of the first 30 frames lacking `lineno`), the code emits fewer than 30 frames even though numeric frames exist later, while the prose would emit up to 30. Both prompts' fixtures are all-numeric so tests pass either way, and the spec DB3 wording is genuinely ambiguous, but the prompt contradicts its own load-bearing code. Suggest replacing:
+   - Old: "The 30-frame cap is the first 30 frames from `stacktrace.frames` AFTER skipping frames without a numeric `lineno`; the header `stack_trace=<N> frames` reports N = the number of emitted frame lines (N ≤ 30)."
+   - New: "The 30-frame cap takes the first 30 frames from `stacktrace.frames` and then skips any lacking a numeric `lineno` (matching the inline program); the header `stack_trace=<N> frames` reports N = the number of emitted frame lines (N ≤ 30)."
+
+2. **Prompt 1 ships no behavioral test and does not reference its test sibling.** `<requirements>` changes `scripts/sentry-read.sh` and `<verification>` only checks syntax + Go-suite green; the behavioral verification (AC1–AC5) is entirely delegated to sibling prompt `2-spec-001-sentry-read-event-payload.md`. This is fine per the spec's decomposition, but prompt 1 alone reads as "changes code with no tests" (the DoD's test-coverage warning trigger). Suggest adding one line to req 7 or `<verification>`: "The deterministic AC1–AC5 contract test ships in sibling prompt `2-spec-001-sentry-read-event-payload.md` (same spec batch); this prompt's verification is intentionally syntax + Go-suite only." Also consider flagging in the spec that the two prompts should ship as a batch before release (atomic-batch constraints belong in the spec per the global conventions).
+
+3. **Timeout / generic `fetch failed` / malformed-JSON marker branches have no contract test.** Sibling prompt 2 covers `no events`, `auth`, `no exception entry`, the 30-cap, and no-PII, but not the `timeout` (curl exit 28), generic `fetch failed`, or malformed-JSON degradation paths. These are graceful-degradation strings, so severity is low, but they are the exact class of "marker string crossing the subprocess/stdout boundary" the boundary-contract rule targets. Suggest adding to the sibling test a hanging stub with a short `--max-time` override (e.g. `--max-time 1`) to exercise the `timeout` branch, and a malformed-JSON fixture for `no exception entry`; if that is deemed too fiddly, note explicitly that these branches are covered only by the operator live check.
+
+4. **Spec-side doc gap (out of prompt scope, for the spec author).** The spec cites `docs/rules/scenario-writing.md` ("When to Write a Scenario") and asserts "existing scenario 001" exists — `docs/rules/` does not exist in this repo and `scenarios/001-sentry-issue-happy-path.md` is present (so the scenario claim is true, but the cited rules doc is missing). Not a prompt defect; the prompt correctly does not reference it.
+
+## Strengths
+- Load-bearing implementation is inlined verbatim (id-extraction block, curl guard, python frame extractor) and I verified each by execution: bare-id/URL/garbage argument handling and the 40-frame fixture output match the spec DB1/DB3 and sibling prompt 2's assertion regexes exactly.
+- Anchoring is exemplary: req 1 pins the exact existing sed line + comment text and shows old→new, avoiding line-number drift.
+- Cross-prompt contract consistency is real, not just claimed — the marker strings and frame format are identical between prompt 1's code and prompt 2's grep assertions.
+- Constraints are faithfully copied from the spec (agent has no memory), include "do NOT commit", and actively YAGNI-guard the cap-knob/opt-out/retry escapes.
+- Verification is strictly container-executable; the operator-only live checks correctly remain in the spec's operator ladder rather than leaking into the prompt.
+
+## Summary
+This is a high-quality, well-scoped prompt with a complete DoD structure, fully verified code references, and cross-prompt test coverage in its sibling. The two marker branches (`timeout`, `fetch failed`) lack a contract test and req 4's cap-ordering prose contradicts its own inline code, but neither threatens the shipped behavior. Recommended action: apply Recommendation 1's find/replace (prose alignment) and add the sibling cross-reference from Recommendation 2 before approving; no critical blockers.
+
+Relevant files (absolute paths): `/workspace/prompts/1-spec-001-sentry-read-event-payload.md`, `/workspace/prompts/2-spec-001-sentry-read-event-payload.md`, `/workspace/specs/in-progress/001-sentry-read-event-payload.md`, `/workspace/scripts/sentry-read.sh`, `/workspace/scripts/sentry-create-tasks.sh`, `/workspace/.dark-factory.yaml`, `/workspace/Makefile.precommit`, `/workspace/CHANGELOG.md`.
+
+### prompts/2-spec-001-sentry-read-event-payload.md
+
+# Prompt Audit Report: Add a deterministic mock-API test for the Sentry read script
+
+**File**: `/workspace/prompts/2-spec-001-sentry-read-event-payload.md`
+**Score**: 8/10
+**Status**: Good — one localized critical wording bug, otherwise exemplary
+
+## DoD Checklist
+- [x] `<summary>` present and plain-language (6 bullets, observable outcomes; minor format-string jargon — see Recommendations)
+- [x] `<objective>` states end state, not steps (1 sentence, what + why)
+- [x] `<context>` present; references only existing files; correctly states "no project-level CLAUDE.md" (verified — no `/workspace/CLAUDE.md`)
+- [x] `<requirements>` numbered and specific (5 steps, exact file paths, command forms)
+- [x] `<constraints>` present, copied from spec (frozen 7-key order, 30-frame cap with "no cap knob", no-PII, dummy token `x`, "Do NOT commit", existing tests stay green)
+- [x] `<verification>` present with runnable container-executable commands (`bash -n`, `bash scripts/test-sentry-read.sh`, `make precommit`)
+- [x] All paths repo-relative (`scripts/sentry-read.sh`, `scripts/sentry-create-tasks.sh`, `specs/in-progress/001-sentry-read-event-payload.md` — all verified to exist). No `/Users/`, `/home/`, `~/`, or `$HOME` paths anywhere (grep-verified).
+- [x] No bare `git ` commands in `<verification>` or `<requirements>` (grep-verified). Note: `.dark-factory.log` shows `hideGit=true` is active (source=arg), so git is masked in the container — but the prompt contains zero git commands, so no violation.
+- [x] No operator-only commands in `<verification>` (`docker`, `make buca`, `dark-factory`, `kubectl*`, `scripts/*.sh`, `gh ...` — grep-verified clean)
+- [x] File in `prompts/` inbox, not `prompts/in-progress/` (verified — `prompts/in-progress/` is empty)
+- [x] Filename not prefixed with dark-factory global number; `2-spec-001-...` matches the allowed multi-prompt ordering pattern `^[1-9]-spec-\d{3}-.*\.md$` (sibling `1-spec-001-...` exists)
+- [x] Filename reflects primary change (deterministic mock-API test; matches `<objective>`/`<summary>`)
+- [x] `status: draft` (valid inbox status)
+- [x] Frontmatter: `spec: ["001-sentry-read-event-payload"]` canonical full-slug form, only `spec`/`status`/`created` fields — compliant
+
+## Failure Mode Coverage
+- [x] Spec failure triggers addressed across the prompt set (spec's Suggested Decomposition: prompt 1 implements, prompt 2 tests):
+  - 404 no events → req 4 `out_404` → `stack_trace unavailable (no events)` ✓
+  - 401/403 auth → req 4 `out_auth` → `stack_trace unavailable (auth)` ✓
+  - no exception entry → req 4 `out_noexc` → `stack_trace unavailable (no exception entry)` ✓ (fixture 456 drives the extraction-empty path)
+  - timeout → implemented in sibling prompt 1 (curl rc 28 → `timeout`); not fixture-tested (see Recommendations)
+  - metadata-fetch failure → explicitly preserved in sibling prompt 1 req 2 ("do not touch"); unchanged existing behavior, not re-tested (acceptable per scope note)
+- [x] Security concerns from spec addressed: no-PII invariant asserted (AC5 greps), dummy non-secret token `x` required by constraint, no input-interpolation surface changed (test-only)
+- [x] External calls have timeout/cancellation: fixture binds 127.0.0.1 ephemeral port, harness port-poll is bounded (50 × 0.1 s), script-under-test carries `--max-time 30`; no unbounded loops
+- [x] Boundary-contract tests: this prompt IS the boundary test — it drives the real script through a real local HTTP server (subprocess + HTTP + exit-code boundaries). Level-2 integration testing of the exact output contract; fixture 123's 40 frames exercise the 30-cap, `RAW-CONTEXT-SENTINEL` exercises the no-PII invariant
+- [x] No `go mod vendor` in `<requirements>`/`<verification>` (grep-verified)
+- [x] No cross-repo writes: no `git clone`/`git push`/`gh pr` anywhere (grep-verified)
+- [x] Container-autonomous: fully executable by the container agent (bash + python3 + curl, all in the image per Dockerfile `RUN apk --no-cache add ... bash ... curl python3 ...`); no operator steps, no operator/agent split, no cluster access needed
+- [x] Sibling entry points: N/A — creates a new `scripts/test-sentry-read.sh`; no existing gate/setup function is modified. The prompt correctly guards its dependency on sibling prompt 1 (`sentry-read.sh` must already contain the `events/latest` fetch, else STOP — a correct fail-loud sequencing sentinel)
+
+## Documentation Placement
+- [x] No inlined reusable patterns (>10 lines): the fixture server and harness are described, not inlined as copyable blocks; the only inlined snippets are small assertion one-liners specific to this test
+- [x] Existing project docs referenced in `<context>`: the spec (behavioral contract AC1–AC5, Verification §) is cited; `scripts/sentry-create-tasks.sh` cited as the style reference for `mktemp`/`trap`/`python3 -c '...'`
+- [x] Coding plugin docs: N/A — no Go code in this prompt (bash-only test); no changelog doc needed since req 5 explicitly forbids a CHANGELOG entry
+- [x] Domain knowledge (output contract, fixture shapes) lives in the spec, not inlined
+
+## Code Reference Verification
+| Reference | File | Status |
+|-----------|------|--------|
+| `scripts/sentry-read.sh` (script under test; dependency guard) | `/workspace/scripts/sentry-read.sh` | Verified — exists; currently does NOT yet contain `events/latest` fetch (pre-prompt-1 state), so the context's "STOP if out of order" guard is correct |
+| `scripts/sentry-create-tasks.sh` (style: `mktemp`+`trap`, `python3 -c '...'`+`sys.argv[1]`) | `/workspace/scripts/sentry-create-tasks.sh` | Verified — lines 29-31, 63-83 match the described pattern exactly |
+| `specs/in-progress/001-sentry-read-event-payload.md` (AC1–AC5, Verification §, Failure Modes) | `/workspace/specs/in-progress/001-sentry-read-event-payload.md` | Verified — AC/DB/failure-table text matches every assertion in the prompt |
+| Dockerfile `apk ... bash ... curl python3` claim (context line 32) | `/workspace/Dockerfile` | Verified — `RUN apk --no-cache add ca-certificates curl bash git python3 nodejs npm` |
+
+## Coding Guidelines Compliance
+| Guideline | File | Status |
+|-----------|------|--------|
+| Go patterns / error wrapping / testing | (all `go-*.md`) | N/A — no Go code in this prompt; `make precommit` keeps the Go suite green unchanged |
+| Bash style parity with repo (`set -euo pipefail`, `mktemp` + `trap 'rm -f ...' EXIT`, `python3 -c '...' "${file}"`) | `/workspace/scripts/sentry-create-tasks.sh` | Compliant — req 1 and context 28 explicitly mirror the repo's established style |
+| Container-executable dependencies (busybox provides `paste`, `tr`, `grep`, `sed`, `printf`, `mktemp`; python3/curl in image) | `Dockerfile` | Compliant — all assertion-tool commands (`grep`, `paste`, `tr`, `printf`) are busybox coreutils, present in the alpine image |
+
+## YAGNI Pass (scope-creep detector)
+- [x] No opt-out flag or escape hatch negating the spec Goal — the 30-frame cap is explicitly "fixed at 30 (no cap knob)" (constraint line 74)
+- [x] Every fixture (123/456/789/999) maps to a spec failure mode or AC — no invented variations
+- [x] No tunable thresholds, no future-proofing knobs, no unrequested configurability. The `RAW-CONTEXT-SENTINEL` and `bar{n}.go` values are test fixtures, not knobs
+- [x] No test cases exercising a non-existent opt-out path
+
+## Critical Issues
+
+**1. Negative `grep -q` assertions written in bare form will spuriously abort the harness under its own `set -euo pipefail`.**
+- Location: requirement 3, lines 58 and 59.
+- Old text (line 58): `and the 31st+ frame files are absent (e.g. \`grep -q 'bar31.go'\` must fail)`
+- Old text (line 59): `no quoted JSON keys on stdout — \`grep -qE '"context"|"frames"|stacktrace'\` must fail — and the sentinel from the fixture's \`context\` arrays (e.g. \`RAW-CONTEXT-SENTINEL\`) must not appear in stdout.`
+
+Requirement 1 declares the harness runs `set -euo pipefail`. A bare `grep -q 'bar31.go'` that finds no match exits 1, and — being a standalone command (not inside `if`/`&&`/`!`) — triggers `set -e`, aborting the whole harness. The result: every time the assertion *passes* (31st frame absent), the test dies with a non-zero exit, so the suite can never go green. Same for `grep -qE '"context"|"frames"|stacktrace'` on line 59. A careful executor may infer the negation, but the prompt presents the bare form as the example, so it is exactly the verbatim-copy foot-gun this audit exists to catch.
+
+**Fix (find/replace):**
+- Replace line 58 with:
+  `and the 31st+ frame files are absent (e.g. \`! grep -q 'bar31.go' <<< "$out_bare"\` — note the \`!\` negation: a bare \`grep -q\` that finds nothing exits 1 and would abort the harness under its \`set -e\`)`
+- Replace line 59 with:
+  `no quoted JSON keys on stdout — \`! grep -qE '"context"|"frames"|stacktrace' <<< "$out_bare"\` (same \`!\` negation caveat as above) — and the sentinel from the fixture's \`context\` arrays (e.g. \`RAW-CONTEXT-SENTINEL\`) must not appear in stdout.`
+
+## Recommendations
+
+1. **Coverage of the `fetch failed` classification branch (Recommendation, non-blocking).** Prompt 1's decision tree has four failure reasons (`timeout`, `no events`, `auth`, `fetch failed`) plus the no-exception marker; this harness only exercises `no events` (789/404), `auth` (999/401), and no-exception (456). A cheap 500-status stub (e.g. issue `555` → `/events/latest/` returns 500) would exercise the `stack_trace unavailable (fetch failed)` branch that currently ships untested. The `timeout` branch (curl rc 28) is impractical to fixture deterministically (needs a hang longer than `--max-time 30`) and is reasonably left untested — worth a one-line comment stating that choice.
+
+2. **Metadata-before-stack-trace position is not asserted (Recommendation).** The AC1 order check (req 3) extracts the 7 metadata keys in their *relative* line order, but never asserts the metadata block precedes the `stack_trace`/frame block or the failure marker. AC4's "never suppresses or reorders the metadata block" would survive a reordering regression. Cheap fix: assert line 1 is `short_id=*` and that the `stack_trace` header/marker line number is > 7 (e.g. `[ "$(printf '%s\n' "$out_bare" | sed -n '1p' | grep -c '^short_id=')" -eq 1 ]`).
+
+3. **Fixture path routing underspecified (Recommendation).** Requirement 2 says "The server routes on the request path" without pinning the exact path match (metadata endpoint `/api/0/organizations/test/issues/{id}/` vs `/issues/{id}/events/latest/`, and how the issue id is keyed). Since the harness also validates that `SENTRY_URL=http://127.0.0.1:${PORT}` + `SENTRY_ORG=test` produce those paths, pinning two explicit route patterns (e.g. `path.endswith('/events/latest/')` → event fixture keyed by id in path; else metadata fixture) removes the only remaining executor guess.
+
+4. **Minor: summary bullet 2 uses `file:line in function` / `stack_trace unavailable` markers.** These are the observable output contract, so acceptable, but they are format-level jargon for a "plain-language, human reviewer" summary. Consider "frame lines in `file:line` format" if a rewrite is convenient. Non-blocking.
+
+## Strengths
+- Correctly scoped as a test-only prompt: constraints forbid touching `sentry-read.sh`, Go code, CRD, preflight, and ALLOWED_TOOLS, matching the spec's Non-goals.
+- The harness design is the right shape for the boundary rule: it drives the real script through a real local HTTP server (subprocess + HTTP + exit-code boundaries), with a bounded port poll and loud named-FAIL failures — a genuine level-2 integration contract test of AC1–AC5.
+- All fixture values and assertions are mutually consistent and mentally compilable: fixture 123's 40 frames with `lineno=40+i` produce exactly `bar1.go:41 in Func1` … `bar30.go:70 in Func30`, so the `grep -c '^[^=]+:[0-9]+ in ' == 30`, `grep '^bar1.go:41 in Func1$'`, and `grep -q 'bar31.go'` (absent) assertions line up; the `stack_trace=30 frames` header does not collide with the `stacktrace` (no underscore) no-PII regex.
+- The dependency guard on sibling prompt 1 ("if the script does NOT yet contain an events/latest fetch, STOP") is a correct fail-loud sequencing sentinel, and the byte-identity AC3 assertion is sound because both invocations resolve to the identical URL.
+- Container-autonomy is airtight: everything runs with image-provided tools on 127.0.0.1, no git, no Docker socket, no operator handoff, no cross-repo writes.
+
+## Summary
+An exemplary, well-scoped, container-autonomous test-locking prompt whose assertions are mutually consistent with the spec and the fixture design. One localized critical wording bug — the two negative `grep -q ... must fail` assertions, written bare under the harness's own `set -euo pipefail`, will abort the harness on the passing path — must be fixed (add `!` negation) before approval; the remaining findings are optional coverage and specificity improvements. Priority action: apply the Critical Issue find/replace on requirement 3 lines 58-59, then approve.
+
+Relevant files: `/workspace/prompts/2-spec-001-sentry-read-event-payload.md`, `/workspace/prompts/1-spec-001-sentry-read-event-payload.md`, `/workspace/specs/in-progress/001-sentry-read-event-payload.md`, `/workspace/scripts/sentry-read.sh`, `/workspace/scripts/sentry-create-tasks.sh`, `/workspace/.dark-factory.yaml`, `/workspace/.dark-factory.log`.
+
+---
+
+**Note:** Per the command instructions, I did not retry, rewrite, or merge prompts based on audit findings — the human reviewer owns that decision. Both prompt files remain in `prompts/` unchanged, and the spec stays at its current status (`approved`; the `mark-prompted` transition was intentionally skipped because `DARK_FACTORY_MANAGED=true`). | duration: 371201ms | cost: $4.3741 | tokens: 401 in / 10384 out
