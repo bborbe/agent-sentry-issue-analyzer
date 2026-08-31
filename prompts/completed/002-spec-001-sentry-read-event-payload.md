@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [001-sentry-read-event-payload]
+summary: Added scripts/test-sentry-read.sh, a deterministic mock-API test harness that drives scripts/sentry-read.sh against an embedded python3 fixture server on 127.0.0.1 and asserts the frozen AC1-AC5 output contract (7 metadata keys in order, file:line in function frames, fixed 30-frame cap, no-PII invariant, bare-id/URL equivalence, and failure markers), verified by bash -n, the harness run, and make precommit (exit 0).
+execution_id: agent-sentry-issue-analyzer-sc1-exec-002-spec-001-sentry-read-event-payload
+dark-factory-version: dev
 created: "2026-09-01T12:00:00Z"
 queued: "2026-08-31T22:39:05Z"
+started: "2026-08-31T22:44:17Z"
+completed: "2026-08-31T22:50:29Z"
 branch: dark-factory/sentry-read-event-payload
 ---
 
