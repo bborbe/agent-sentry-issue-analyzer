@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: `scripts/sentry-read.sh` now fetches the latest event after the metadata block and emits up to 30 `file:line in function` stack trace frames (basename of `abs_path`/`filename`, `lineno`, `function`; first exception value only) under a `stack_trace=<N> frames` header, degrading to a single best-effort `stack_trace unavailable (<reason>)` line when the event fetch fails or the event has no exception — the event fetch never fails the run, only the metadata fetch still does
+- fix: `scripts/sentry-read.sh` accepts a bare numeric issue id (e.g. `5192501045`) exactly like a full `.../issues/1234567890/` URL — previously a bare id fell through the URL extraction and errored out with `could not extract a numeric Sentry issue id`
+
 ## v0.7.4
 
 - fix: create-tasks derives `stage` per alert instead of stamping a uniform default — `buildCreateCommand` now derives the frontmatter `stage` from the alert's `short_id` prefix (`NUKE-PROD-*` → `prod`, `NUKE-DEV-*` → `dev`) or its project slug (`nuke-prod`/`nuke-dev`), falling back to the `--stage` default only when neither matches; previously every task got the global `dev` default, silently mislabeling NUKE-PROD issues as dev for any stage-filtering consumer (2026-08-29)
