@@ -1,0 +1,90 @@
+time=2026-09-01T14:15:28.429+02:00 level=INFO msg="effective config" maxContainers=8 maxContainersSource=global containerImage=docker.io/bborbe/claude-yolo:v0.15.0 model=deepseek-v4-flash[1m] modelSource=global workflow=direct workflowSource=project pr=false prSource=project autoRelease=false autoReleaseSource=arg autoMerge=false autoMergeSource=project verificationGate=false validationCommand="make precommit" testCommand="make test" debounceMs=500 hideGit=true hideGitSource=arg autoApprovePrompts=false autoApprovePromptsSource=default autoGeneratePrompts=true autoGeneratePromptsSource=project dirtyFileThreshold=0 dirtyFileThresholdSource=default promptsInboxDir=prompts promptsInProgressDir=prompts/in-progress promptsCompletedDir=prompts/completed promptsLogDir=prompts/log preflightCommand="make precommit" preflightInterval=8h healthcheckEnabled=true healthcheckEnabledSource=default healthcheckInterval=8h healthcheckIntervalSource=default backend=docker backendSource=default envFromGlobal=[] envProjectOverrides="[ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_DEFAULT_FABLE_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL]" envProjectOnly=[]
+time=2026-09-01T14:15:28.430+02:00 level=INFO msg="watching for queued prompts" dir=prompts/in-progress
+time=2026-09-01T14:15:28.430+02:00 level=INFO msg="preflight: running baseline check" command="make precommit"
+time=2026-09-01T14:15:52.580+02:00 level=INFO msg="preflight: baseline check passed"
+time=2026-09-01T14:15:52.580+02:00 level=INFO msg="healthcheck startup gate starting"
+time=2026-09-01T14:15:52.581+02:00 level=INFO msg="healthcheck probe starting" probe=docker
+time=2026-09-01T14:15:52.620+02:00 level=INFO msg="healthcheck probe passed" probe=docker
+time=2026-09-01T14:15:52.620+02:00 level=INFO msg="healthcheck probe starting" probe=image
+time=2026-09-01T14:15:52.681+02:00 level=INFO msg="healthcheck probe passed" probe=image image=docker.io/bborbe/claude-yolo:v0.15.0
+time=2026-09-01T14:15:52.681+02:00 level=INFO msg="healthcheck probe starting" probe=boot
+time=2026-09-01T14:15:53.360+02:00 level=INFO msg="healthcheck probe passed" probe=boot container=agent-sentry-issue-analyzer-e2e-healthcheck-boot-82f0af733ea4f941
+time=2026-09-01T14:15:53.360+02:00 level=INFO msg="healthcheck probe starting" probe=claude
+time=2026-09-01T14:15:57.456+02:00 level=INFO msg="healthcheck probe passed" probe=claude container=agent-sentry-issue-analyzer-e2e-healthcheck-claude-5536e0d021a8603c
+time=2026-09-01T14:15:57.456+02:00 level=INFO msg="healthcheck probe starting" probe=mount
+time=2026-09-01T14:15:57.777+02:00 level=INFO msg="healthcheck probe passed" probe=mount container=agent-sentry-issue-analyzer-e2e-healthcheck-mount-60ffbd477d21c0e0
+time=2026-09-01T14:15:57.777+02:00 level=INFO msg="healthcheck startup gate ok" elapsed=5.19673675s
+time=2026-09-01T14:15:57.777+02:00 level=INFO msg="processor started"
+time=2026-09-01T14:15:57.778+02:00 level=INFO msg="watcher started" dir=/Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-e2e/prompts/in-progress
+time=2026-09-01T14:15:57.778+02:00 level=INFO msg="spec watcher started" dir=/Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-e2e/specs/in-progress
+time=2026-09-01T14:15:57.778+02:00 level=INFO msg="spec file created in in-progress, triggering generation" path=/Users/bborbe/Documents/workspaces/agent-sentry-issue-analyzer-e2e/specs/in-progress/001-sentry-analyzer-repo-map-and-lineno-less-frames.md
+time=2026-09-01T14:16:02.783+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:17:07.781+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:18:07.781+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:19:12.781+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:20:17.781+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:21:17.782+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:22:22.781+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:23:22.782+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:24:22.784+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:25:27.785+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:26:32.786+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:27:37.785+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:27:57.785+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:28:37.786+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:28:57.785+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:29:42.786+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:29:57.785+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:30:42.786+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:30:57.786+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:31:42.787+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:31:57.786+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:32:47.786+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:32:57.786+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:33:47.787+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:33:57.786+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:34:52.787+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:34:57.787+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:35:57.787+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:35:57.787+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:36:57.787+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:37:02.787+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:37:57.787+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:38:02.788+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:38:57.787+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:39:02.788+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:39:57.787+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:40:07.788+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:40:57.788+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:41:07.789+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:41:57.788+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:42:12.789+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:42:57.788+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:43:12.789+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:43:57.794+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:44:12.790+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:44:57.789+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:45:17.789+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:45:57.791+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:46:17.790+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:46:57.789+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:47:17.790+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:47:57.789+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:48:22.791+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:48:57.794+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:49:22.795+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:49:57.795+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:50:27.794+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:50:57.797+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:51:27.794+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:51:57.795+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:52:27.795+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-01T14:52:57.795+02:00 level=INFO msg="swept prompted specs to verifying" transitioned=1
+time=2026-09-01T14:53:02.479+02:00 level=INFO msg="lock acquired" prompt_id=001-spec-001-sentry-read-frame-contract.md
+time=2026-09-01T14:53:02.479+02:00 level=INFO msg="found queued prompt" prompt_id=001-spec-001-sentry-read-frame-contract.md
+time=2026-09-01T14:53:02.482+02:00 level=INFO msg="executing prompt" prompt_id=001-spec-001-sentry-read-frame-contract spec_id=001-sentry-analyzer-repo-map-and-lineno-less-frames container="" workflow_type=direct title=001-spec-001-sentry-read-frame-contract
+time=2026-09-01T14:53:02.484+02:00 level=INFO msg="syncing with remote default branch" prompt_id=001-spec-001-sentry-read-frame-contract spec_id=001-sentry-analyzer-repo-map-and-lineno-less-frames container="" workflow_type=direct
+time=2026-09-01T14:53:03.034+02:00 level=INFO msg="container assigned" prompt_id=001-spec-001-sentry-read-frame-contract spec_id=001-sentry-analyzer-repo-map-and-lineno-less-frames container="" workflow_type=direct container_old="" container=agent-sentry-issue-analyzer-e2e-exec-001-spec-001-sentry-read-frame-contract workflow_step=acquire_container
+time=2026-09-01T14:55:06.491+02:00 level=INFO msg="docker container exited" prompt_id=001-spec-001-sentry-read-frame-contract spec_id=001-sentry-analyzer-repo-map-and-lineno-less-frames container="" workflow_type=direct container=agent-sentry-issue-analyzer-e2e-exec-001-spec-001-sentry-read-frame-contract exit_code=0 workflow_step=run_claude
+time=2026-09-01T14:55:06.492+02:00 level=INFO msg="completion report" status=success summary="sentry-read.sh now emits stack trace frames for lineno-less frames, adds a distinct no-frames marker, and neutralises control chars; mock-API test extended to AC1-AC6 with 222/333 fixtures and passes"
+time=2026-09-01T14:55:06.503+02:00 level=INFO msg="moved to completed" prompt_id=001-spec-001-sentry-read-frame-contract spec_id=001-sentry-analyzer-repo-map-and-lineno-less-frames container="" workflow_type=direct container=agent-sentry-issue-analyzer-e2e-exec-001-spec-001-sentry-read-frame-contract

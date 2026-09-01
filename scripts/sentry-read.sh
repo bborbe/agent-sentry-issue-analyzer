@@ -9,10 +9,16 @@
 #   short_id, status, live_event_count, first_seen, last_seen, users_impacted, title
 # followed, best-effort, by the latest event's stack trace frames:
 #   stack_trace=<N> frames
-#   <file>:<line> in <function>        (at most 30 frames; <file> is a basename)
-# A failed, empty, or malformed event fetch degrades to exactly one
+#   <file>:<line> in <function>        (frame with a usable line number; at most
+#                                      30 frames; <file> is a basename)
+#   <basename> in <function>           (frame without a usable line number)
+# Frames are emitted whenever an exception entry carries at least one frame; an
+# exception entry with zero frames degrades to 'no frames'; no exception entry
+# degrades to 'no exception entry'. Every emitted frame value is single-line
+# (control characters are neutralised). A failed, empty, or malformed event
+# fetch degrades to exactly one
 #   stack_trace unavailable (<reason>)
-# line (reason: timeout | no events | auth | fetch failed | no exception entry)
+# line (reason: timeout | no events | auth | fetch failed | no frames | no exception entry)
 # and never fails the run — only a metadata fetch failure exits non-zero.
 #
 # Env: SENTRY_API_TOKEN (required, Bearer token), SENTRY_ORG (default bborbe),
@@ -86,33 +92,48 @@ fi
 if [ -n "${reason}" ]; then
   printf 'stack_trace unavailable (%s)\n' "${reason}"
 else
-  # HTTP 200: extract only filename/abs_path basename, lineno, function from the
-  # first exception value's frames — never context, never the raw payload.
+  # HTTP 200: three-state classification of the first exception value's frames —
+  # emit the frames (basename, lineno, function only — never context, never the
+  # raw payload) when at least one frame exists, 'no frames' when the exception
+  # entry has zero frames, 'no exception entry' when none exists.
   set +e
   frames="$(python3 -c '
-import json, sys, os
+import json, sys, os, re
 try:
     data = json.load(open(sys.argv[1]))
+    exception_found = False
     frames = []
     for entry in data.get("entries", []):
         if entry.get("type") == "exception":
+            exception_found = True
             values = entry.get("data", {}).get("values", [])
             if values:
-                frames = values[0].get("stacktrace", {}).get("frames", [])
+                frames = values[0].get("stacktrace", {}).get("frames", []) or []
             break
 except Exception:
     sys.exit(0)
-lines = []
+if not exception_found:
+    print("stack_trace unavailable (no exception entry)")
+    sys.exit(0)
+if not frames:
+    print("stack_trace unavailable (no frames)")
+    sys.exit(0)
+lineno_lines = []
+no_lineno_lines = []
 for frame in frames[:30]:
+    path = (frame.get("abs_path") or frame.get("filename") or "").strip()
+    func = (frame.get("function") or "unknown").strip()
+    # single-line: neutralise control chars so a crafted payload cannot inject lines
+    path = re.sub(r"[\x00-\x1f\x7f]+", " ", path).strip()
+    func = re.sub(r"[\x00-\x1f\x7f]+", " ", func).strip()
     lineno = frame.get("lineno")
-    if not isinstance(lineno, int):
-        continue
-    path = frame.get("abs_path") or frame.get("filename") or ""
-    func = frame.get("function") or "unknown"
-    lines.append("%s:%s in %s" % (os.path.basename(path), lineno, func))
-if lines:
-    print("stack_trace=%d frames" % len(lines))
-    print("\n".join(lines))
+    if isinstance(lineno, int):
+        lineno_lines.append("%s:%s in %s" % (os.path.basename(path), lineno, func))
+    else:
+        no_lineno_lines.append("%s in %s" % (os.path.basename(path), func))
+emitted = lineno_lines if lineno_lines else no_lineno_lines
+print("stack_trace=%d frames" % len(emitted))
+print("\n".join(emitted))
 ' "${event_body}")"
   frames_rc=$?
   set -e

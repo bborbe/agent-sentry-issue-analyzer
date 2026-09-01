@@ -3,17 +3,21 @@
 #
 # Serves fixture Sentry metadata + events/latest payloads from an embedded
 # python3 http.server bound to 127.0.0.1 on an ephemeral port, then drives the
-# script under test against http://127.0.0.1:<port> and asserts the AC1-AC5
-# output contract from specs/in-progress/001-sentry-read-event-payload.md:
+# script under test against http://127.0.0.1:<port> and asserts the AC1-AC6
+# output contract from specs/in-progress/001-sentry-analyzer-repo-map-and-lineno-less-frames.md:
 #   * 7 metadata keys in their frozen order (AC1)
 #   * <file>:<line> in <function> frame lines under a stack_trace=<N> frames
-#     header (AC2)
+#     header, and <basename> in <function> lines for frames without a usable
+#     line number (AC2; the lineno-less fixture on issue 222 locks both the
+#     lineno-less emission and the string-lineno schema-drift path)
 #   * a fixed 30-frame cap, with the 31st+ fixture frames absent (AC5)
 #   * no raw JSON keys, no fixture context sentinel on stdout (AC5 no-PII)
 #   * bare numeric id and full-URL invocations produce byte-identical output
 #     (AC3)
 #   * failure stubs (404 / no exception entry / 401) each emit exactly one
 #     'stack_trace unavailable (<reason>)' marker with the metadata intact (AC4)
+#   * an exception entry with zero frames emits 'no frames', distinct from
+#     'no exception entry' (AC6; empty-frames fixture on issue 333)
 #
 # Container-executable: python3 + curl + bash only; no external network, no
 # Docker socket, no real credentials (dummy SENTRY_API_TOKEN=x). Exits non-zero
@@ -102,6 +106,29 @@ class QuietHandler(BaseHTTPRequestHandler):
             self._send(404, {"detail": "no events"})
         elif issue == "999":
             self._send(401, {"detail": "invalid token"})
+        elif issue == "222":
+            # Lineno-less frames (real nuke shape: issue 6727724202). None has an
+            # integer lineno; frame 4 carries a string lineno ("42") to lock the
+            # schema-drift path; frame 5 carries a newline+equals in `function`
+            # to lock single-line stripping.
+            self._send(200, {"entries": [
+                {"type": "exception", "data": {"values": [
+                    {"stacktrace": {"frames": [
+                        {"filename": "kafka/coordinator/consumer.py", "abs_path": None, "lineno": None, "function": "_maybe_auto_commit_offsets_sync", "context": ["RAW-CONTEXT-SENTINEL line 1"]},
+                        {"filename": "kafka/protocol/fetch.py", "abs_path": None, "lineno": None, "function": "FetchRequest", "context": ["RAW-CONTEXT-SENTINEL line 2"]},
+                        {"filename": "kafka/consumer/group.py", "abs_path": None, "lineno": None, "function": "_poll_once", "context": ["RAW-CONTEXT-SENTINEL line 3"]},
+                        {"filename": "nuke/worker.py", "abs_path": None, "lineno": "42", "function": "sync_worker", "context": ["RAW-CONTEXT-SENTINEL line 4"]},
+                        {"filename": "nuke/backlog.py", "abs_path": None, "lineno": None, "function": "dispatch\nCOUNT=999", "context": ["RAW-CONTEXT-SENTINEL line 5"]},
+                    ]}}
+                ]}}
+            ]})
+        elif issue == "333":
+            # Exception entry whose first value's stacktrace has zero frames.
+            self._send(200, {"entries": [
+                {"type": "exception", "data": {"values": [
+                    {"stacktrace": {"frames": []}}
+                ]}}
+            ]})
         else:
             self._send(404, {"detail": "not found"})
 
@@ -241,4 +268,60 @@ if ! out_auth="$(bash "${SCRIPT}" 999 2>&1)"; then
 fi
 check_failure "AC4 auth (401)" "${out_auth}" "auth"
 
-echo "PASS: all AC1-AC5 assertions passed"
+# ---- AC2: lineno-less frames emitted truthfully (issue 222) ----
+if ! out_nolineno="$(bash "${SCRIPT}" 222 2>&1)"; then
+  fail "AC2 lineno-less fixture exited non-zero"
+fi
+key_count="$(printf '%s\n' "${out_nolineno}" | grep -cE '^(short_id|status|live_event_count|first_seen|last_seen|users_impacted|title)=' || true)"
+if [ "${key_count}" -ne 7 ]; then
+  fail "AC2 lineno-less fixture expected 7 metadata keys, got ${key_count}"
+fi
+nl_header="$(printf '%s\n' "${out_nolineno}" | grep -cE '^stack_trace=[1-9][0-9]* frames$' || true)"
+if [ "${nl_header}" -ne 1 ]; then
+  fail "AC2 lineno-less fixture expected exactly one 'stack_trace=<N> frames' header, got ${nl_header}"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^stack_trace=5 frames$'; then
+  fail "AC2 lineno-less fixture expected 'stack_trace=5 frames' header"
+fi
+nl_frames="$(printf '%s\n' "${out_nolineno}" | grep -cE '^[^=]+ in ' || true)"
+if [ "${nl_frames}" -ne 5 ]; then
+  fail "AC2 lineno-less fixture expected 5 'basename in function' frame lines, got ${nl_frames}"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^consumer.py in _maybe_auto_commit_offsets_sync$'; then
+  fail "AC2 lineno-less frame format mismatch (expected 'consumer.py in _maybe_auto_commit_offsets_sync')"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^worker.py in sync_worker$'; then
+  fail "AC2 string-lineno frame not treated as lineno-less (expected 'worker.py in sync_worker')"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -qE ':[0-9]+ in '; then
+  fail "AC2 lineno-less fixture leaked a ':line' frame"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -q 'no exception entry'; then
+  fail "AC2 lineno-less fixture emitted 'no exception entry' despite frames existing"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -q 'no frames'; then
+  fail "AC2 lineno-less fixture emitted 'no frames' despite frames existing"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -qE '"context"|"frames"|stacktrace'; then
+  fail "AC4 raw JSON keys leaked from lineno-less fixture"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -q 'RAW-CONTEXT-SENTINEL'; then
+  fail "AC4 fixture context sentinel leaked from lineno-less fixture"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^backlog.py in dispatch COUNT=999$'; then
+  fail "AC4 newline in frame function was not neutralised to a single line"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -q '^COUNT=999$'; then
+  fail "AC4 newline in frame function injected a standalone line"
+fi
+
+# ---- AC6: no-frames marker distinct from no-exception-entry (issue 333) ----
+if ! out_noframes="$(bash "${SCRIPT}" 333 2>&1)"; then
+  fail "AC6 no-frames stub exited non-zero"
+fi
+check_failure "AC6 no frames" "${out_noframes}" "no frames"
+if printf '%s\n' "${out_noframes}" | grep -q 'no exception entry'; then
+  fail "AC6 no-frames stub emitted 'no exception entry' instead of 'no frames'"
+fi
+
+echo "PASS: all AC1-AC6 assertions passed"

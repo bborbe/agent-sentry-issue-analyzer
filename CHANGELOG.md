@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: `scripts/sentry-read.sh` now emits the latest event's stack trace frames whenever an exception entry carries them — including when none have a usable line number (as `basename in function`) — emits the distinct `stack_trace unavailable (no frames)` marker for an exception entry with zero frames, reserves `stack_trace unavailable (no exception entry)` for events with no exception entry, and neutralises control characters in emitted frame values so every frame line stays single-line
+
 ## v0.8.0
 
 - feat: `scripts/sentry-read.sh` now fetches the latest event after the metadata block and emits up to 30 `file:line in function` stack trace frames (basename of `abs_path`/`filename`, `lineno`, `function`; first exception value only) under a `stack_trace=<N> frames` header, degrading to a single best-effort `stack_trace unavailable (<reason>)` line when the event fetch fails or the event has no exception — the event fetch never fails the run, only the metadata fetch still does
