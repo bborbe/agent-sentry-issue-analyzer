@@ -20,6 +20,8 @@ From the stack trace identify the implicated repo + file (`file.go:line`). Clone
 
 `Bash(scripts/repo-clone.sh clone <repo>)`
 
+Sentry projects `nuke-dev` and `nuke-prod` map to source repo `bborbe/nuke`; when the stack trace lacks a repo path (frames are external library code with no bborbe repo path), clone the mapped canonical repo `bborbe/nuke` before guessing a project-named variant like `nuke-dev`.
+
 where `<repo>` is the owner/name (e.g. `bborbe/agent-sentry-issue-analyzer`) or an https/git@ URL from the stack trace. The script emits `clone_path`, `head_sha`, `default_branch`, and leaves the whole tree read-only — you can Read/Grep every file but cannot modify, commit, or push.
 
 ### Step 3: Investigate the root cause in the clone

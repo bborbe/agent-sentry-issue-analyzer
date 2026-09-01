@@ -40,6 +40,12 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/repo-clone.sh log"))
 	})
 
+	It("planning prompt contains the nuke repo-mapping guidance", func() {
+		instrs := prompts.BuildPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("nuke-dev"))
+		Expect(instrs[0].Content).To(ContainSubstring("bborbe/nuke"))
+	})
+
 	It("planning prompt contains the ## Analysis section heading", func() {
 		instrs := prompts.BuildPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("## Analysis"))
@@ -163,6 +169,12 @@ var _ = Describe("BuildDeepPlanningInstructions", func() {
 		instrs := prompts.BuildDeepPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/sentry-read.sh"))
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/repo-clone.sh clone"))
+	})
+
+	It("deep planning prompt contains the nuke repo-mapping guidance", func() {
+		instrs := prompts.BuildDeepPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("nuke-dev"))
+		Expect(instrs[0].Content).To(ContainSubstring("bborbe/nuke"))
 	})
 
 	It("deep planning prompt writes the ## Context section", func() {

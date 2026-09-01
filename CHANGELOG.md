@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- feat: analyzer planning prompts (`planning.md`, `deep-planning.md`) now map Sentry projects `nuke-dev` / `nuke-prod` to source repo `bborbe/nuke` — when the stack trace lacks a repo path, the agent clones the mapped canonical repo before guessing project-named variants
 - fix: `scripts/sentry-read.sh` now emits the latest event's stack trace frames whenever an exception entry carries them — including when none have a usable line number (as `basename in function`) — emits the distinct `stack_trace unavailable (no frames)` marker for an exception entry with zero frames, reserves `stack_trace unavailable (no exception entry)` for events with no exception entry, and neutralises control characters in emitted frame values so every frame line stays single-line
 
 ## v0.8.0

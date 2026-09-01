@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [001-sentry-analyzer-repo-map-and-lineno-less-frames]
+summary: Anchored the nuke project→repo mapping (nuke-dev/nuke-prod → bborbe/nuke) in both analyzer planning prompts' clone steps, locked it with Go prompt-test assertions over the embed boundary, and added a CHANGELOG feat entry; full precommit gate passes.
+execution_id: agent-sentry-issue-analyzer-e2e-exec-002-spec-001-repo-mapping-guidance
+dark-factory-version: dev
 created: "2026-09-01T13:10:00Z"
 queued: "2026-09-01T12:53:01Z"
+started: "2026-09-01T12:55:07Z"
+completed: "2026-09-01T12:59:16Z"
 branch: dark-factory/sentry-analyzer-repo-map-and-lineno-less-frames
 ---
 
