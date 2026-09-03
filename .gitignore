@@ -5,3 +5,7 @@
 /run-task
 /cmd/run-task/run-task
 /vendor
+/.dark-factory.log
+/.dark-factory.lock
+/prompts/
+/specs/
