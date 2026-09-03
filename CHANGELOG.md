@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.9.1
 
 - fix: bump `golang.org/x/crypto` v0.55.0 -> v0.56.0, clearing `GO-2026-6354` and `GO-2026-6355` (DoS on deadlocked undecided/established channels in `golang.org/x/crypto/ssh`). `make precommit` failed at the `vulncheck` target on master, so the whole repo was unbuildable by the standard gate and the dark-factory daemon refused to start with `preflight baseline broken`. Dependency-only change: `go.mod` + `go.sum`, no source edits.
 
