@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the real-bug reassign now targets the live `sentry-analyzer-agent` Config CR instead of the deleted `sentry-deep-analyzer` one — `pkg/factory` passed a single task-type constant into both the `deepAssignee` and `deepTaskType` parameters of `NewReassignExecutionStep`, so every `verdict: real bug` since the 2026-08-26 4-CR→2-CR consolidation stamped an assignee that `agent-task-executor` cannot resolve, silently dropping the task (`skipped_unknown_assignee`) with no Job, no error, and no escalation. The assignee is now its own `assigneeSentryAnalyzerAgent` constant, `task_type` stays `sentry-deep-analyzer`, and a focused factory-level Ginkgo spec drives `CreateAgentFromRunner` end-to-end with a real-bug verdict so the two values cannot be re-conflated unnoticed (third occurrence of this bug class in this repo; the `create-tasks` sibling path was fixed twice).
+
 ## v0.9.1
 
 - fix: bump `golang.org/x/crypto` v0.55.0 -> v0.56.0, clearing `GO-2026-6354` and `GO-2026-6355` (DoS on deadlocked undecided/established channels in `golang.org/x/crypto/ssh`). `make precommit` failed at the `vulncheck` target on master, so the whole repo was unbuildable by the standard gate and the dark-factory daemon refused to start with `preflight baseline broken`. Dependency-only change: `go.mod` + `go.sum`, no source edits.

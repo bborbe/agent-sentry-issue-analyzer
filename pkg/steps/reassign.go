@@ -19,7 +19,7 @@ import (
 // (assignee, phase: planning, task_type) and returns Status InProgress — an
 // in-place save that the deliverer writes with phase=planning preserved, so
 // the controller applies it, the scanner re-publishes, and the executor
-// re-routes the task to the sentry-deep-analyzer Config CR. Never batch: one
+// re-routes the task to the Config CR named by deepAssignee. Never batch: one
 // reassign per real-bug verdict, idempotent per task.
 //
 // The frontmatter mutation in Run is safe only under the executor's

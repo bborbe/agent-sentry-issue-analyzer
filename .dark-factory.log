@@ -1,0 +1,17 @@
+time=2026-09-03T20:12:55.230+02:00 level=INFO msg="effective config" maxContainers=8 maxContainersSource=global containerImage=docker.io/bborbe/claude-yolo:v0.14.0 model=deepseek-v4-flash[1m] modelSource=global workflow=direct workflowSource=project pr=false prSource=project autoRelease=false autoReleaseSource=arg autoMerge=false autoMergeSource=project verificationGate=false validationCommand="make precommit" testCommand="make test" debounceMs=500 hideGit=true hideGitSource=arg autoApprovePrompts=false autoApprovePromptsSource=default autoGeneratePrompts=true autoGeneratePromptsSource=project dirtyFileThreshold=0 dirtyFileThresholdSource=default promptsInboxDir=prompts promptsInProgressDir=prompts/in-progress promptsCompletedDir=prompts/completed promptsLogDir=prompts/log preflightCommand="make precommit" preflightInterval=8h healthcheckEnabled=true healthcheckEnabledSource=default healthcheckInterval=8h healthcheckIntervalSource=default backend=docker backendSource=default envFromGlobal=[] envProjectOverrides="[ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_DEFAULT_FABLE_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL]" envProjectOnly=[]
+time=2026-09-03T20:12:55.230+02:00 level=INFO msg="watching for queued prompts" dir=prompts/in-progress
+time=2026-09-03T20:12:55.230+02:00 level=INFO msg="preflight: running baseline check" command="make precommit"
+time=2026-09-03T20:13:12.772+02:00 level=INFO msg="preflight: baseline check passed"
+time=2026-09-03T20:13:12.773+02:00 level=INFO msg="healthcheck cache hit, skipping"
+time=2026-09-03T20:13:12.773+02:00 level=INFO msg="processor started"
+time=2026-09-03T20:13:12.773+02:00 level=INFO msg="spec watcher started" dir=/Users/bborbe/Documents/workspaces/agent-sentry-deep-assignee/specs/in-progress
+time=2026-09-03T20:13:12.773+02:00 level=INFO msg="watcher started" dir=/Users/bborbe/Documents/workspaces/agent-sentry-deep-assignee/prompts/in-progress
+time=2026-09-03T20:13:17.775+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-03T20:14:17.776+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-03T20:15:17.778+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-03T20:16:22.776+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-03T20:17:27.777+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-03T20:18:32.778+02:00 level=INFO msg="nothing to do, waiting for changes"
+time=2026-09-03T20:18:35.718+02:00 level=INFO msg="watcher shutting down"
+time=2026-09-03T20:18:35.718+02:00 level=INFO msg="processor shutting down"
+time=2026-09-03T20:18:35.718+02:00 level=INFO msg="spec watcher shutting down"
