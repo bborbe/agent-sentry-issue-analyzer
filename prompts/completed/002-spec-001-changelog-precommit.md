@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [001-sentry-collector-nil-result]
+summary: 'Added a fix: entry containing the literal ''nil result'' under ## Unreleased above ## v0.9.1 in CHANGELOG.md and confirmed the full precommit gate exits 0'
+execution_id: agent-sentry-nil-result-exec-002-spec-001-changelog-precommit
+dark-factory-version: dev
 created: "2026-09-03T19:30:00Z"
 queued: "2026-09-03T19:45:50Z"
+started: "2026-09-03T19:57:02Z"
+completed: "2026-09-03T20:03:27Z"
 branch: dark-factory/sentry-collector-nil-result
 ---
 

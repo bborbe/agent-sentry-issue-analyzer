@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- fix: deliver a `Failed` result instead of erroring when a phase has no runnable steps — both entry points (`main.go`, `cmd/run-task/main.go`) publish a phase-naming failure via the deliverer and exit 0, so the Job stops crash-retrying and the task reaches a terminal state (mirrors agent-lib `unsupportedPhase`)
+- fix: nil result from `agent.Run` (phase steps all skipped or none registered) no longer crashes the Job — `main.go` and `cmd/run-task/main.go` deliver a `Failed` result naming the phase and exit 0, so the task reaches a terminal state and the controller retry loop is never entered
 
 ## v0.9.1
 
