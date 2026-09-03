@@ -41,6 +41,9 @@ var taskTypeSentryDeepAnalyzer = agentlib.TaskType("sentry-deep-analyzer")
 
 // assigneeSentryAnalyzerAgent is the `assignee` of the live agent Config CR
 // that handles deep analysis. It is a PLAIN string, not an agentlib.TaskType:
+// assigneeSentryAnalyzerAgent is intentionally a plain string assignee, not a
+// TaskType (contrast taskTypeSentryCollector below) -- it is the exact value
+// agent-task-executor matches against configs.agent.benjamin-borbe.de spec.assignee.
 // assignee and task_type are different namespaces and must never share one
 // constant. The dedicated sentry-deep-analyzer Config CR was deleted on
 // 2026-08-26 when the sentry pipeline consolidated from 4 Config CRs to 2;
