@@ -1,8 +1,13 @@
 ---
-status: approved
+status: completed
 spec: [001-bug-deep-reassign-targets-deleted-config]
+summary: 'Deleted k8s/sentry-deep-analyzer-config.yaml and k8s/sentry-deep-analyzer-config-prod.yaml so make buca stops re-applying the retired sentry-deep-analyzer Config CR, and appended the corresponding fix: bullet to CHANGELOG.md under the existing ## Unreleased section'
+execution_id: agent-sentry-deep-assignee-exec-002-spec-001-delete-deep-analyzer-manifests
+dark-factory-version: v0.193.0
 created: "2026-09-03T19:29:44Z"
 queued: "2026-09-03T19:44:07Z"
+started: "2026-09-03T19:55:27Z"
+completed: "2026-09-03T20:03:39Z"
 ---
 
 <summary>
