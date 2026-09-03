@@ -2,14 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main_test
+package main
 
 //go:generate go run -mod=mod github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	agentlib "github.com/bborbe/agent"
+	agentmocks "github.com/bborbe/agent/mocks"
+	"github.com/bborbe/errors"
+	"github.com/bborbe/vault-cli/pkg/domain"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
@@ -28,6 +33,39 @@ var _ = Describe("Main", func() {
 		var err error
 		_, err = gexec.Build(".", "-mod=mod", "-buildvcs=false")
 		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("application", func() {
+	Describe("deliverNilResult", func() {
+		var (
+			ctx       context.Context
+			deliverer *agentmocks.AgentResultDeliverer
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			deliverer = &agentmocks.AgentResultDeliverer{}
+		})
+
+		It("delivers a Failed result naming the phase and returns nil", func() {
+			app := &application{Phase: domain.TaskPhase("planning")}
+			err := app.deliverNilResult(ctx, deliverer)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(deliverer.DeliverResultCallCount()).To(Equal(1))
+			_, info := deliverer.DeliverResultArgsForCall(0)
+			Expect(info.Status).To(Equal(agentlib.AgentStatusFailed))
+			Expect(info.Message).To(ContainSubstring("planning"))
+		})
+
+		It("wraps and returns a deliver failure", func() {
+			deliverer.DeliverResultReturns(errors.New(ctx, "simulated deliver failure"))
+			app := &application{Phase: domain.TaskPhase("planning")}
+			err := app.deliverNilResult(ctx, deliverer)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("deliver nil-result failure"))
+			Expect(deliverer.DeliverResultCallCount()).To(Equal(1))
+		})
 	})
 })
 
