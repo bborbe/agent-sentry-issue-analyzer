@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.9.2
 
 - fix: nil result from `agent.Run` (phase steps all skipped or none registered) no longer crashes the Job — `main.go` and `cmd/run-task/main.go` deliver a `Failed` result naming the phase and exit 0, so the task reaches a terminal state and the controller retry loop is never entered
 
