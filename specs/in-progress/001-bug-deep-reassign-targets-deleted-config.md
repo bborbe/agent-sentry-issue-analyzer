@@ -1,7 +1,7 @@
 ---
-status: draft
-kind: bug
-created: 2026-09-03
+status: approved
+approved: "2026-09-03T19:23:50Z"
+branch: dark-factory/bug-deep-reassign-targets-deleted-config
 ---
 
 ## Summary
