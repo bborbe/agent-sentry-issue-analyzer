@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 - fix: drop `k8s/sentry-deep-analyzer-config.yaml` and `k8s/sentry-deep-analyzer-config-prod.yaml` — the `sentry-deep-analyzer` Config CR was retired on 2026-08-26 when the sentry pipeline consolidated from 4 Config CRs to 2, but both manifests stayed in the repo documenting the pre-consolidation routing as deliberate design, and `Makefile.k8s` globs every `*.yaml` under `k8s/`, so each `make buca` re-created the dead CR on the quant cluster. Deep analysis stays a task type on the surviving `sentry-analyzer-agent`; nothing replaces these files. The deep analyzer's dedicated GitHub App (`APP_ID 4710983` / `INSTALLATION_ID 156399284`) is intentionally left in place — retiring it and its TeamVault PEM is tracked separately.
 - chore: stop tracking `.dark-factory.log` and `.dark-factory.lock`, and add both to `.gitignore` — the dark-factory daemon writes these runtime artifacts into the repo root and its own auto-commit step swept them into history (commit `3da27a2`), putting a stale lock file and a container log in the tree. Nothing reads them from git; they are regenerated on every daemon run.
 
+## v0.9.2
+
+- fix: nil result from `agent.Run` (phase steps all skipped or none registered) no longer crashes the Job — `main.go` and `cmd/run-task/main.go` deliver a `Failed` result naming the phase and exit 0, so the task reaches a terminal state and the controller retry loop is never entered
+
 ## v0.9.1
 
 - fix: bump `golang.org/x/crypto` v0.55.0 -> v0.56.0, clearing `GO-2026-6354` and `GO-2026-6355` (DoS on deadlocked undecided/established channels in `golang.org/x/crypto/ssh`). `make precommit` failed at the `vulncheck` target on master, so the whole repo was unbuildable by the standard gate and the dark-factory daemon refused to start with `preflight baseline broken`. Dependency-only change: `go.mod` + `go.sum`, no source edits.
