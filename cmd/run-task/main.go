@@ -14,6 +14,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	agentlib "github.com/bborbe/agent"
@@ -125,12 +126,36 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	if result == nil {
 		// agent.Run returns (nil, nil) when every step in the phase skipped
 		// (ShouldRun=false, e.g. the phase's output section already exists from
-		// a prior run) — treat as a no-op completion rather than panicking.
-		return errors.Errorf(
-			ctx,
-			"agent run returned nil result (all steps skipped for phase %s)",
-			a.Phase,
-		)
+		// a prior run) or the phase has no registered steps. Deliver a Failed
+		// result so the task reaches a terminal state, then exit 0 — a no-op
+		// completion, never a controller retry (mirrors agent-lib unsupportedPhase).
+		return a.deliverNilResult(ctx, deliverer)
 	}
 	return agentlib.PrintResult(ctx, result)
+}
+
+// deliverNilResult publishes a Failed result for a phase whose steps all
+// skipped or were never registered (agent.Run returned (nil, nil)), naming
+// the phase so the failure is diagnosable in the task body. Returns nil on
+// success so the process exits 0 and the Job never re-enters the controller
+// retry loop; a deliver failure is wrapped and returned so the controller
+// retries (bounded).
+func (a *application) deliverNilResult(
+	ctx context.Context,
+	deliverer agentlib.ResultDeliverer,
+) error {
+	failedResult := &agentlib.Result{
+		Status: agentlib.AgentStatusFailed,
+		Message: fmt.Sprintf(
+			"agent run returned nil result (all steps skipped for phase %s)",
+			a.Phase,
+		),
+	}
+	if err := deliverer.DeliverResult(ctx, agentlib.AgentResultInfo{
+		Status:  failedResult.Status,
+		Message: failedResult.Message,
+	}); err != nil {
+		return errors.Wrapf(ctx, err, "deliver nil-result failure")
+	}
+	return nil
 }

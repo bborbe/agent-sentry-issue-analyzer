@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: deliver a `Failed` result instead of erroring when a phase has no runnable steps — both entry points (`main.go`, `cmd/run-task/main.go`) publish a phase-naming failure via the deliverer and exit 0, so the Job stops crash-retrying and the task reaches a terminal state (mirrors agent-lib `unsupportedPhase`)
+
 ## v0.9.1
 
 - fix: bump `golang.org/x/crypto` v0.55.0 -> v0.56.0, clearing `GO-2026-6354` and `GO-2026-6355` (DoS on deadlocked undecided/established channels in `golang.org/x/crypto/ssh`). `make precommit` failed at the `vulncheck` target on master, so the whole repo was unbuildable by the standard gate and the dark-factory daemon refused to start with `preflight baseline broken`. Dependency-only change: `go.mod` + `go.sum`, no source edits.
