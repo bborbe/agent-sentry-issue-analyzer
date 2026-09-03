@@ -1,8 +1,9 @@
 ---
-status: prompted
+status: verifying
 approved: "2026-09-03T19:23:50Z"
 generating: "2026-09-03T19:43:27Z"
 prompted: "2026-09-03T19:43:27Z"
+verifying: "2026-09-03T20:03:39Z"
 branch: dark-factory/bug-deep-reassign-targets-deleted-config
 ---
 
