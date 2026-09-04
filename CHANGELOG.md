@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update github.com/bborbe/agent to v0.86.0, github.com/bborbe/cqrs to v0.6.10, github.com/bborbe/errors to v1.6.0, github.com/bborbe/kafka to v1.25.11, github.com/bborbe/maintainer to v0.50.5, github.com/bborbe/sentry to v1.10.1, github.com/bborbe/service to v1.10.11, github.com/bborbe/time to v1.27.12, github.com/bborbe/vault-cli to v0.121.2, github.com/onsi/gomega to v1.43.0
+
 ## v0.9.3
 
 - fix: the real-bug reassign now targets the live `sentry-analyzer-agent` Config CR instead of the deleted `sentry-deep-analyzer` one — `pkg/factory` passed a single task-type constant into both the `deepAssignee` and `deepTaskType` parameters of `NewReassignExecutionStep`, so every `verdict: real bug` since the 2026-08-26 4-CR→2-CR consolidation stamped an assignee that `agent-task-executor` cannot resolve, silently dropping the task (`skipped_unknown_assignee`) with no Job, no error, and no escalation. The assignee is now its own `assigneeSentryAnalyzerAgent` constant, `task_type` stays `sentry-deep-analyzer`, and a focused factory-level Ginkgo spec drives `CreateAgentFromRunner` end-to-end with a real-bug verdict so the two values cannot be re-conflated unnoticed (third occurrence of this bug class in this repo; the `create-tasks` sibling path was fixed twice).
