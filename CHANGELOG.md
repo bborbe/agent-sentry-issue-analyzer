@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.9.5
 
 - chore: update Go to 1.27.1 and github.com/bborbe/agent to v0.87.1, github.com/bborbe/kafka to v1.25.13, github.com/bborbe/maintainer to v0.50.6, github.com/bborbe/service to v1.10.12, github.com/bborbe/time to v1.27.13, github.com/bborbe/vault-cli to v0.122.2
 
