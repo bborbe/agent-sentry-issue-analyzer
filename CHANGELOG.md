@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: `scripts/sentry-read.sh` now tags every emitted stack frame with an `in_app=<0|1>` first-party flag, emits the repo-relative Sentry `filename` (falling back to the `abs_path` basename only when no relative path exists) instead of a bare basename, and appends a `root_cause_*` pointer block naming the deepest first-party frame — falling back to the deepest frame overall with `root_cause_in_app=0` — so the analyzer can cite a repo `file:line` root cause without guessing repo names from basenames
+- feat: planning and deep-planning prompts now instruct the analyzer to consume the `sentry-read.sh` `root_cause_*` pointer block directly for repo+file:line identification and to scope investigation to `in_app=1` first-party frames before considering `in_app=0` third-party/library frames
+
 ## v0.10.2
 
 - fix: the v0.10.1 disqualifier-handoff wording in the execution prompt ("the arithmetic is done in code… a fired disqualifier overrides your verdict automatically") over-corrected the model into NOT writing the `## Verdict` YAML block — live runs emitted only the `{status,message,files}` output-format JSON with the verdict buried inside `message`, so `verdict.Parse` found no `verdict:` key, the reassign step skipped `applyDisqualifiers`, and the disqualifier evaluation never ran on live output (zero `disqualifiers_fired` evidence across the 2026-09-05 batch; A4 still showed the old "count 193 < 100" prose error). The prompt now states explicitly that the model MUST still write the complete `## Verdict` YAML block, including its signature `verdict:` classification — the block is what the binary evaluates — while the numeric thresholds remain code-decided.

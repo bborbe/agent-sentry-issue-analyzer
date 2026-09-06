@@ -9,9 +9,17 @@
 #   short_id, status, live_event_count, first_seen, last_seen, users_impacted, title
 # followed, best-effort, by the latest event's stack trace frames:
 #   stack_trace=<N> frames
-#   <file>:<line> in <function>        (frame with a usable line number; at most
-#                                      30 frames; <file> is a basename)
-#   <basename> in <function>           (frame without a usable line number)
+#   <path>:<line> in <function> in_app=<0|1>   (frame with a usable integer line
+#                                               number; at most 30 frames; <path>
+#                                               is the repo-relative Sentry
+#                                               filename, or a basename when no
+#                                               relative path exists in the payload)
+#   <path> in <function> in_app=<0|1>          (frame without a usable line number)
+# then a root-cause pointer block naming the deepest first-party frame (the deepest
+# frame overall when none is first-party):
+#   root_cause_file=<path>  root_cause_line=<integer> (only when the chosen frame has
+#                                                     an integer lineno)
+#   root_cause_function=<function>  root_cause_in_app=<0|1>
 # Frames are emitted whenever an exception entry carries at least one frame; an
 # exception entry with zero frames degrades to 'no frames'; no exception entry
 # degrades to 'no exception entry'. Every emitted frame value is single-line
@@ -93,9 +101,11 @@ if [ -n "${reason}" ]; then
   printf 'stack_trace unavailable (%s)\n' "${reason}"
 else
   # HTTP 200: three-state classification of the first exception value's frames —
-  # emit the frames (basename, lineno, function only — never context, never the
-  # raw payload) when at least one frame exists, 'no frames' when the exception
-  # entry has zero frames, 'no exception entry' when none exists.
+  # emit the frames (repo-relative path or basename, lineno, function, in_app
+  # flag — never context, never the raw payload) plus a root_cause_* pointer
+  # block naming the deepest first-party frame when at least one frame exists,
+  # 'no frames' when the exception entry has zero frames, 'no exception entry'
+  # when none exists.
   set +e
   frames="$(python3 -c '
 import json, sys, os, re
@@ -118,22 +128,48 @@ if not exception_found:
 if not frames:
     print("stack_trace unavailable (no frames)")
     sys.exit(0)
+def frame_path(frame):
+    filename = (frame.get("filename") or "").strip()
+    abs_path = (frame.get("abs_path") or "").strip()
+    if filename and not os.path.isabs(filename):
+        return filename
+    return os.path.basename(abs_path or filename)
+
+def in_app_flag(frame):
+    value = frame.get("in_app")
+    return 1 if (value is True or value == 1) else 0
+
+first_frame = None
+first_inapp_frame = None
 lineno_lines = []
 no_lineno_lines = []
 for frame in frames[:30]:
-    path = (frame.get("abs_path") or frame.get("filename") or "").strip()
+    path = frame_path(frame)
     func = (frame.get("function") or "unknown").strip()
     # single-line: neutralise control chars so a crafted payload cannot inject lines
     path = re.sub(r"[\x00-\x1f\x7f]+", " ", path).strip()
     func = re.sub(r"[\x00-\x1f\x7f]+", " ", func).strip()
     lineno = frame.get("lineno")
+    in_app = in_app_flag(frame)
+    emitted_frame = (path, lineno, func, in_app)
+    if first_frame is None:
+        first_frame = emitted_frame
+    if in_app == 1 and first_inapp_frame is None:
+        first_inapp_frame = emitted_frame
     if isinstance(lineno, int):
-        lineno_lines.append("%s:%s in %s" % (os.path.basename(path), lineno, func))
+        lineno_lines.append("%s:%s in %s in_app=%s" % (path, lineno, func, in_app))
     else:
-        no_lineno_lines.append("%s in %s" % (os.path.basename(path), func))
+        no_lineno_lines.append("%s in %s in_app=%s" % (path, func, in_app))
 emitted = lineno_lines if lineno_lines else no_lineno_lines
 print("stack_trace=%d frames" % len(emitted))
 print("\n".join(emitted))
+pointer = first_inapp_frame if first_inapp_frame is not None else first_frame
+path, lineno, func, in_app = pointer
+print("root_cause_file=%s" % path)
+if isinstance(lineno, int):
+    print("root_cause_line=%s" % lineno)
+print("root_cause_function=%s" % func)
+print("root_cause_in_app=%s" % in_app)
 ' "${event_body}")"
   frames_rc=$?
   set -e
