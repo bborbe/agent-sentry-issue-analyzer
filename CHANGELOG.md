@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.10.2
 
 - fix: the v0.10.1 disqualifier-handoff wording in the execution prompt ("the arithmetic is done in code… a fired disqualifier overrides your verdict automatically") over-corrected the model into NOT writing the `## Verdict` YAML block — live runs emitted only the `{status,message,files}` output-format JSON with the verdict buried inside `message`, so `verdict.Parse` found no `verdict:` key, the reassign step skipped `applyDisqualifiers`, and the disqualifier evaluation never ran on live output (zero `disqualifiers_fired` evidence across the 2026-09-05 batch; A4 still showed the old "count 193 < 100" prose error). The prompt now states explicitly that the model MUST still write the complete `## Verdict` YAML block, including its signature `verdict:` classification — the block is what the binary evaluates — while the numeric thresholds remain code-decided.
 
