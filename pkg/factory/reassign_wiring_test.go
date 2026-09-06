@@ -10,6 +10,7 @@ import (
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 	agentmocks "github.com/bborbe/agent/mocks"
+	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,12 +31,12 @@ var _ = Describe("CreateAgentFromRunner reassign wiring", func() {
 
 		runner = &agentmocks.ClaudeRunner{}
 		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "```yaml\nsentry_issue_id: OCTOPUS-PROD-1J\nverdict: real bug\nconfidence: high\nreason: clear defect\n```",
+			Result: "```yaml\nsentry_issue_id: OCTOPUS-PROD-1J\nverdict: real bug\nconfidence: high\nreason: clear defect\nlive_event_count: 50\nfirst_seen: 2026-08-20T00:00:00Z\nlast_seen: 2026-09-05T10:00:00Z\nsentry_status: unresolved\n```",
 		}, nil)
 
 		deliverer = &agentmocks.AgentResultDeliverer{}
 
-		agent := factory.CreateAgentFromRunner(runner, nil)
+		agent := factory.CreateAgentFromRunner(runner, nil, libtime.NewCurrentDateTime())
 		_, err := agent.Run(
 			ctx,
 			domain.TaskPhaseExecution,
