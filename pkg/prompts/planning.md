@@ -36,6 +36,8 @@ From the stack trace identify the implicated repo + file (`file.go:line`). Clone
 
 If the alert's Sentry project has no candidate list above, escalate naming the unmapped project. Never invent a repo name: clone only a repo that a frame path names or that this list names.
 
+`docs/repo-mapping.md` in this repo carries the same table plus the procedure for extending it when a new Sentry project appears; keep the two in sync.
+
 **Escalation contract.** If no candidate contains the implicated frames, escalate and name every repo you tried, verbatim, as `candidates tried: <repo>, <repo>, ...` — so the next reader extends the list instead of re-deriving the diagnosis. If the run is cut short before you reach the last candidate, still write `candidates tried: ...` with the repos tried so far and mark the list incomplete. Report failure shapes distinctly, because each has a different fix: a clone rejected for `authentication` / `403` is an auth-scope failure, NOT "repo has no such file"; a repo that is missing, renamed, or archived is escalated by its exact stale name; a clone that dies on `no space left` / `ephemeral-storage` is a disk failure, not a missing repo.
 
 where `<repo>` is the owner/name (e.g. `bborbe/agent-sentry-issue-analyzer`) or an https/git@ URL from the stack trace. The script emits `clone_path`, `head_sha`, `default_branch`, and leaves the whole tree read-only — you can Read/Grep every file but cannot modify, commit, or push. Then read the implicated file(s) and nearby code:
