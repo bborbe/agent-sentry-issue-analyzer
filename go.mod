@@ -3,7 +3,7 @@ module github.com/bborbe/agent-sentry-issue-analyzer
 go 1.27.1
 
 require (
-	github.com/bborbe/agent v0.87.1
+	github.com/bborbe/agent v0.87.3
 	github.com/bborbe/cqrs v0.6.10
 	github.com/bborbe/errors v1.6.0
 	github.com/bborbe/kafka v1.25.13

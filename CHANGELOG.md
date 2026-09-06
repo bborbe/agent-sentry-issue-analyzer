@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: bump `github.com/bborbe/agent` v0.87.1 → v0.87.3 to pick up the `kafkaResultDeliverer` `target_vault` stamping fix. The analyzer's stub results (failed / needs_input / unsupported-phase, where `Output` is empty or body-only) published frontmatter with a single key and no `target_vault`, so the openclaw task controller's `ShouldProcessResult` routing guard fell through to `true`, scanned its own vault for a Personal-vault task, found nothing and dropped the result (`result_writer.go:195`), firing `AgentControllerResultNotFound` on nuke dev. The owning personal controller wrote every result regardless, so the alert was noise rather than data loss. With v0.87.3 the deliverer stamps `target_vault` from the original task content, so non-owning controllers skip cleanly instead of scanning-and-dropping
+
 ## v0.11.2
 
 - fix: make the shared disqualifier override skip (not crash) when the verdict omits the live-state date fields, and require `first_seen`/`last_seen`/`sentry_status` in the deep-analysis verdict template. Observed live on NUKE-DEV-A4 after v0.11.1: the deep model's verdict YAML omitted `first_seen`/`last_seen` (the deep template only listed `live_event_count`), `applyDisqualifiers` unconditionally parsed the empty dates and errored (`parse first_seen ""`), failing every deep job and re-triggering the controller loop. The override now skips when either date is absent — the model's verdict stands, no crash — and the deep template now lists the three live-state fields so the code-side evaluator can compute Sustained span / Active burst / Regressed on the deep path. Ginkgo test pins the missing-dates case (no crash, verdict unchanged).
