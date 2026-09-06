@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: compute the noise-to-real-bug disqualifiers in `pkg/verdict` instead of leaving the events/day arithmetic to the model in prose, which got it wrong and biased verdicts toward `noise` (measured 8/13 = 62% agreement on 2026-09-05; all five disagreements traced to this one defect). New `DisqualifierEvaluator` (Volume / Active burst / Regressed / Sustained span) computes the thresholds from the verdict's live-state fields (`live_event_count`, `first_seen`, `last_seen`, `sentry_status`); a fired disqualifier forces `real bug` and is recorded in `disqualifiers_fired`. The `Verdict` schema gains `first_seen` + `disqualifiers_fired`, the reassign step rewrites the `## Verdict` section on override, the execution prompt no longer asks the model to evaluate the numeric thresholds, and Ginkgo boundary tests pin the rate/count/burst/span edges.
+
 ## v0.10.0
 
 - fix: repair the k8s apply path in `Makefile.k8s` — replace `teamvault-config-parser` with `teamvault-cli config parse`, and replace the `kubectlquant` pipe with an explicit `KUBECONFIG` + real `kubectl`. `kubectlquant` is a zsh function with no executable on PATH, so it was undefined inside the recipe's `bash -c` and `BRANCH=dev make buca` failed at apply. `--teamvault-config` is passed explicitly because teamvault-cli defaults to `seibert.json`, which does not resolve this agent's secrets. `TEAMVAULT` now defaults to `~/.config/teamvault-cli/config.json` (the previous default, `~/.teamvault.json`, does not exist).

@@ -22,17 +22,19 @@ import (
 // ## Verdict section with EXACTLY these keys (see pkg/prompts/execution.md).
 // Unknown verdicts or missing required fields fail validation.
 type Verdict struct {
-	SentryIssueID  string `yaml:"sentry_issue_id"`
-	Verdict        string `yaml:"verdict"`
-	Confidence     string `yaml:"confidence"`
-	Reason         string `yaml:"reason"`
-	LiveEventCount int    `yaml:"live_event_count"`
-	LastSeen       string `yaml:"last_seen"`
-	SentryStatus   string `yaml:"sentry_status"`
-	Understanding  string `yaml:"understanding"`
-	FixCertainty   string `yaml:"fix_certainty"`
-	RootCause      string `yaml:"root_cause"`
-	RecommendedFix string `yaml:"recommended_fix"`
+	SentryIssueID      string   `yaml:"sentry_issue_id"`
+	Verdict            string   `yaml:"verdict"`
+	Confidence         string   `yaml:"confidence"`
+	Reason             string   `yaml:"reason"`
+	LiveEventCount     int      `yaml:"live_event_count"`
+	FirstSeen          string   `yaml:"first_seen"`
+	LastSeen           string   `yaml:"last_seen"`
+	SentryStatus       string   `yaml:"sentry_status"`
+	DisqualifiersFired []string `yaml:"disqualifiers_fired"`
+	Understanding      string   `yaml:"understanding"`
+	FixCertainty       string   `yaml:"fix_certainty"`
+	RootCause          string   `yaml:"root_cause"`
+	RecommendedFix     string   `yaml:"recommended_fix"`
 }
 
 // Valid verdict vocabulary (the 6-verdict rubric, mirrored verbatim from
@@ -240,4 +242,16 @@ func parseUnfencedVerdict(ctx context.Context, section string) (Verdict, error) 
 		return Verdict{}, err
 	}
 	return parsed, nil
+}
+
+// Render marshals a verdict back into the fenced YAML block the execution
+// phase writes under ## Verdict — the same shape Parse accepts. Used by the
+// reassign step to rewrite the verdict section when code forces `real bug`
+// from a computed disqualifier.
+func Render(ctx context.Context, v Verdict) (string, error) {
+	block, err := yaml.Marshal(v)
+	if err != nil {
+		return "", errors.Wrapf(ctx, err, "marshal verdict")
+	}
+	return "```yaml\n" + string(block) + "```", nil
 }

@@ -33,6 +33,7 @@ var _ = Describe("CreateAgentProvider", func() {
 			claudelib.ClaudeModel("sonnet"),
 			map[string]string{},
 			map[string]string{},
+			libtime.NewCurrentDateTime(),
 		)
 	})
 
@@ -184,6 +185,7 @@ var _ = Describe("CreateAgent", func() {
 			"",
 			nil,
 			nil,
+			libtime.NewCurrentDateTime(),
 		)
 		Expect(agent).NotTo(BeNil())
 	})
