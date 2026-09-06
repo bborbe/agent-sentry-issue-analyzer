@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- deps: bump `github.com/bborbe/agent` v0.87.1 → v0.87.3 — picks up the `kafkaResultDeliverer.stampTargetVault` fix (spec 052): stub results (failed / needs_input / unsupported-phase) now carry `target_vault` echoed from the original task content, so the controller's routing guard skips them cleanly instead of scanning-and-dropping (fixes the `AgentControllerResultNotFound` alert on nukedev)
+- chore: update `github.com/bborbe/agent` to v0.87.3 — picks up the `kafkaResultDeliverer.stampTargetVault` fix (spec 052): stub results (failed / needs_input / unsupported-phase) now carry `target_vault` echoed from the original task content, so the controller's routing guard skips them cleanly instead of scanning-and-dropping (fixes the `AgentControllerResultNotFound` alert on nukedev)
 
 ## v0.11.2
 
