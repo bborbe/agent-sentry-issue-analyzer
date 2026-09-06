@@ -100,6 +100,20 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("READ-ONLY source access"))
 		Expect(instrs[0].Content).To(ContainSubstring("file.go:line"))
 	})
+
+	It(
+		"planning prompt references the root_cause_* pointer block for file:line identification",
+		func() {
+			instrs := prompts.BuildPlanningInstructions()
+			Expect(instrs[0].Content).To(ContainSubstring("root_cause_"))
+			Expect(instrs[0].Content).To(ContainSubstring("deepest first-party"))
+		},
+	)
+
+	It("planning prompt scopes investigation to first-party frames via in_app", func() {
+		instrs := prompts.BuildPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("in_app"))
+	})
 })
 
 var _ = Describe("output-format shared contract", func() {
@@ -269,6 +283,20 @@ var _ = Describe("BuildDeepPlanningInstructions", func() {
 	It("deep planning prompt writes the ## Context section", func() {
 		instrs := prompts.BuildDeepPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("## Context"))
+	})
+
+	It(
+		"deep planning prompt references the root_cause_* pointer block for file:line identification",
+		func() {
+			instrs := prompts.BuildDeepPlanningInstructions()
+			Expect(instrs[0].Content).To(ContainSubstring("root_cause_"))
+			Expect(instrs[0].Content).To(ContainSubstring("deepest first-party"))
+		},
+	)
+
+	It("deep planning prompt scopes investigation to first-party frames via in_app", func() {
+		instrs := prompts.BuildDeepPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("in_app"))
 	})
 })
 

@@ -40,7 +40,11 @@ If the alert's Sentry project has no candidate list above, escalate naming the u
 
 **Escalation contract.** If no candidate contains the implicated frames, escalate and name every repo you tried, verbatim, as `candidates tried: <repo>, <repo>, ...` — so the next reader extends the list instead of re-deriving the diagnosis. If the run is cut short before you reach the last candidate, still write `candidates tried: ...` with the repos tried so far and mark the list incomplete. Report failure shapes distinctly, because each has a different fix: a clone rejected for `authentication` / `403` is an auth-scope failure, NOT "repo has no such file"; a repo that is missing, renamed, or archived is escalated by its exact stale name; a clone that dies on `no space left` / `ephemeral-storage` is a disk failure, not a missing repo.
 
-where `<repo>` is the owner/name (e.g. `bborbe/agent-sentry-issue-analyzer`) or an https/git@ URL from the stack trace. The script emits `clone_path`, `head_sha`, `default_branch`, and leaves the whole tree read-only — you can Read/Grep every file but cannot modify, commit, or push. Then read the implicated file(s) and nearby code:
+where `<repo>` is the owner/name (e.g. `bborbe/agent-sentry-issue-analyzer`) or an https/git@ URL from the stack trace. The script emits `clone_path`, `head_sha`, `default_branch`, and leaves the whole tree read-only — you can Read/Grep every file but cannot modify, commit, or push.
+
+The stack-trace block returned by `sentry-read.sh` carries a `root_cause_*` pointer block naming the deepest first-party frame, plus a per-frame `in_app=<0|1>` first-party flag. Use `root_cause_file` / `root_cause_line` / `root_cause_function` directly to identify the repo + `file:line` to investigate — they name the deepest first-party frame (or the deepest frame overall, flagged `root_cause_in_app=0`, when no frame is first-party). Scope your code reading to frames with `in_app=1` (first-party) before considering `in_app=0` (third-party/library) frames.
+
+Then read the implicated file(s) and nearby code:
 
 - the panicking function / error site (`file.go:line`)
 - the callers and data flow into it
