@@ -3,21 +3,29 @@
 #
 # Serves fixture Sentry metadata + events/latest payloads from an embedded
 # python3 http.server bound to 127.0.0.1 on an ephemeral port, then drives the
-# script under test against http://127.0.0.1:<port> and asserts the AC1-AC6
-# output contract from specs/in-progress/001-sentry-analyzer-repo-map-and-lineno-less-frames.md:
-#   * 7 metadata keys in their frozen order (AC1)
-#   * <file>:<line> in <function> frame lines under a stack_trace=<N> frames
-#     header, and <basename> in <function> lines for frames without a usable
-#     line number (AC2; the lineno-less fixture on issue 222 locks both the
-#     lineno-less emission and the string-lineno schema-drift path)
-#   * a fixed 30-frame cap, with the 31st+ fixture frames absent (AC5)
-#   * no raw JSON keys, no fixture context sentinel on stdout (AC5 no-PII)
+# script under test against http://127.0.0.1:<port> and asserts the AC1-AC8
+# output contract from specs/in-progress/001-sentry-read-frame-inapp-schema.md:
+#   * 7 metadata keys in their frozen order (AC6)
+#   * <path>:<line> in <function> in_app=<0|1> frame lines under a
+#     stack_trace=<N> frames header, and <path> in <function> in_app=<0|1>
+#     lines for frames without a usable integer lineno; <path> is the
+#     repo-relative Sentry filename, or a basename when no relative path exists
+#     in the payload (AC1/AC2; the in_app fixture on issue 111 and the
+#     lineno-less fixture on issue 222 lock the relative-path shape, the
+#     string-lineno / string-in_app schema-drift paths, and the abs_path-only
+#     basename branch)
+#   * a root_cause_* pointer block after the frame lines naming the deepest
+#     first-party frame, falling back to the deepest frame overall when none is
+#     first-party; root_cause_line is present only when the chosen frame has an
+#     integer lineno (AC3/AC4/AC5)
+#   * a fixed 30-frame cap, with the 31st+ fixture frames absent (AC6)
+#   * no raw JSON keys, no fixture context sentinel, no absolute path, and
+#     every emitted value single-line on stdout (AC7 no-PII)
 #   * bare numeric id and full-URL invocations produce byte-identical output
-#     (AC3)
 #   * failure stubs (404 / no exception entry / 401) each emit exactly one
-#     'stack_trace unavailable (<reason>)' marker with the metadata intact (AC4)
+#     'stack_trace unavailable (<reason>)' marker with the metadata intact
 #   * an exception entry with zero frames emits 'no frames', distinct from
-#     'no exception entry' (AC6; empty-frames fixture on issue 333)
+#     'no exception entry' (empty-frames fixture on issue 333)
 #
 # Container-executable: python3 + curl + bash only; no external network, no
 # Docker socket, no real credentials (dummy SENTRY_API_TOKEN=x). Exits non-zero
@@ -85,6 +93,7 @@ class QuietHandler(BaseHTTPRequestHandler):
                 "filename": "pkg/foo/bar%d.go" % i,
                 "lineno": 40 + i,
                 "function": "Func%d" % i,
+                "in_app": False,
                 "context": ["RAW-CONTEXT-SENTINEL line %d" % i],
             }
             for i in range(1, n + 1)
@@ -110,15 +119,19 @@ class QuietHandler(BaseHTTPRequestHandler):
             # Lineno-less frames (real nuke shape: issue 6727724202). None has an
             # integer lineno; frame 4 carries a string lineno ("42") to lock the
             # schema-drift path; frame 5 carries a newline+equals in `function`
-            # to lock single-line stripping.
+            # to lock single-line stripping; frame 3 carries a string in_app
+            # ("true") and frame 5 a numeric in_app (1) to lock the flag's
+            # schema-drift vs numeric-tolerance paths; frame 6 is abs_path-only
+            # to lock the basename branch when no relative path exists.
             self._send(200, {"entries": [
                 {"type": "exception", "data": {"values": [
                     {"stacktrace": {"frames": [
-                        {"filename": "kafka/coordinator/consumer.py", "abs_path": None, "lineno": None, "function": "_maybe_auto_commit_offsets_sync", "context": ["RAW-CONTEXT-SENTINEL line 1"]},
-                        {"filename": "kafka/protocol/fetch.py", "abs_path": None, "lineno": None, "function": "FetchRequest", "context": ["RAW-CONTEXT-SENTINEL line 2"]},
-                        {"filename": "kafka/consumer/group.py", "abs_path": None, "lineno": None, "function": "_poll_once", "context": ["RAW-CONTEXT-SENTINEL line 3"]},
-                        {"filename": "nuke/worker.py", "abs_path": None, "lineno": "42", "function": "sync_worker", "context": ["RAW-CONTEXT-SENTINEL line 4"]},
-                        {"filename": "nuke/backlog.py", "abs_path": None, "lineno": None, "function": "dispatch\nCOUNT=999", "context": ["RAW-CONTEXT-SENTINEL line 5"]},
+                        {"filename": "kafka/coordinator/consumer.py", "abs_path": None, "lineno": None, "function": "_maybe_auto_commit_offsets_sync", "in_app": False, "context": ["RAW-CONTEXT-SENTINEL line 1"]},
+                        {"filename": "kafka/protocol/fetch.py", "abs_path": None, "lineno": None, "function": "FetchRequest", "in_app": False, "context": ["RAW-CONTEXT-SENTINEL line 2"]},
+                        {"filename": "kafka/consumer/group.py", "abs_path": None, "lineno": None, "function": "_poll_once", "in_app": "true", "context": ["RAW-CONTEXT-SENTINEL line 3"]},
+                        {"filename": "nuke/worker.py", "abs_path": None, "lineno": "42", "function": "sync_worker", "in_app": True, "context": ["RAW-CONTEXT-SENTINEL line 4"]},
+                        {"filename": "nuke/backlog.py", "abs_path": None, "lineno": None, "function": "dispatch\nCOUNT=999", "in_app": 1, "context": ["RAW-CONTEXT-SENTINEL line 5"]},
+                        {"abs_path": "/usr/lib/python3.11/site-packages/rpyc/core/netref.py", "filename": None, "lineno": None, "function": "__call__", "in_app": False},
                     ]}}
                 ]}}
             ]})
@@ -127,6 +140,18 @@ class QuietHandler(BaseHTTPRequestHandler):
             self._send(200, {"entries": [
                 {"type": "exception", "data": {"values": [
                     {"stacktrace": {"frames": []}}
+                ]}}
+            ]})
+        elif issue == "111":
+            # First-party frame (innermost, repo-relative filename, boolean
+            # in_app) above a third-party rpyc frame — locks the in_app flag,
+            # the repo-relative path shape, and the deepest-first-party pointer.
+            self._send(200, {"entries": [
+                {"type": "exception", "data": {"values": [
+                    {"stacktrace": {"frames": [
+                        {"filename": "nuke/worker.py", "abs_path": None, "lineno": 102, "function": "select_symbol", "in_app": True},
+                        {"filename": "rpyc/core/netref.py", "abs_path": None, "lineno": 55, "function": "__call__", "in_app": False},
+                    ]}}
                 ]}}
             ]})
         else:
@@ -213,8 +238,8 @@ frame_count="$(printf '%s\n' "${out_bare}" | grep -cE ':[0-9]+ in ' || true)"
 if [ "${frame_count}" -lt 1 ]; then
   fail "AC2 expected at least one '<file>:<line> in <function>' frame"
 fi
-if ! printf '%s\n' "${out_bare}" | grep -q '^bar1.go:41 in Func1$'; then
-  fail "AC2 frame format mismatch (expected 'bar1.go:41 in Func1')"
+if ! printf '%s\n' "${out_bare}" | grep -q '^pkg/foo/bar1.go:41 in Func1 in_app=0$'; then
+  fail "AC2 frame format mismatch (expected 'pkg/foo/bar1.go:41 in Func1 in_app=0')"
 fi
 
 # AC5 cap: exactly 30 frame lines; the 31st+ fixture frames must be absent.
@@ -226,12 +251,73 @@ if printf '%s\n' "${out_bare}" | grep -q 'bar31.go'; then
   fail "AC5 frames past the 30-frame cap leaked into output"
 fi
 
+# AC5 no-PII: no absolute path leaks (fixture abs_path is /usr/src/app/...).
+if printf '%s\n' "${out_bare}" | grep -q '/usr/src'; then
+  fail "AC5 absolute path leaked from fixture abs_path into output"
+fi
+
+# AC4 fallback pointer: issue-123 has zero in_app=1 frames, so the pointer must
+# name the deepest frame overall with root_cause_in_app=0.
+if ! printf '%s\n' "${out_bare}" | grep -q '^root_cause_file=pkg/foo/bar1.go$'; then
+  fail "AC4 fallback pointer did not name the deepest frame overall (root_cause_file)"
+fi
+if ! printf '%s\n' "${out_bare}" | grep -q '^root_cause_line=41$'; then
+  fail "AC4 fallback pointer missing root_cause_line for the deepest frame overall"
+fi
+if ! printf '%s\n' "${out_bare}" | grep -q '^root_cause_function=Func1$'; then
+  fail "AC4 fallback pointer missing root_cause_function for the deepest frame overall"
+fi
+if ! printf '%s\n' "${out_bare}" | grep -q '^root_cause_in_app=0$'; then
+  fail "AC4 fallback pointer missing root_cause_in_app=0 (no first-party frame)"
+fi
+
 # AC5 no-PII: no quoted JSON keys, no raw payload, no context sentinel.
 if printf '%s\n' "${out_bare}" | grep -qE '"context"|"frames"|stacktrace'; then
   fail "AC5 raw JSON keys leaked into output"
 fi
 if printf '%s\n' "${out_bare}" | grep -q 'RAW-CONTEXT-SENTINEL'; then
   fail "AC5 fixture context sentinel leaked into output"
+fi
+
+# ---- AC1/AC2/AC3/AC7: in_app flag, repo-relative path, pointer block (111) ----
+if ! out_inapp="$(bash "${SCRIPT}" 111 2>&1)"; then
+  fail "AC1 in_app fixture exited non-zero"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^stack_trace=2 frames$'; then
+  fail "AC1 in_app fixture expected exactly one 'stack_trace=2 frames' header"
+fi
+if [ "$(printf '%s\n' "${out_inapp}" | grep -c ' in_app=1$' || true)" -ne 1 ]; then
+  fail "AC1 expected exactly one 'in_app=1' frame line"
+fi
+if [ "$(printf '%s\n' "${out_inapp}" | grep -c ' in_app=0$' || true)" -ne 1 ]; then
+  fail "AC1 expected exactly one 'in_app=0' frame line"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^nuke/worker.py:102 in select_symbol in_app=1$'; then
+  fail "AC2 in_app fixture expected 'nuke/worker.py:102 in select_symbol in_app=1'"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^rpyc/core/netref.py:55 in __call__ in_app=0$'; then
+  fail "AC2 in_app fixture expected 'rpyc/core/netref.py:55 in __call__ in_app=0'"
+fi
+if printf '%s\n' "${out_inapp}" | grep -q '^worker.py:'; then
+  fail "AC2 bare basename 'worker.py' leaked where repo-relative path expected"
+fi
+if printf '%s\n' "${out_inapp}" | grep -q '^netref.py:'; then
+  fail "AC2 bare basename 'netref.py' leaked where repo-relative path expected"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^root_cause_file=nuke/worker.py$'; then
+  fail "AC3 pointer did not name the deepest first-party frame (root_cause_file)"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^root_cause_line=102$'; then
+  fail "AC3 pointer missing root_cause_line for the deepest first-party frame"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^root_cause_function=select_symbol$'; then
+  fail "AC3 pointer missing root_cause_function for the deepest first-party frame"
+fi
+if ! printf '%s\n' "${out_inapp}" | grep -q '^root_cause_in_app=1$'; then
+  fail "AC3 pointer missing root_cause_in_app=1 for the deepest first-party frame"
+fi
+if printf '%s\n' "${out_inapp}" | grep -qE '"context"|"frames"|stacktrace|RAW-CONTEXT-SENTINEL'; then
+  fail "AC7 raw JSON keys or context sentinel leaked from in_app fixture"
 fi
 
 # ---- Failure paths (AC4): metadata intact + exactly one marker each ----
@@ -280,18 +366,18 @@ nl_header="$(printf '%s\n' "${out_nolineno}" | grep -cE '^stack_trace=[1-9][0-9]
 if [ "${nl_header}" -ne 1 ]; then
   fail "AC2 lineno-less fixture expected exactly one 'stack_trace=<N> frames' header, got ${nl_header}"
 fi
-if ! printf '%s\n' "${out_nolineno}" | grep -q '^stack_trace=5 frames$'; then
-  fail "AC2 lineno-less fixture expected 'stack_trace=5 frames' header"
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^stack_trace=6 frames$'; then
+  fail "AC2 lineno-less fixture expected 'stack_trace=6 frames' header"
 fi
 nl_frames="$(printf '%s\n' "${out_nolineno}" | grep -cE '^[^=]+ in ' || true)"
-if [ "${nl_frames}" -ne 5 ]; then
-  fail "AC2 lineno-less fixture expected 5 'basename in function' frame lines, got ${nl_frames}"
+if [ "${nl_frames}" -ne 6 ]; then
+  fail "AC2 lineno-less fixture expected 6 'path in function' frame lines, got ${nl_frames}"
 fi
-if ! printf '%s\n' "${out_nolineno}" | grep -q '^consumer.py in _maybe_auto_commit_offsets_sync$'; then
-  fail "AC2 lineno-less frame format mismatch (expected 'consumer.py in _maybe_auto_commit_offsets_sync')"
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^kafka/coordinator/consumer.py in _maybe_auto_commit_offsets_sync in_app=0$'; then
+  fail "AC2 lineno-less frame format mismatch (expected 'kafka/coordinator/consumer.py in _maybe_auto_commit_offsets_sync in_app=0')"
 fi
-if ! printf '%s\n' "${out_nolineno}" | grep -q '^worker.py in sync_worker$'; then
-  fail "AC2 string-lineno frame not treated as lineno-less (expected 'worker.py in sync_worker')"
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^nuke/worker.py in sync_worker in_app=1$'; then
+  fail "AC2 string-lineno frame not treated as lineno-less (expected 'nuke/worker.py in sync_worker in_app=1')"
 fi
 if printf '%s\n' "${out_nolineno}" | grep -qE ':[0-9]+ in '; then
   fail "AC2 lineno-less fixture leaked a ':line' frame"
@@ -308,11 +394,33 @@ fi
 if printf '%s\n' "${out_nolineno}" | grep -q 'RAW-CONTEXT-SENTINEL'; then
   fail "AC4 fixture context sentinel leaked from lineno-less fixture"
 fi
-if ! printf '%s\n' "${out_nolineno}" | grep -q '^backlog.py in dispatch COUNT=999$'; then
-  fail "AC4 newline in frame function was not neutralised to a single line"
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^nuke/backlog.py in dispatch COUNT=999 in_app=1$'; then
+  fail "AC4 newline in frame function was not neutralised to a single line (expected 'nuke/backlog.py in dispatch COUNT=999 in_app=1')"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^netref.py in __call__ in_app=0$'; then
+  fail "AC2 abs_path-only frame did not emit its basename (expected 'netref.py in __call__ in_app=0')"
 fi
 if printf '%s\n' "${out_nolineno}" | grep -q '^COUNT=999$'; then
   fail "AC4 newline in frame function injected a standalone line"
+fi
+
+# AC5 pointer: deepest first-party frame is frame 4 (nuke/worker.py), which has
+# a string lineno — root_cause_line must be ABSENT, and frame 5 (also first-party)
+# must not be picked.
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^root_cause_file=nuke/worker.py$'; then
+  fail "AC5 pointer did not name the deepest first-party frame (root_cause_file)"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^root_cause_function=sync_worker$'; then
+  fail "AC5 pointer missing root_cause_function for the deepest first-party frame"
+fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^root_cause_in_app=1$'; then
+  fail "AC5 pointer missing root_cause_in_app=1 for the deepest first-party frame"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -q '^root_cause_line='; then
+  fail "AC5 root_cause_line emitted for a frame without an integer lineno"
+fi
+if printf '%s\n' "${out_nolineno}" | grep -q '^root_cause_file=nuke/backlog.py$'; then
+  fail "AC3 pointer did not pick the deepest first-party frame"
 fi
 
 # ---- AC6: no-frames marker distinct from no-exception-entry (issue 333) ----
@@ -324,4 +432,4 @@ if printf '%s\n' "${out_noframes}" | grep -q 'no exception entry'; then
   fail "AC6 no-frames stub emitted 'no exception entry' instead of 'no frames'"
 fi
 
-echo "PASS: all AC1-AC6 assertions passed"
+echo "PASS: all assertions passed"

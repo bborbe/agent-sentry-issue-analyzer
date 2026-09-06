@@ -5,3 +5,4 @@ autoRelease: false
 autoGeneratePrompts: true
 defaultBranch: master
 validationPrompt: docs/dod.md
+hideGit: true
