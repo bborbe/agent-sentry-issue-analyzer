@@ -24,7 +24,7 @@ Repo names that appear in past agent output but do **not** exist, and must never
 
 ## Extending the mapping
 
-A `## Failure` body matching `candidates tried` or `unmapped project` is the signal that this table is incomplete. To extend it:
+An escalation matching `candidates tried` or `unmapped project` is the signal that this table is incomplete. (Grep the task body for those strings, not for a section name — the planning prompts write only `## Analysis`; there is no `## Failure` section.) To extend it:
 
 1. Identify the missing repo from the escalation's frame names.
 2. Add it to the ordered candidate list in **both** `pkg/prompts/planning.md` (inside `### Step 3: Read the implicated source code`) and `pkg/prompts/deep-planning.md` (inside `### Step 2: Clone the implicated repo read-only`). The two files must stay byte-identical in that block.
