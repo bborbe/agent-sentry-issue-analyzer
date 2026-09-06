@@ -24,7 +24,19 @@ From the stack trace identify the implicated repo + file (`file.go:line`). Clone
 
 `Bash(scripts/repo-clone.sh clone <repo>)`
 
-Sentry projects `nuke-dev` and `nuke-prod` map to source repo `bborbe/nuke`; when the stack trace lacks a repo path (frames are external library code with no bborbe repo path), clone the mapped canonical repo `bborbe/nuke` before guessing a project-named variant like `nuke-dev`.
+**Resolving which repo to clone.** Prefer the frame's own path. If any application stack frame carries a repo-relative path (e.g. `mt5/connector/mt5linux.py`, `pkg/kafka/consumer.go`, `pkg/prompts/prompts.go`), resolve the repo from that frame path and clone that repo directly. This is the primary mechanism; everything below is a fallback and must never override a frame-path match.
+
+**Third-party frames are out of scope for repo resolution.** Frames belonging to a third-party library are absent from every `bborbe` repo by design and must never be hunted for — `rpyc` internals are the worked example of third-party frames: `netref.py`, `protocol.py`, `channel.py`, `stream.py`, `classic.py`, `factory.py` (and helpers such as `socket_backoff_connect`) come from the `rpyc` package that `bborbe/trading`'s `mt5/connector/mt5linux.py` imports, not from any repo you can clone. Classify such frames as third-party, exclude them from repo resolution, and reason from the application frames that remain. If every frame in the trace is third-party, clone nothing: escalate saying the trace is entirely third-party.
+
+**Fallback — ordered candidate list.** Only when no application frame carries a repo path, walk the per-Sentry-project candidate list in order, cloning each candidate until one contains the implicated frames. For Sentry projects `nuke-dev` and `nuke-prod`:
+
+1. `bborbe/trading` — private repo holding the Python MT5 connector under `mt5/connector/` (`runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py`); cloned with the `GIT_CLONE_TOKEN` the runtime already mints
+2. `bborbe/kafka` — public Go repo holding the Sarama client and its consumer/producer configuration
+3. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
+
+If the alert's Sentry project has no candidate list above, escalate naming the unmapped project. Never invent a repo name: clone only a repo that a frame path names or that this list names.
+
+**Escalation contract.** If no candidate contains the implicated frames, escalate and name every repo you tried, verbatim, as `candidates tried: <repo>, <repo>, ...` — so the next reader extends the list instead of re-deriving the diagnosis. If the run is cut short before you reach the last candidate, still write `candidates tried: ...` with the repos tried so far and mark the list incomplete. Report failure shapes distinctly, because each has a different fix: a clone rejected for `authentication` / `403` is an auth-scope failure, NOT "repo has no such file"; a repo that is missing, renamed, or archived is escalated by its exact stale name; a clone that dies on `no space left` / `ephemeral-storage` is a disk failure, not a missing repo.
 
 where `<repo>` is the owner/name (e.g. `bborbe/agent-sentry-issue-analyzer`) or an https/git@ URL from the stack trace. The script emits `clone_path`, `head_sha`, `default_branch`, and leaves the whole tree read-only — you can Read/Grep every file but cannot modify, commit, or push. Then read the implicated file(s) and nearby code:
 
@@ -39,6 +51,7 @@ You have READ-ONLY source access — never modify, commit, or push to any source
 Write your root-cause analysis into the task body under `## Analysis`:
 
 - implicated repo + `file.go:line`
+- how the repo was resolved — write either `resolved from frame path <path>` or `candidate position N (<repo>)`, so the frame-path and candidate-list mechanisms are distinguishable in the output
 - root-cause hypothesis (what the code path does wrong, with evidence from the code)
 - regression check (does `sentry_first_seen` vs recent commits suggest a recent change?)
 - proposed fix direction (NOT a full patch — execution/dark-factory decides)

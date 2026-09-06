@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: rewrite repo-resolution guidance in the planning prompts (`pkg/prompts/planning.md`, `pkg/prompts/deep-planning.md`) — resolve the repo from the stack frame's own path first, else walk an ordered per-project candidate list (`bborbe/trading`, `bborbe/kafka`, `bborbe/nuke` last and only for infrastructure-shaped frames), classify third-party frames (`rpyc` internals) as out of scope, escalate naming every candidate tried, and state the resolution mechanism in `## Analysis` / `## Context` — replacing the single hardcoded `bborbe/nuke` mapping that forced every application-code alert onto an infrastructure repo
+
 ## v0.10.0
 
 - fix: repair the k8s apply path in `Makefile.k8s` — replace `teamvault-config-parser` with `teamvault-cli config parse`, and replace the `kubectlquant` pipe with an explicit `KUBECONFIG` + real `kubectl`. `kubectlquant` is a zsh function with no executable on PATH, so it was undefined inside the recipe's `bash -c` and `BRANCH=dev make buca` failed at apply. `--teamvault-config` is passed explicitly because teamvault-cli defaults to `seibert.json`, which does not resolve this agent's secrets. `TEAMVAULT` now defaults to `~/.config/teamvault-cli/config.json` (the previous default, `~/.teamvault.json`, does not exist).
