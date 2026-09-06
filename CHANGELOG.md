@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.11.1
 
 - fix: wrap the deep-analysis execution step in a disqualifier guard so a fired noise-to-real-bug disqualifier forces `real bug` even when the deep model's re-analysis overwrites the verdict. Observed on NUKE-DEV-A4: the triage step correctly forced real bug via sustained span (count 193 ≥ 100, ~300-day span), but the deep re-analysis then wrote `noise` with the same events/day prose arithmetic error the v0.10.1 fix removed from the triage path. The guard runs the shared `applyDisqualifiers` after the deep model writes `## Verdict` (the same code the reassign step uses on the triage path), rewrites the section on override, and records `disqualifiers_fired`. `CreateDeepAgentFromRunner` now takes a `CurrentDateTimeGetter`; Ginkgo tests pin the deep-path override (A4 sustained-span case → real bug) and the no-fire case (count 84 → stays noise).
 
