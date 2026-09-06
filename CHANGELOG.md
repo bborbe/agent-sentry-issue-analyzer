@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- fix: compute the noise-to-real-bug disqualifiers in `pkg/verdict` instead of leaving the events/day arithmetic to the model in prose, which got it wrong and biased verdicts toward `noise` (measured 8/13 = 62% agreement on 2026-09-05; all five disagreements traced to this one defect). New `DisqualifierEvaluator` (Volume / Active burst / Regressed / Sustained span) computes the thresholds from the verdict's live-state fields (`live_event_count`, `first_seen`, `last_seen`, `sentry_status`); a fired disqualifier forces `real bug` and is recorded in `disqualifiers_fired`. The `Verdict` schema gains `first_seen` + `disqualifiers_fired`, the reassign step rewrites the `## Verdict` section on override, the execution prompt no longer asks the model to evaluate the numeric thresholds, and Ginkgo boundary tests pin the rate/count/burst/span edges.
 - fix: rewrite repo-resolution guidance in the planning prompts (`pkg/prompts/planning.md`, `pkg/prompts/deep-planning.md`) — resolve the repo from the stack frame's own path first, else walk an ordered per-project candidate list (`bborbe/trading`, `bborbe/kafka`, `bborbe/nuke` last and only for infrastructure-shaped frames), classify third-party frames (`rpyc` internals) as out of scope, escalate naming every candidate tried, and state the resolution mechanism in `## Analysis` / `## Context` — replacing the single hardcoded `bborbe/nuke` mapping that forced every application-code alert onto an infrastructure repo
 
 ## v0.10.0

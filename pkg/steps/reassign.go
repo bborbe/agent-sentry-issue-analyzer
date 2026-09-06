@@ -6,9 +6,11 @@ package steps
 
 import (
 	"context"
+	"strings"
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
@@ -33,6 +35,9 @@ type reassignExecutionStep struct {
 	deepAssignee string
 	// deepTaskType is the task_type frontmatter value set on reassign.
 	deepTaskType string
+	// disqualifiers computes the noise-to-real-bug disqualifiers from the
+	// verdict's live-state fields, overriding the model's verdict when any fire.
+	disqualifiers verdict.DisqualifierEvaluator
 }
 
 // NewReassignExecutionStep wraps the triage execution step with the real-bug
@@ -41,11 +46,13 @@ func NewReassignExecutionStep(
 	execution agentlib.Step,
 	deepAssignee string,
 	deepTaskType string,
+	disqualifiers verdict.DisqualifierEvaluator,
 ) agentlib.Step {
 	return &reassignExecutionStep{
-		execution:    execution,
-		deepAssignee: deepAssignee,
-		deepTaskType: deepTaskType,
+		execution:     execution,
+		deepAssignee:  deepAssignee,
+		deepTaskType:  deepTaskType,
+		disqualifiers: disqualifiers,
 	}
 }
 
@@ -80,6 +87,20 @@ func (s *reassignExecutionStep) Run(
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "reassign: parse verdict")
 	}
+
+	// The rubric makes a fired disqualifier authoritative over the model's
+	// verdict. The disqualifiers used to be evaluated by the model in prose,
+	// which got the events/day arithmetic wrong (biased toward `noise`); the
+	// numeric thresholds are now computed here, and a fired disqualifier
+	// forces the verdict to `real bug` (rewriting the ## Verdict section).
+	// Verified-absent resource stays a model judgment. Only run when a real
+	// verdict parsed — an absent verdict has no live-state fields to evaluate.
+	if v.Verdict != "" {
+		if err := s.applyDisqualifiers(ctx, md, &v); err != nil {
+			return nil, errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
+		}
+	}
+
 	if v.Verdict != "real bug" {
 		return result, nil
 	}
@@ -94,4 +115,63 @@ func (s *reassignExecutionStep) Run(
 		Status:  agentlib.AgentStatusInProgress,
 		Message: "reassigned to " + s.deepAssignee + " for deep analysis",
 	}, nil
+}
+
+// applyDisqualifiers evaluates the computed disqualifiers against the
+// verdict's live-state fields, forces `real bug` when any fire, and records
+// the fired disqualifiers as evidence in the ## Verdict section.
+func (s *reassignExecutionStep) applyDisqualifiers(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	v *verdict.Verdict,
+) error {
+	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "reassign: parse first_seen %q", v.FirstSeen)
+	}
+	lastSeen, err := libtime.ParseDateTime(ctx, v.LastSeen)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "reassign: parse last_seen %q", v.LastSeen)
+	}
+	fired, err := s.disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
+		LiveEventCount: v.LiveEventCount,
+		FirstSeen:      firstSeen.Time(),
+		LastSeen:       lastSeen.Time(),
+		SentryStatus:   v.SentryStatus,
+	})
+	if err != nil {
+		return errors.Wrapf(ctx, err, "reassign: evaluate disqualifiers")
+	}
+	if len(fired) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(fired))
+	for _, d := range fired {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		names = append(names, string(d))
+	}
+	if v.Verdict != "real bug" {
+		v.Verdict = "real bug"
+		v.Confidence = "high"
+		if v.Reason != "" {
+			v.Reason = "disqualifier fired (" + strings.Join(names, ", ") + "): " + v.Reason
+		} else {
+			v.Reason = "disqualifier fired (" + strings.Join(names, ", ") + ")"
+		}
+	}
+	v.DisqualifiersFired = names
+
+	rendered, err := verdict.Render(ctx, *v)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "reassign: render verdict")
+	}
+	if section, ok := md.FindSection("## Verdict"); ok {
+		section.Body = rendered
+	}
+	return nil
 }

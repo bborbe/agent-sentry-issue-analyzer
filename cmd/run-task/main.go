@@ -24,6 +24,7 @@ import (
 	"github.com/bborbe/errors"
 	libsentry "github.com/bborbe/sentry"
 	"github.com/bborbe/service"
+	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
@@ -117,6 +118,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		a.AnthropicModel,
 		claudeEnv,
 		envparse.KeyValuePairs(a.EnvContextRaw),
+		libtime.NewCurrentDateTime(),
 	)
 
 	result, err := agent.Run(ctx, a.Phase, string(taskContent), deliverer)

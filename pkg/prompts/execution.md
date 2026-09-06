@@ -47,6 +47,8 @@ Assign exactly one verdict:
 | Sustained span | First-seen to last-seen span > 30 days AND (rate ≥ ~1 event/day OR live count ≥ 100) — the span disqualifier is about RATE, not calendar age; long-lived low-rate transients (rate < ~1/day AND count < 100) stay `noise` regardless of span |
 | Verified-absent resource | The sibling production resource referenced (kafka topic, DB table, GCP API) is verified absent |
 
+**The numeric thresholds above are evaluated by the binary, not by you.** Do NOT compute the events/day rate or evaluate the Volume / Active burst / Regressed / Sustained span conditions yourself — that arithmetic is done in code (`pkg/verdict`), and a fired disqualifier overrides your verdict to `real bug` automatically. Your job is to (a) match the signature to a noise pattern and (b) emit the live-state fields (`live_event_count`, `first_seen`, `last_seen`, `sentry_status`) verbatim from `scripts/sentry-read.sh` so the code can decide. Only `Verified-absent resource` is your judgment call.
+
 Do NOT use simple `<50 events = noise`. That heuristic fails for long-running low-rate transients (BRO-20509 had 460-event noise) and for high-volume real bugs. Pattern match is a *prior*, live state is the *evidence* — when evidence contradicts the prior, evidence wins.
 
 ## Output
@@ -59,8 +61,10 @@ verdict: real bug
 confidence: high          # high | medium | low
 reason: <one-line verdict rationale>
 live_event_count: 142
+first_seen: 2026-06-25T06:55:11Z
 last_seen: 2026-06-26T06:55:11Z
 sentry_status: unresolved
+disqualifiers_fired: []   # filled in by the binary — always emit an empty list
 understanding: high       # from ## Analysis Understanding certainty
 fix_certainty: medium     # from ## Analysis Fix certainty
 root_cause: <one-line>

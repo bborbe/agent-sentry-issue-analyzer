@@ -20,6 +20,7 @@ import (
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
 
 const serviceName = "agent-sentry-issue-analyzer"
@@ -130,10 +131,12 @@ func CreateAgent(
 	model claudelib.ClaudeModel,
 	claudeEnv map[string]string,
 	envContext map[string]string,
+	currentDateTime libtime.CurrentDateTimeGetter,
 ) *agentlib.Agent {
 	return CreateAgentFromRunner(
 		CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv),
 		envContext,
+		currentDateTime,
 	)
 }
 
@@ -147,12 +150,14 @@ func CreateAgent(
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
+	currentDateTime libtime.CurrentDateTimeGetter,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
 	execution := steps.NewReassignExecutionStep(
 		steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
 		assigneeSentryAnalyzerAgent,
 		string(taskTypeSentryDeepAnalyzer),
+		verdict.NewDisqualifierEvaluator(currentDateTime),
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
@@ -222,9 +227,10 @@ func CreateAgentProvider(
 	model claudelib.ClaudeModel,
 	claudeEnv map[string]string,
 	envContext map[string]string,
+	currentDateTime libtime.CurrentDateTimeGetter,
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
-	domainAgent := CreateAgentFromRunner(runner, envContext)
+	domainAgent := CreateAgentFromRunner(runner, envContext, currentDateTime)
 	deepAgent := CreateDeepAgentFromRunner(runner, envContext)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
