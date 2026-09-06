@@ -170,19 +170,26 @@ func CreateAgentFromRunner(
 // (sentry-deep-analyzer) with its own octopus verdict schema and deep
 // planning/execution prompts — it runs on ONE task flagged `real bug` by the
 // triage agent, never batch.
+//
+// The deep execution step is wrapped in the disqualifier guard: the deep model
+// re-runs a full verdict on the task, and a fired disqualifier must still force
+// `real bug` — the triage step already forced it, and the deep re-analysis must
+// not be able to override that (observed on NUKE-DEV-A4: triage forced real
+// bug via sustained span, deep re-analysis wrote `noise` with the same
+// events/day arithmetic error).
 func CreateDeepAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
+	currentDateTime libtime.CurrentDateTimeGetter,
 ) *agentlib.Agent {
 	planning := steps.NewDeepPlanningStep(
 		runner,
 		prompts.BuildDeepPlanningInstructions(),
 		envContext,
 	)
-	execution := steps.NewDeepExecutionStep(
-		runner,
-		prompts.BuildDeepExecutionInstructions(),
-		envContext,
+	execution := steps.NewDisqualifierGuardStep(
+		steps.NewDeepExecutionStep(runner, prompts.BuildDeepExecutionInstructions(), envContext),
+		verdict.NewDisqualifierEvaluator(currentDateTime),
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
@@ -231,7 +238,7 @@ func CreateAgentProvider(
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(runner, envContext, currentDateTime)
-	deepAgent := CreateDeepAgentFromRunner(runner, envContext)
+	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{

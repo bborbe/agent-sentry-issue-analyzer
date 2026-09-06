@@ -96,7 +96,7 @@ func (s *reassignExecutionStep) Run(
 	// Verified-absent resource stays a model judgment. Only run when a real
 	// verdict parsed — an absent verdict has no live-state fields to evaluate.
 	if v.Verdict != "" {
-		if err := s.applyDisqualifiers(ctx, md, &v); err != nil {
+		if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
 			return nil, errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
 		}
 	}
@@ -119,28 +119,30 @@ func (s *reassignExecutionStep) Run(
 
 // applyDisqualifiers evaluates the computed disqualifiers against the
 // verdict's live-state fields, forces `real bug` when any fire, and records
-// the fired disqualifiers as evidence in the ## Verdict section.
-func (s *reassignExecutionStep) applyDisqualifiers(
+// the fired disqualifiers as evidence in the ## Verdict section. Shared by the
+// reassign step (triage path) and the disqualifier guard (deep path).
+func applyDisqualifiers(
 	ctx context.Context,
 	md *agentlib.Markdown,
 	v *verdict.Verdict,
+	disqualifiers verdict.DisqualifierEvaluator,
 ) error {
 	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
 	if err != nil {
-		return errors.Wrapf(ctx, err, "reassign: parse first_seen %q", v.FirstSeen)
+		return errors.Wrapf(ctx, err, "apply disqualifiers: parse first_seen %q", v.FirstSeen)
 	}
 	lastSeen, err := libtime.ParseDateTime(ctx, v.LastSeen)
 	if err != nil {
-		return errors.Wrapf(ctx, err, "reassign: parse last_seen %q", v.LastSeen)
+		return errors.Wrapf(ctx, err, "apply disqualifiers: parse last_seen %q", v.LastSeen)
 	}
-	fired, err := s.disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
+	fired, err := disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
 		LiveEventCount: v.LiveEventCount,
 		FirstSeen:      firstSeen.Time(),
 		LastSeen:       lastSeen.Time(),
 		SentryStatus:   v.SentryStatus,
 	})
 	if err != nil {
-		return errors.Wrapf(ctx, err, "reassign: evaluate disqualifiers")
+		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate")
 	}
 	if len(fired) == 0 {
 		return nil
@@ -168,7 +170,7 @@ func (s *reassignExecutionStep) applyDisqualifiers(
 
 	rendered, err := verdict.Render(ctx, *v)
 	if err != nil {
-		return errors.Wrapf(ctx, err, "reassign: render verdict")
+		return errors.Wrapf(ctx, err, "apply disqualifiers: render verdict")
 	}
 	if section, ok := md.FindSection("## Verdict"); ok {
 		section.Body = rendered
