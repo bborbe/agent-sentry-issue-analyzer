@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update `github.com/bborbe/agent` to v0.87.3 — picks up the `kafkaResultDeliverer.stampTargetVault` fix (spec 052): stub results (failed / needs_input / unsupported-phase) now carry `target_vault` echoed from the original task content, so the controller's routing guard skips them cleanly instead of scanning-and-dropping (fixes the `AgentControllerResultNotFound` alert on nukedev)
+
 ## v0.11.2
 
 - fix: make the shared disqualifier override skip (not crash) when the verdict omits the live-state date fields, and require `first_seen`/`last_seen`/`sentry_status` in the deep-analysis verdict template. Observed live on NUKE-DEV-A4 after v0.11.1: the deep model's verdict YAML omitted `first_seen`/`last_seen` (the deep template only listed `live_event_count`), `applyDisqualifiers` unconditionally parsed the empty dates and errored (`parse first_seen ""`), failing every deep job and re-triggering the controller loop. The override now skips when either date is absent — the model's verdict stands, no crash — and the deep template now lists the three live-state fields so the code-side evaluator can compute Sustained span / Active burst / Regressed on the deep path. Ginkgo test pins the missing-dates case (no crash, verdict unchanged).
