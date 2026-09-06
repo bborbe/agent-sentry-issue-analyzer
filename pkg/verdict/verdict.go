@@ -208,13 +208,18 @@ func fencedBlocks(ctx context.Context, content string) ([]string, error) {
 // if none exists. Walks from the end finding the closing brace, then walks
 // back tracking brace depth to find the matching open. Mirrors
 // github-pr-review-agent extractVerdict's fallback for legacy unfenced output.
-func lastJSONBlock(_ context.Context, s string) (string, bool) {
+func lastJSONBlock(ctx context.Context, s string) (string, bool) {
 	end := strings.LastIndex(s, "}")
 	if end < 0 {
 		return "", false
 	}
 	depth := 0
 	for i := end; i >= 0; i-- {
+		select {
+		case <-ctx.Done():
+			return "", false
+		default:
+		}
 		switch s[i] {
 		case '}':
 			depth++

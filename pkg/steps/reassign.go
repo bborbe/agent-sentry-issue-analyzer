@@ -7,10 +7,10 @@ package steps
 import (
 	"context"
 	"strings"
-	"time"
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
@@ -125,18 +125,18 @@ func (s *reassignExecutionStep) applyDisqualifiers(
 	md *agentlib.Markdown,
 	v *verdict.Verdict,
 ) error {
-	firstSeen, err := time.Parse(time.RFC3339, v.FirstSeen)
+	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "reassign: parse first_seen %q", v.FirstSeen)
 	}
-	lastSeen, err := time.Parse(time.RFC3339, v.LastSeen)
+	lastSeen, err := libtime.ParseDateTime(ctx, v.LastSeen)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "reassign: parse last_seen %q", v.LastSeen)
 	}
 	fired, err := s.disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
 		LiveEventCount: v.LiveEventCount,
-		FirstSeen:      firstSeen,
-		LastSeen:       lastSeen,
+		FirstSeen:      firstSeen.Time(),
+		LastSeen:       lastSeen.Time(),
 		SentryStatus:   v.SentryStatus,
 	})
 	if err != nil {
@@ -148,6 +148,11 @@ func (s *reassignExecutionStep) applyDisqualifiers(
 
 	names := make([]string, 0, len(fired))
 	for _, d := range fired {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		names = append(names, string(d))
 	}
 	if v.Verdict != "real bug" {
