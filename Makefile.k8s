@@ -10,6 +10,12 @@
 #
 # Unlike the hue fix, --teamvault-config is passed explicitly: teamvault-cli defaults
 # to seibert.json, which does not hold this agent's secrets.
+#
+# Cluster: quant. Verified 2026-09-06 -- every object this directory declares lives on
+# quant (or nowhere). The live sentry agents (sentry-analyzer-agent /
+# sentry-collector-agent) run on nukedev/nukeprod and are managed by the nuke repo, NOT
+# from here. Whether this directory should still exist is tracked separately; this
+# recipe only fixes HOW it applies, not WHAT it applies.
 
 KUBECONFIG_QUANT ?= $(HOME)/.kube/quant
 
@@ -22,6 +28,9 @@ apply:
 
 # Render manifests to stdout without touching the cluster -- use this to verify the
 # teamvault wiring before an apply.
+#
+# WARNING: output contains resolved secrets (base64-encoded, trivially decodable).
+# Read it on a terminal; never redirect it to a file, a log, or CI output.
 .PHONY: applytest
 applytest:
 	bash -c 'source ${ROOTDIR}/${BRANCH}.env && source ${ROOTDIR}/common.env && find . -maxdepth 1 -name "*.yaml" | while read -r file; do cat $${file} | teamvault-cli config parse --teamvault-config="${TEAMVAULT}"; done'
