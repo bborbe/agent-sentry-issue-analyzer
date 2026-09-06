@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: make the shared disqualifier override skip (not crash) when the verdict omits the live-state date fields, and require `first_seen`/`last_seen`/`sentry_status` in the deep-analysis verdict template. Observed live on NUKE-DEV-A4 after v0.11.1: the deep model's verdict YAML omitted `first_seen`/`last_seen` (the deep template only listed `live_event_count`), `applyDisqualifiers` unconditionally parsed the empty dates and errored (`parse first_seen ""`), failing every deep job and re-triggering the controller loop. The override now skips when either date is absent — the model's verdict stands, no crash — and the deep template now lists the three live-state fields so the code-side evaluator can compute Sustained span / Active burst / Regressed on the deep path. Ginkgo test pins the missing-dates case (no crash, verdict unchanged).
+
 ## v0.11.1
 
 - fix: wrap the deep-analysis execution step in a disqualifier guard so a fired noise-to-real-bug disqualifier forces `real bug` even when the deep model's re-analysis overwrites the verdict. Observed on NUKE-DEV-A4: the triage step correctly forced real bug via sustained span (count 193 ≥ 100, ~300-day span), but the deep re-analysis then wrote `noise` with the same events/day prose arithmetic error the v0.10.1 fix removed from the triage path. The guard runs the shared `applyDisqualifiers` after the deep model writes `## Verdict` (the same code the reassign step uses on the triage path), rewrites the section on override, and records `disqualifiers_fired`. `CreateDeepAgentFromRunner` now takes a `CurrentDateTimeGetter`; Ginkgo tests pin the deep-path override (A4 sustained-span case → real bug) and the no-fire case (count 84 → stays noise).

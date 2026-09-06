@@ -127,6 +127,15 @@ func applyDisqualifiers(
 	v *verdict.Verdict,
 	disqualifiers verdict.DisqualifierEvaluator,
 ) error {
+	// A verdict that omits the live-state date fields cannot be evaluated:
+	// sustained span and active burst both need first_seen/last_seen. Skip the
+	// disqualifier override rather than crashing on empty dates — observed live
+	// on NUKE-DEV-A4: the deep model wrote a verdict without first_seen and the
+	// guard errored, failing every deep job. With the dates absent the model's
+	// own verdict stands.
+	if v.FirstSeen == "" || v.LastSeen == "" {
+		return nil
+	}
 	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "apply disqualifiers: parse first_seen %q", v.FirstSeen)
