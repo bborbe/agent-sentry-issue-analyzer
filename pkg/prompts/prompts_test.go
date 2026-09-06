@@ -5,6 +5,8 @@
 package prompts_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,10 +42,52 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/repo-clone.sh log"))
 	})
 
-	It("planning prompt contains the nuke repo-mapping guidance", func() {
-		instrs := prompts.BuildPlanningInstructions()
-		Expect(instrs[0].Content).To(ContainSubstring("nuke-dev"))
-		Expect(instrs[0].Content).To(ContainSubstring("bborbe/nuke"))
+	// IMPORTANT: the triage and deep-planning assertions below are duplicated on
+	// purpose. Spec 001 AC 11 greps this file for `bborbe/trading` and
+	// `bborbe/kafka` on >=2 lines (one per builder); a DescribeTable or shared
+	// helper collapses them to one and silently drops the per-builder guarantee.
+	It("planning prompt resolves the repo frame-path-first with an ordered candidate list", func() {
+		content := prompts.BuildPlanningInstructions()[0].Content
+		Expect(content).To(ContainSubstring("nuke-dev"))
+		Expect(content).To(ContainSubstring("nuke-prod"))
+		Expect(content).To(ContainSubstring("bborbe/trading"))
+		Expect(content).To(ContainSubstring("mt5/connector"))
+		Expect(content).To(ContainSubstring("bborbe/kafka"))
+		Expect(content).To(ContainSubstring("docs/repo-mapping.md"))
+		Expect(content).To(ContainSubstring("frame path"))
+		Expect(strings.Index(content, "frame path")).
+			To(BeNumerically("<", strings.Index(content, "candidate")))
+	})
+
+	It("planning prompt orders the infrastructure repo after the application repos", func() {
+		content := prompts.BuildPlanningInstructions()[0].Content
+		Expect(strings.Index(content, "bborbe/nuke")).
+			To(BeNumerically(">", strings.Index(content, "bborbe/trading")))
+	})
+
+	It("planning prompt excludes third-party frames from repo resolution", func() {
+		content := prompts.BuildPlanningInstructions()[0].Content
+		Expect(content).To(ContainSubstring("third-party"))
+		Expect(content).To(ContainSubstring("rpyc"))
+		Expect(content).To(ContainSubstring("netref.py"))
+	})
+
+	It(
+		"planning prompt requires candidates tried and the resolution mechanism in the output",
+		func() {
+			content := prompts.BuildPlanningInstructions()[0].Content
+			Expect(content).To(ContainSubstring("candidates tried"))
+			Expect(content).To(ContainSubstring("resolved from frame path"))
+			Expect(content).To(ContainSubstring("candidate position"))
+		},
+	)
+
+	It("planning prompt no longer maps a Sentry project to a single canonical repo", func() {
+		content := prompts.BuildPlanningInstructions()[0].Content
+		Expect(content).NotTo(ContainSubstring("map to source repo"))
+		Expect(content).NotTo(ContainSubstring("project-named variant"))
+		Expect(content).NotTo(ContainSubstring("bborbe/trading-bot"))
+		Expect(content).NotTo(ContainSubstring("bborbe/nuke-dev"))
 	})
 
 	It("planning prompt contains the ## Analysis section heading", func() {
@@ -171,10 +215,55 @@ var _ = Describe("BuildDeepPlanningInstructions", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/repo-clone.sh clone"))
 	})
 
-	It("deep planning prompt contains the nuke repo-mapping guidance", func() {
-		instrs := prompts.BuildDeepPlanningInstructions()
-		Expect(instrs[0].Content).To(ContainSubstring("nuke-dev"))
-		Expect(instrs[0].Content).To(ContainSubstring("bborbe/nuke"))
+	// IMPORTANT: the triage and deep-planning assertions below are duplicated on
+	// purpose. Spec 001 AC 11 greps this file for `bborbe/trading` and
+	// `bborbe/kafka` on >=2 lines (one per builder); a DescribeTable or shared
+	// helper collapses them to one and silently drops the per-builder guarantee.
+	It(
+		"deep planning prompt resolves the repo frame-path-first with an ordered candidate list",
+		func() {
+			content := prompts.BuildDeepPlanningInstructions()[0].Content
+			Expect(content).To(ContainSubstring("nuke-dev"))
+			Expect(content).To(ContainSubstring("nuke-prod"))
+			Expect(content).To(ContainSubstring("bborbe/trading"))
+			Expect(content).To(ContainSubstring("mt5/connector"))
+			Expect(content).To(ContainSubstring("bborbe/kafka"))
+			Expect(content).To(ContainSubstring("docs/repo-mapping.md"))
+			Expect(content).To(ContainSubstring("frame path"))
+			Expect(strings.Index(content, "frame path")).
+				To(BeNumerically("<", strings.Index(content, "candidate")))
+		},
+	)
+
+	It("deep planning prompt orders the infrastructure repo after the application repos", func() {
+		content := prompts.BuildDeepPlanningInstructions()[0].Content
+		Expect(strings.Index(content, "bborbe/nuke")).
+			To(BeNumerically(">", strings.Index(content, "bborbe/trading")))
+	})
+
+	It("deep planning prompt excludes third-party frames from repo resolution", func() {
+		content := prompts.BuildDeepPlanningInstructions()[0].Content
+		Expect(content).To(ContainSubstring("third-party"))
+		Expect(content).To(ContainSubstring("rpyc"))
+		Expect(content).To(ContainSubstring("netref.py"))
+	})
+
+	It(
+		"deep planning prompt requires candidates tried and the resolution mechanism in the output",
+		func() {
+			content := prompts.BuildDeepPlanningInstructions()[0].Content
+			Expect(content).To(ContainSubstring("candidates tried"))
+			Expect(content).To(ContainSubstring("resolved from frame path"))
+			Expect(content).To(ContainSubstring("candidate position"))
+		},
+	)
+
+	It("deep planning prompt no longer maps a Sentry project to a single canonical repo", func() {
+		content := prompts.BuildDeepPlanningInstructions()[0].Content
+		Expect(content).NotTo(ContainSubstring("map to source repo"))
+		Expect(content).NotTo(ContainSubstring("project-named variant"))
+		Expect(content).NotTo(ContainSubstring("bborbe/trading-bot"))
+		Expect(content).NotTo(ContainSubstring("bborbe/nuke-dev"))
 	})
 
 	It("deep planning prompt writes the ## Context section", func() {
