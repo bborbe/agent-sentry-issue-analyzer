@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: repair the k8s apply path in `Makefile.k8s` — replace `teamvault-config-parser` with `teamvault-cli config parse`, and replace the `kubectlquant` pipe with an explicit `KUBECONFIG` + real `kubectl`. `kubectlquant` is a zsh function with no executable on PATH, so it was undefined inside the recipe's `bash -c` and `BRANCH=dev make buca` failed at apply. `--teamvault-config` is passed explicitly because teamvault-cli defaults to `seibert.json`, which does not resolve this agent's secrets. `TEAMVAULT` now defaults to `~/.config/teamvault-cli/config.json` (the previous default, `~/.teamvault.json`, does not exist).
+- feat: add `applytest` target that renders manifests to stdout without touching the cluster, for verifying teamvault wiring before an apply. `Makefile.env`'s BRANCH guard now covers it.
+
 ## v0.9.5
 
 - chore: update Go to 1.27.1 and github.com/bborbe/agent to v0.87.1, github.com/bborbe/kafka to v1.25.13, github.com/bborbe/maintainer to v0.50.6, github.com/bborbe/service to v1.10.12, github.com/bborbe/time to v1.27.13, github.com/bborbe/vault-cli to v0.122.2

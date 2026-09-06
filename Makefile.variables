@@ -1,4 +1,8 @@
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD | tr '/' '-')
 HOSTNAME ?= $(shell hostname -s)
 ROOTDIR ?= $(shell git rev-parse --show-toplevel)
-TEAMVAULT ?= ~/.teamvault.json
+# Personal TeamVault (teamvault.benjamin-borbe.de). Must be explicit: teamvault-cli
+# defaults to ~/.config/teamvault-cli/seibert.json, which does NOT hold this agent's
+# secrets -- verified 2026-09-06, seibert.json fails to resolve teamvaultUrl.
+# The previous value (~/.teamvault.json) is a file that no longer exists.
+TEAMVAULT ?= $(HOME)/.config/teamvault-cli/config.json

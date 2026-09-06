@@ -1,13 +1,27 @@
 
+# 2026-09-06: repaired the apply path. Two independent reasons it could not work:
+#
+# 1. `teamvault-config-parser` is a binary that no longer exists. Replaced with the
+#    current `teamvault-cli config parse` (same fix as hue a862f4a and
+#    minecraft-bedrock). The `-logtostderr -v=0` glog flags went away with it.
+# 2. The recipe piped into `kubectlquant`, which is a ZSH FUNCTION with no executable
+#    anywhere on PATH -- undefined inside the Makefile's `bash -c`. Replaced with an
+#    explicit KUBECONFIG plus the real kubectl binary.
+#
+# Unlike the hue fix, --teamvault-config is passed explicitly: teamvault-cli defaults
+# to seibert.json, which does not hold this agent's secrets.
+
+KUBECONFIG_QUANT ?= $(HOME)/.kube/quant
+
 .PHONY: buca
 buca: apply
 
+.PHONY: apply
 apply:
-	@if [ "${BRANCH}" = "prod" ]; then \
-		bash -c 'source ${ROOTDIR}/prod.env && source ${ROOTDIR}/common.env && find . -maxdepth 1 -name "*.yaml" | while read -r file; do cat $${file} | teamvault-config-parser -teamvault-config="${TEAMVAULT}" -logtostderr -v=0 | kubectlquant apply -f -; done'; \
-	elif [ "${BRANCH}" = "dev" ]; then \
-		bash -c 'source ${ROOTDIR}/dev.env && source ${ROOTDIR}/common.env && find . -maxdepth 1 -name "*.yaml" | while read -r file; do cat $${file} | teamvault-config-parser -teamvault-config="${TEAMVAULT}" -logtostderr -v=0 | kubectlquant apply -f -; done'; \
-	else \
-		echo 'apply only allowed in prod or dev branch!' >&2; \
-		exit 1; \
-	fi
+	bash -c 'source ${ROOTDIR}/${BRANCH}.env && source ${ROOTDIR}/common.env && find . -maxdepth 1 -name "*.yaml" | while read -r file; do cat $${file} | teamvault-cli config parse --teamvault-config="${TEAMVAULT}" | KUBECONFIG=${KUBECONFIG_QUANT} kubectl apply -f -; done'
+
+# Render manifests to stdout without touching the cluster -- use this to verify the
+# teamvault wiring before an apply.
+.PHONY: applytest
+applytest:
+	bash -c 'source ${ROOTDIR}/${BRANCH}.env && source ${ROOTDIR}/common.env && find . -maxdepth 1 -name "*.yaml" | while read -r file; do cat $${file} | teamvault-cli config parse --teamvault-config="${TEAMVAULT}"; done'
