@@ -64,6 +64,9 @@ recommended_fix: <one-line>
 file:line: <path:line>       # repo-relative path + line, resolved from the read-only clone
 disqualifiers_fired: [Volume]  # list of fired disqualifier names (Volume | Active burst | Regressed | Sustained span | Verified-absent resource); empty [] if none
 live_event_count: 142
+first_seen: 2025-11-08T11:17:10Z   # from live state — REQUIRED; the disqualifier evaluator computes Sustained span and Active burst from first_seen/last_seen in code, and a missing date means it cannot evaluate
+last_seen: 2026-09-05T12:28:01Z    # from live state — REQUIRED (same reason)
+sentry_status: unresolved          # unresolved | resolved | regressed — from live state; feeds the Regressed disqualifier
 ```
 
 Use exactly these keys — a downstream orchestrator parses them, and a High/High verdict (`understanding: High` AND `fix_certainty: High`) triggers the fix-PR agent. The trailing JSON envelope (`<output-format>`) carries `status`: `done` if the verdict YAML is written, `needs_input` for regression / low-confidence real-bug / missing live state, `failed` on infra error.

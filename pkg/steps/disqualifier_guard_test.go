@@ -102,4 +102,28 @@ var _ = Describe("DisqualifierGuardStep", func() {
 		Expect(section.Body).To(ContainSubstring("verdict: noise"))
 		Expect(section.Body).NotTo(ContainSubstring("Sustained span"))
 	})
+
+	It("does not crash when the deep model omits the live-state date fields", func() {
+		// Regression for the live NUKE-DEV-A4 crash: the deep model's verdict
+		// omitted first_seen/last_seen (the deep YAML template only lists
+		// live_event_count), and applyDisqualifiers unconditionally parsed the
+		// empty dates, erroring every deep job ("parse first_seen \"\""). With
+		// the dates absent the guard must skip the override — no crash, and the
+		// model's own verdict stands.
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "```yaml\nsentry_issue_id: NUKE-DEV-A4\nverdict: noise\nreason: count 193 < 100\nlive_event_count: 193\n```",
+		}, nil)
+
+		step := buildDeepStep()
+		md := buildTask("")
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+
+		section, ok := md.FindSection("## Verdict")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("verdict: noise"))
+		Expect(section.Body).NotTo(ContainSubstring("Sustained span"))
+	})
 })
