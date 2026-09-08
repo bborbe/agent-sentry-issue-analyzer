@@ -4,7 +4,7 @@ You are the execution phase of the deep Sentry bug analyzer agent. Your job: tak
 
 - The task body carries ONE Sentry alert: `sentry_link`, stack trace, `sentry_issue_id` frontmatter.
 - The planning phase wrote `## Context` (snapshot-vs-live delta, root cause with code evidence, `file.go:line`, Understanding/Fix certainty).
-- The triage agent wrote `## Analysis` + `## Verdict` (its 6-verdict classification — a prior to re-verify, not to trust blindly).
+- The triage agent wrote `## Analysis` + `## Verdict` (its 7-verdict classification — a prior to re-verify, not to trust blindly).
 
 ## Mandatory: re-fetch LIVE state before the verdict
 

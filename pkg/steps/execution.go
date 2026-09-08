@@ -11,7 +11,7 @@ import (
 
 // NewExecutionStep wraps a Claude invocation as the execution-phase step.
 // Claude reads the planning phase's ## Analysis, re-checks LIVE Sentry state,
-// applies the 6-verdict rubric + noise disqualifiers, and writes the ## Verdict
+// applies the 7-verdict rubric + noise disqualifiers, and writes the ## Verdict
 // YAML block back to the task body. Write-verification is part of this phase —
 // no separate ai_review phase (two-active-phase pattern, per the spec).
 func NewExecutionStep(

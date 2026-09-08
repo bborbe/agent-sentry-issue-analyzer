@@ -9,7 +9,7 @@
 //   - planning  → claude.NewAgentStep (planning prompt + MCP tools): fetch
 //     LIVE state for the single alert, read implicated source (read-only),
 //     write ## Analysis
-//   - execution → claude.NewAgentStep (execution prompt): apply the 6-verdict
+//   - execution → claude.NewAgentStep (execution prompt): apply the 7-verdict
 //     rubric + noise disqualifiers, write ## Verdict back to the task body
 package steps
 
