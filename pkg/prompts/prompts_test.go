@@ -72,6 +72,15 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(content).To(ContainSubstring("netref.py"))
 	})
 
+	It("planning prompt records the no-first-party-frame condition instead of escalating", func() {
+		content := prompts.BuildPlanningInstructions()[0].Content
+		Expect(content).NotTo(ContainSubstring("escalate saying the trace is entirely third-party"))
+		Expect(content).To(ContainSubstring("no exception entry"))
+		Expect(content).To(ContainSubstring("## Analysis"))
+		Expect(content).NotTo(ContainSubstring("unanalyzable"))
+		Expect(content).To(ContainSubstring("Do not assign a verdict"))
+	})
+
 	It(
 		"planning prompt requires candidates tried and the resolution mechanism in the output",
 		func() {
@@ -152,11 +161,19 @@ var _ = Describe("BuildExecutionInstructions (triage)", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("scripts/sentry-read.sh"))
 	})
 
-	It("execution prompt uses the triage 6-verdict rubric", func() {
+	It("execution prompt uses the triage 7-verdict rubric", func() {
 		instrs := prompts.BuildExecutionInstructions()
-		for _, v := range []string{"already-tracked", "regression", "real bug", "noise", "duplicate", "not-a-defect"} {
+		for _, v := range []string{"already-tracked", "regression", "real bug", "noise", "duplicate", "not-a-defect", "unanalyzable"} {
 			Expect(instrs[0].Content).To(ContainSubstring("`" + v + "`"))
 		}
+	})
+
+	It("execution prompt classifies no-first-party-frame alerts as terminal unanalyzable", func() {
+		content := prompts.BuildExecutionInstructions()[0].Content
+		Expect(content).To(ContainSubstring("unanalyzable"))
+		Expect(content).To(ContainSubstring("no exception entry"))
+		Expect(content).To(ContainSubstring("in_app=0"))
+		Expect(content).To(ContainSubstring("status: done"))
 	})
 
 	It("execution prompt defines the triage verdict YAML keys", func() {
@@ -261,6 +278,20 @@ var _ = Describe("BuildDeepPlanningInstructions", func() {
 		Expect(content).To(ContainSubstring("rpyc"))
 		Expect(content).To(ContainSubstring("netref.py"))
 	})
+
+	It(
+		"deep planning prompt records the no-first-party-frame condition instead of escalating",
+		func() {
+			content := prompts.BuildDeepPlanningInstructions()[0].Content
+			Expect(
+				content,
+			).NotTo(ContainSubstring("escalate saying the trace is entirely third-party"))
+			Expect(content).To(ContainSubstring("no exception entry"))
+			Expect(content).To(ContainSubstring("## Analysis"))
+			Expect(content).NotTo(ContainSubstring("unanalyzable"))
+			Expect(content).To(ContainSubstring("Do not assign a verdict"))
+		},
+	)
 
 	It(
 		"deep planning prompt requires candidates tried and the resolution mechanism in the output",

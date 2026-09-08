@@ -14,8 +14,8 @@ Deferred-not-cut work captured during `/launch-agent` proof-of-life scaffold on 
 
 - **Per-alert domain logic shipped 2026-08-22** (feature/sentry-domain → PR #N): two active phases (planning → execution), no ai_review.
   - `pkg/prompts/planning.md` — fetch LIVE state (`mcp__sentry__get_sentry_resource`), read implicated source (read-only), write `## Analysis`
-  - `pkg/prompts/execution.md` — 6-verdict rubric + noise disqualifiers verbatim, write `## Verdict` YAML
-  - `pkg/verdict/` — verdict YAML schema + parser + validator (6-verdict fixture tests)
+  - `pkg/prompts/execution.md` — 7-verdict rubric + noise disqualifiers verbatim, write `## Verdict` YAML
+  - `pkg/verdict/` — verdict YAML schema + parser + validator (7-verdict fixture tests)
   - `pkg/preflight/` — fail-fast check that `mcp__sentry__*` tools are in ALLOWED_TOOLS
   - Architecture (operator decision 2026-08-22): **collector creates one task per active alert; agent analyzes that single alert** — same shape as all other agents. Bug-task creation moved OUT of the agent (collector's job).
 

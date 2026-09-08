@@ -42,7 +42,7 @@ func BuildPlanningInstructions() claudelib.Instructions {
 }
 
 // BuildExecutionInstructions assembles the triage execution-phase prompt: the
-// 6-verdict rubric + noise disqualifiers, plus the shared output-format
+// 7-verdict rubric + noise disqualifiers, plus the shared output-format
 // contract. Used by the sentry-issue-analyzer task type.
 func BuildExecutionInstructions() claudelib.Instructions {
 	return claudelib.Instructions{

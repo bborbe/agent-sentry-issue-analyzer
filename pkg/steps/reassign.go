@@ -118,9 +118,11 @@ func (s *reassignExecutionStep) Run(
 }
 
 // applyDisqualifiers evaluates the computed disqualifiers against the
-// verdict's live-state fields, forces `real bug` when any fire, and records
-// the fired disqualifiers as evidence in the ## Verdict section. Shared by the
-// reassign step (triage path) and the disqualifier guard (deep path).
+// verdict's live-state fields, forces `real bug` when any fire — except for
+// `unanalyzable` verdicts, which are left exactly as the classifier wrote them
+// — and records the fired disqualifiers as evidence in the ## Verdict section.
+// Shared by the reassign step (triage path) and the disqualifier guard (deep
+// path).
 func applyDisqualifiers(
 	ctx context.Context,
 	md *agentlib.Markdown,
@@ -166,7 +168,15 @@ func applyDisqualifiers(
 		}
 		names = append(names, string(d))
 	}
-	if v.Verdict != "real bug" {
+	// A volume or span disqualifier says the alert is too big to be noise,
+	// which is not a claim about analysability — we may have failed to analyse
+	// it precisely BECAUSE it is large and long-running. Asserting
+	// confidence: high about an alert we explicitly could not analyse is
+	// false. Without this exemption, a sustained-span `unanalyzable` alert
+	// would be relabelled `real bug`, dispatched to the deep analyzer, and
+	// escalated there — the original defect wearing a different name. The
+	// fired disqualifiers are still recorded as evidence below.
+	if v.Verdict != "real bug" && v.Verdict != "unanalyzable" {
 		v.Verdict = "real bug"
 		v.Confidence = "high"
 		if v.Reason != "" {

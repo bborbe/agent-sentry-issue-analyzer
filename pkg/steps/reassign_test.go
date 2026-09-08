@@ -146,6 +146,35 @@ var _ = Describe("ReassignExecutionStep", func() {
 		Expect(section.Body).To(ContainSubstring("Sustained span"))
 	})
 
+	It(
+		"leaves an unanalyzable verdict unflipped when the sustained-span disqualifier fires",
+		func() {
+			runner.RunReturns(&claudelib.ClaudeResult{
+				Result: "```yaml\nsentry_issue_id: NUKE-DEV-CG\nverdict: unanalyzable\nreason: every frame is in_app=0; no repo can be resolved from the trace\nlive_event_count: 1262\nfirst_seen: 2024-04-14T08:14:20Z\nlast_seen: 2026-09-05T11:49:21Z\nsentry_status: unresolved\n```",
+			}, nil)
+
+			step := buildStep()
+			md := buildTask("")
+
+			result, err := step.Run(ctx, md)
+			Expect(err).NotTo(HaveOccurred())
+			// Unanalyzable is exempt from the force-flip: no reassign happened.
+			Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+			Expect(md.Frontmatter["assignee"]).To(Equal("sentry-issue-analyzer"))
+			Expect(md.Frontmatter["phase"]).To(Equal("execution"))
+
+			// The classifier's verdict survives, but the fired disqualifier is still
+			// recorded as evidence in the rewritten section.
+			section, ok := md.FindSection("## Verdict")
+			Expect(ok).To(BeTrue())
+			Expect(section.Body).To(ContainSubstring("verdict: unanalyzable"))
+			Expect(section.Body).NotTo(ContainSubstring("verdict: real bug"))
+			Expect(section.Body).To(ContainSubstring("disqualifiers_fired"))
+			Expect(section.Body).To(ContainSubstring("Sustained span"))
+			Expect(section.Body).NotTo(ContainSubstring("confidence: high"))
+		},
+	)
+
 	It("keeps noise when no disqualifier fires", func() {
 		runner.RunReturns(&claudelib.ClaudeResult{
 			Result: "```yaml\nsentry_issue_id: NUKE-DEV-94\nverdict: noise\nreason: pod shutdown race\nlive_event_count: 84\nfirst_seen: 2025-10-15T10:42:13Z\nlast_seen: 2026-09-05T12:14:43Z\nsentry_status: unresolved\n```",

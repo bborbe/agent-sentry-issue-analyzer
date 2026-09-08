@@ -15,7 +15,7 @@ Built on `bborbe/agent-claude` template — AI-heavy reference. Two active phase
 | Phase | Step | Output |
 |---|---|---|
 | `planning` | Fetch LIVE Sentry state, read implicated source (read-only), root-cause analysis | `## Analysis` (file.go:line, root cause, certainty) |
-| `execution` | Re-check LIVE state, apply 6-verdict rubric + noise disqualifiers | `## Verdict` YAML block |
+| `execution` | Re-check LIVE state, apply 7-verdict rubric + noise disqualifiers | `## Verdict` YAML block |
 | `done` | Terminal — verdict written back to task body | — |
 
 ## Build + Deploy
