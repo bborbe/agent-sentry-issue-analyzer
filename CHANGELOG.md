@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- fix: the triage execution prompt (`pkg/prompts/execution.md`) now disallows the `unanalyzable` verdict whenever the planning-phase `## Analysis` resolved a repo from the frame path (`resolved from frame path <path>`) or cited an implicated first-party `file.go:line` — the planning resolution is authoritative and such an alert goes down the normal resolution path — and reclassifies `in_app=unknown` frames as first-party-eligible (Sentry's `in_app=None` is unclassified, not third-party evidence), so a frame whose path maps to a known `bborbe` repo can no longer be counted toward "every frame is `in_app=0`"
 - fix: `scripts/sentry-read.sh` now labels every emitted frame with a truthful three-state `in_app` flag — `1` first-party / `0` explicitly third-party / `unknown` unclassified (`in_app=None` or absent in the Sentry payload is never collapsed into `0`) — so a downstream phase can no longer read "Sentry did not classify" as "Sentry says third-party", and the `root_cause_*` pointer's deepest-frame-overall fallback carries the chosen frame's actual flag (`root_cause_in_app=unknown` when unclassified). A first exception value with `stacktrace: null` now degrades to `stack_trace unavailable (no frames)` instead of the misleading `no exception entry`.
 
 ## v0.12.0
