@@ -10,6 +10,7 @@ package verdict
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/bborbe/errors"
@@ -37,7 +38,7 @@ type Verdict struct {
 	RecommendedFix     string   `yaml:"recommended_fix"`
 }
 
-// Valid verdict vocabulary (the 6-verdict rubric, mirrored verbatim from
+// Valid verdict vocabulary (the 7-verdict rubric, mirrored verbatim from
 // octopus-check-sentry / Sentry Triage Guide).
 var validVerdicts = map[string]bool{
 	"already-tracked": true,
@@ -46,6 +47,21 @@ var validVerdicts = map[string]bool{
 	"noise":           true,
 	"duplicate":       true,
 	"not-a-defect":    true,
+	"unanalyzable":    true,
+}
+
+// Vocabulary returns the valid triage verdict keys in sorted order. It is
+// the single source of truth for the vocabulary: Validate renders its
+// unknown-verdict message from it, and the package's external test locks
+// its size and contents so a new verdict cannot be added without a
+// validated case.
+func Vocabulary() []string {
+	keys := make([]string, 0, len(validVerdicts))
+	for key := range validVerdicts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // validConfidence is the confidence vocabulary for real-bug verdicts.
@@ -118,8 +134,9 @@ func Validate(ctx context.Context, v Verdict) error {
 	if !validVerdicts[v.Verdict] {
 		return errors.Errorf(
 			ctx,
-			"unknown verdict %q (valid: already-tracked, regression, real bug, noise, duplicate, not-a-defect)",
+			"unknown verdict %q (valid: %s)",
 			v.Verdict,
+			strings.Join(Vocabulary(), ", "),
 		)
 	}
 	if v.Verdict == "real bug" {

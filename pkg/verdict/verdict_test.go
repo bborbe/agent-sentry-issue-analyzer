@@ -115,10 +115,11 @@ var _ = Describe("Validate", func() {
 		err := verdict.Validate(ctx, verdict.Verdict{SentryIssueID: "X", Verdict: "bogus"})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("unknown verdict"))
+		Expect(err.Error()).To(ContainSubstring("unanalyzable"))
 	})
 
-	It("accepts each of the 6 valid verdicts", func() {
-		for _, v := range []string{"already-tracked", "regression", "real bug", "noise", "duplicate", "not-a-defect"} {
+	It("accepts each of the 7 valid verdicts", func() {
+		for _, v := range []string{"already-tracked", "regression", "real bug", "noise", "duplicate", "not-a-defect", "unanalyzable"} {
 			ver := verdict.Verdict{SentryIssueID: "X", Verdict: v}
 			if v == "real bug" {
 				ver.Confidence = "high"
@@ -147,5 +148,23 @@ var _ = Describe("Validate", func() {
 			RecommendedFix: "add guard",
 		})
 		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("Vocabulary", func() {
+	// Adding a verdict to validVerdicts requires updating this golden slice
+	// AND adding the value to the accepts-each-of-the-7 case, because the
+	// runtime validator is the only pre-deploy guard.
+	It("locks the triage verdict vocabulary at 7 sorted values", func() {
+		Expect(verdict.Vocabulary()).To(HaveLen(7))
+		Expect(verdict.Vocabulary()).To(Equal([]string{
+			"already-tracked",
+			"duplicate",
+			"noise",
+			"not-a-defect",
+			"real bug",
+			"regression",
+			"unanalyzable",
+		}))
 	})
 })
