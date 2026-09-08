@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: `scripts/sentry-read.sh` now labels every emitted frame with a truthful three-state `in_app` flag — `1` first-party / `0` explicitly third-party / `unknown` unclassified (`in_app=None` or absent in the Sentry payload is never collapsed into `0`) — so a downstream phase can no longer read "Sentry did not classify" as "Sentry says third-party", and the `root_cause_*` pointer's deepest-frame-overall fallback carries the chosen frame's actual flag (`root_cause_in_app=unknown` when unclassified). A first exception value with `stacktrace: null` now degrades to `stack_trace unavailable (no frames)` instead of the misleading `no exception entry`.
+
 ## v0.12.0
 
 - feat: add the terminal `unanalyzable` triage verdict for traces that carry no first-party frame — either the alert has no exception entry at all (stack trace unavailable) or an exception is present but every frame is `in_app=0` (third-party library code) — emitted with `status: done` instead of the escalation the planning prompts previously instructed for an all-third-party trace, which cleared the task's assignee and handed a human exactly the non-information the agent had. `applyDisqualifiers` no longer force-flips an `unanalyzable` verdict to `real bug` / `confidence: high` when a disqualifier fires — a volume or sustained-span claim is not a claim about analysability — while still recording `disqualifiers_fired` as evidence. The deep-analysis vocabulary (`pkg/deepverdict`) is deliberately unchanged.
