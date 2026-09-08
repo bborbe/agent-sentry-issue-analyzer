@@ -9,17 +9,23 @@
 #   short_id, status, live_event_count, first_seen, last_seen, users_impacted, title
 # followed, best-effort, by the latest event's stack trace frames:
 #   stack_trace=<N> frames
-#   <path>:<line> in <function> in_app=<0|1>   (frame with a usable integer line
-#                                               number; at most 30 frames; <path>
-#                                               is the repo-relative Sentry
+#   <path>:<line> in <function> in_app=<0|1|unknown>   (frame with a usable integer
+#                                               line number; at most 30 frames;
+#                                               <path> is the repo-relative Sentry
 #                                               filename, or a basename when no
 #                                               relative path exists in the payload)
-#   <path> in <function> in_app=<0|1>          (frame without a usable line number)
+#   <path> in <function> in_app=<0|1|unknown>          (frame without a usable line
+#                                               number)
 # then a root-cause pointer block naming the deepest first-party frame (the deepest
-# frame overall when none is first-party):
+# frame overall, carrying its truthful flag — root_cause_in_app=<0|unknown> — when
+# none is first-party):
 #   root_cause_file=<path>  root_cause_line=<integer> (only when the chosen frame has
 #                                                     an integer lineno)
-#   root_cause_function=<function>  root_cause_in_app=<0|1>
+#   root_cause_function=<function>  root_cause_in_app=<0|1|unknown>
+# in_app=1 marks a first-party frame, in_app=0 marks a frame Sentry explicitly
+# classifies third-party, and in_app=unknown marks a frame Sentry did not classify
+# (e.g. Python frames returned with in_app=None) — unknown is never collapsed into
+# 0.
 # Frames are emitted whenever an exception entry carries at least one frame; an
 # exception entry with zero frames degrades to 'no frames'; no exception entry
 # degrades to 'no exception entry'. Every emitted frame value is single-line
@@ -101,11 +107,12 @@ if [ -n "${reason}" ]; then
   printf 'stack_trace unavailable (%s)\n' "${reason}"
 else
   # HTTP 200: three-state classification of the first exception value's frames —
-  # emit the frames (repo-relative path or basename, lineno, function, in_app
-  # flag — never context, never the raw payload) plus a root_cause_* pointer
-  # block naming the deepest first-party frame when at least one frame exists,
-  # 'no frames' when the exception entry has zero frames, 'no exception entry'
-  # when none exists.
+  # emit the frames (repo-relative path or basename, lineno, function, and the
+  # in_app flag: 1 first-party / 0 explicitly third-party / unknown unclassified —
+  # never context, never the raw payload) plus a root_cause_* pointer block
+  # naming the deepest first-party frame when at least one frame exists, 'no
+  # frames' when the exception entry has zero frames, 'no exception entry' when
+  # none exists.
   set +e
   frames="$(python3 -c '
 import json, sys, os, re
@@ -118,7 +125,7 @@ try:
             exception_found = True
             values = entry.get("data", {}).get("values", [])
             if values:
-                frames = values[0].get("stacktrace", {}).get("frames", []) or []
+                frames = (values[0].get("stacktrace") or {}).get("frames", []) or []
             break
 except Exception:
     sys.exit(0)
@@ -137,7 +144,11 @@ def frame_path(frame):
 
 def in_app_flag(frame):
     value = frame.get("in_app")
-    return 1 if (value is True or value == 1) else 0
+    if value is True or value == 1:
+        return 1
+    if value is False or value == 0:
+        return 0
+    return "unknown"
 
 first_frame = None
 first_inapp_frame = None

@@ -187,6 +187,21 @@ var _ = Describe("BuildExecutionInstructions (triage)", func() {
 		instrs := prompts.BuildExecutionInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("## Verdict"))
 	})
+
+	It(
+		"execution prompt disallows unanalyzable when planning resolved a repo from the frame path",
+		func() {
+			content := prompts.BuildExecutionInstructions()[0].Content
+			Expect(content).To(ContainSubstring("resolved from frame path"))
+			Expect(content).To(ContainSubstring("first-party-eligible"))
+		},
+	)
+
+	It("execution prompt treats in_app=unknown as not-third-party evidence", func() {
+		content := prompts.BuildExecutionInstructions()[0].Content
+		Expect(content).To(ContainSubstring("in_app=unknown"))
+		Expect(content).To(ContainSubstring("NOT evidence of third-party"))
+	})
 })
 
 var _ = Describe("BuildCollectorPlanningInstructions", func() {

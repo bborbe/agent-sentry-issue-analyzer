@@ -4,16 +4,19 @@
 # Serves fixture Sentry metadata + events/latest payloads from an embedded
 # python3 http.server bound to 127.0.0.1 on an ephemeral port, then drives the
 # script under test against http://127.0.0.1:<port> and asserts the AC1-AC8
-# output contract from specs/in-progress/001-sentry-read-frame-inapp-schema.md:
+# output contract from specs/in-progress/001-bug-unanalyzable-overtrigger.md:
 #   * 7 metadata keys in their frozen order (AC6)
-#   * <path>:<line> in <function> in_app=<0|1> frame lines under a
-#     stack_trace=<N> frames header, and <path> in <function> in_app=<0|1>
+#   * <path>:<line> in <function> in_app=<0|1|unknown> frame lines under a
+#     stack_trace=<N> frames header, and <path> in <function> in_app=<0|1|unknown>
 #     lines for frames without a usable integer lineno; <path> is the
 #     repo-relative Sentry filename, or a basename when no relative path exists
 #     in the payload (AC1/AC2; the in_app fixture on issue 111 and the
 #     lineno-less fixture on issue 222 lock the relative-path shape, the
 #     string-lineno / string-in_app schema-drift paths, and the abs_path-only
-#     basename branch)
+#     basename branch; the three-state fixtures on issues 444/555 lock the
+#     in_app=<0|1|unknown> mapping — in_app=None (and absent/non-boolean
+#     values) emit unknown, never collapsed into 0 — and the truthful
+#     root_cause_in_app fallback)
 #   * a root_cause_* pointer block after the frame lines naming the deepest
 #     first-party frame, falling back to the deepest frame overall when none is
 #     first-party; root_cause_line is present only when the chosen frame has an
@@ -25,7 +28,9 @@
 #   * failure stubs (404 / no exception entry / 401) each emit exactly one
 #     'stack_trace unavailable (<reason>)' marker with the metadata intact
 #   * an exception entry with zero frames emits 'no frames', distinct from
-#     'no exception entry' (empty-frames fixture on issue 333)
+#     'no exception entry' (empty-frames fixture on issue 333; a null
+#     stacktrace payload — an exception entry present but values[0].stacktrace
+#     is null — degrades the same way, on issue 666)
 #
 # Container-executable: python3 + curl + bash only; no external network, no
 # Docker socket, no real credentials (dummy SENTRY_API_TOKEN=x). Exits non-zero
@@ -152,6 +157,42 @@ class QuietHandler(BaseHTTPRequestHandler):
                         {"filename": "nuke/worker.py", "abs_path": None, "lineno": 102, "function": "select_symbol", "in_app": True},
                         {"filename": "rpyc/core/netref.py", "abs_path": None, "lineno": 55, "function": "__call__", "in_app": False},
                     ]}}
+                ]}}
+            ]})
+        elif issue == "444":
+            # Three-state in_app fixture: one unclassified frame (in_app None),
+            # one explicit third-party (False), one explicit first-party (True)
+            # — locks the None -> unknown mapping (never collapsed into 0) and
+            # the pointer naming the first in_app=1 frame.
+            self._send(200, {"entries": [
+                {"type": "exception", "data": {"values": [
+                    {"stacktrace": {"frames": [
+                        {"filename": "mt5/connector/mt5linux.py", "abs_path": None, "lineno": 88, "function": "shutdown", "in_app": None},
+                        {"filename": "rpyc/core/netref.py", "abs_path": None, "lineno": 55, "function": "__call__", "in_app": False},
+                        {"filename": "pkg/kafka.py", "abs_path": None, "lineno": 21, "function": "send", "in_app": True},
+                    ]}}
+                ]}}
+            ]})
+        elif issue == "555":
+            # All-frames-unclassified fixture: every frame carries in_app None
+            # and none is first-party — locks the truthful root_cause_in_app=
+            # unknown fallback (the pointer is NOT forced to 0 when no in_app=1
+            # frame exists).
+            self._send(200, {"entries": [
+                {"type": "exception", "data": {"values": [
+                    {"stacktrace": {"frames": [
+                        {"filename": "rpyc/core/netref.py", "abs_path": None, "lineno": 55, "function": "__call__", "in_app": None},
+                        {"filename": "rpyc/core/protocol.py", "abs_path": None, "lineno": 42, "function": "dispatch", "in_app": None},
+                    ]}}
+                ]}}
+            ]})
+        elif issue == "666":
+            # Null-stacktrace fixture: an exception entry IS present but its
+            # first value's stacktrace is JSON null — locks the degrade to
+            # 'no frames', not the misleading 'no exception entry'.
+            self._send(200, {"entries": [
+                {"type": "exception", "data": {"values": [
+                    {"stacktrace": None}
                 ]}}
             ]})
         else:
@@ -320,6 +361,70 @@ if printf '%s\n' "${out_inapp}" | grep -qE '"context"|"frames"|stacktrace|RAW-CO
   fail "AC7 raw JSON keys or context sentinel leaked from in_app fixture"
 fi
 
+# ---- AC1: three-state in_app mapping (issue 444) ----
+if ! out_three="$(bash "${SCRIPT}" 444 2>&1)"; then
+  fail "AC1 three-state fixture exited non-zero"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^stack_trace=3 frames$'; then
+  fail "AC1 three-state fixture expected exactly one 'stack_trace=3 frames' header"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^mt5/connector/mt5linux.py:88 in shutdown in_app=unknown$'; then
+  fail "AC1 in_app=None frame not emitted as in_app=unknown (expected 'mt5/connector/mt5linux.py:88 in shutdown in_app=unknown')"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^rpyc/core/netref.py:55 in __call__ in_app=0$'; then
+  fail "AC1 in_app=False frame not emitted as in_app=0 (expected 'rpyc/core/netref.py:55 in __call__ in_app=0')"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^pkg/kafka.py:21 in send in_app=1$'; then
+  fail "AC1 in_app=True frame not emitted as in_app=1 (expected 'pkg/kafka.py:21 in send in_app=1')"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^root_cause_file=pkg/kafka.py$'; then
+  fail "AC1 pointer did not name the first in_app=1 frame (root_cause_file)"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^root_cause_line=21$'; then
+  fail "AC1 pointer missing root_cause_line for the first in_app=1 frame"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^root_cause_function=send$'; then
+  fail "AC1 pointer missing root_cause_function for the first in_app=1 frame"
+fi
+if ! printf '%s\n' "${out_three}" | grep -q '^root_cause_in_app=1$'; then
+  fail "AC1 pointer missing root_cause_in_app=1 for the first in_app=1 frame"
+fi
+if printf '%s\n' "${out_three}" | grep -qE '"context"|"frames"|stacktrace|RAW-CONTEXT-SENTINEL'; then
+  fail "AC7 raw JSON keys or context sentinel leaked from three-state fixture"
+fi
+
+# ---- AC1: all-unknown fallback pointer is truthful (issue 555) ----
+if ! out_unknown="$(bash "${SCRIPT}" 555 2>&1)"; then
+  fail "AC1 all-unknown fixture exited non-zero"
+fi
+if ! printf '%s\n' "${out_unknown}" | grep -q '^stack_trace=2 frames$'; then
+  fail "AC1 all-unknown fixture expected exactly one 'stack_trace=2 frames' header"
+fi
+if [ "$(printf '%s\n' "${out_unknown}" | grep -c ' in_app=unknown$' || true)" -ne 2 ]; then
+  fail "AC1 all-unknown fixture expected every frame line to be in_app=unknown"
+fi
+if printf '%s\n' "${out_unknown}" | grep -qE ' in_app=(0|1)$'; then
+  fail "AC1 all-unknown fixture emitted a classified in_app flag for an unclassified frame"
+fi
+if ! printf '%s\n' "${out_unknown}" | grep -q '^rpyc/core/netref.py:55 in __call__ in_app=unknown$'; then
+  fail "AC1 all-unknown fixture expected 'rpyc/core/netref.py:55 in __call__ in_app=unknown'"
+fi
+if ! printf '%s\n' "${out_unknown}" | grep -q '^root_cause_file=rpyc/core/netref.py$'; then
+  fail "AC1 all-unknown fallback pointer did not name the first frame (root_cause_file)"
+fi
+if ! printf '%s\n' "${out_unknown}" | grep -q '^root_cause_line=55$'; then
+  fail "AC1 all-unknown fallback pointer missing root_cause_line for the first frame"
+fi
+if ! printf '%s\n' "${out_unknown}" | grep -q '^root_cause_function=__call__$'; then
+  fail "AC1 all-unknown fallback pointer missing root_cause_function for the first frame"
+fi
+if ! printf '%s\n' "${out_unknown}" | grep -q '^root_cause_in_app=unknown$'; then
+  fail "AC1 all-unknown fallback pointer not truthful (expected root_cause_in_app=unknown, not forced to 0)"
+fi
+if printf '%s\n' "${out_unknown}" | grep -q '^root_cause_in_app=0$'; then
+  fail "AC1 all-unknown fallback pointer forced to 0 despite no classified frame"
+fi
+
 # ---- Failure paths (AC4): metadata intact + exactly one marker each ----
 check_failure() {
   local name="$1"
@@ -400,6 +505,9 @@ fi
 if ! printf '%s\n' "${out_nolineno}" | grep -q '^netref.py in __call__ in_app=0$'; then
   fail "AC2 abs_path-only frame did not emit its basename (expected 'netref.py in __call__ in_app=0')"
 fi
+if ! printf '%s\n' "${out_nolineno}" | grep -q '^kafka/consumer/group.py in _poll_once in_app=unknown$'; then
+  fail "AC1 string-in_app schema drift not classified unknown (expected 'kafka/consumer/group.py in _poll_once in_app=unknown')"
+fi
 if printf '%s\n' "${out_nolineno}" | grep -q '^COUNT=999$'; then
   fail "AC4 newline in frame function injected a standalone line"
 fi
@@ -430,6 +538,15 @@ fi
 check_failure "AC6 no frames" "${out_noframes}" "no frames"
 if printf '%s\n' "${out_noframes}" | grep -q 'no exception entry'; then
   fail "AC6 no-frames stub emitted 'no exception entry' instead of 'no frames'"
+fi
+
+# ---- AC6: null stacktrace degrades to 'no frames' (issue 666) ----
+if ! out_nullst="$(bash "${SCRIPT}" 666 2>&1)"; then
+  fail "AC6 null-stacktrace stub exited non-zero"
+fi
+check_failure "AC6 null stacktrace" "${out_nullst}" "no frames"
+if printf '%s\n' "${out_nullst}" | grep -q 'no exception entry'; then
+  fail "AC6 null-stacktrace stub emitted 'no exception entry' instead of 'no frames'"
 fi
 
 echo "PASS: all assertions passed"
