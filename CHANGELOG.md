@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: bump github.com/bborbe/service to v1.10.14 — fixes the Sentry proxy guard so a service deployed without SENTRY_PROXY sends events direct via http.DefaultTransport instead of silently dropping all error reporting
+
 ## v0.12.1
 
 - fix: the triage execution prompt (`pkg/prompts/execution.md`) now disallows the `unanalyzable` verdict whenever the planning-phase `## Analysis` resolved a repo from the frame path (`resolved from frame path <path>`) or cited an implicated first-party `file.go:line` — the planning resolution is authoritative and such an alert goes down the normal resolution path — and reclassifies `in_app=unknown` frames as first-party-eligible (Sentry's `in_app=None` is unclassified, not third-party evidence), so a frame whose path maps to a known `bborbe` repo can no longer be counted toward "every frame is `in_app=0`"
