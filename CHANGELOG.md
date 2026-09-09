@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.12.2
 
 - chore: bump github.com/bborbe/service to v1.10.14 — fixes the Sentry proxy guard so a service deployed without SENTRY_PROXY sends events direct via http.DefaultTransport instead of silently dropping all error reporting
 
