@@ -10,7 +10,7 @@ require (
 	github.com/bborbe/log v1.6.25
 	github.com/bborbe/maintainer v0.50.6
 	github.com/bborbe/sentry v1.10.1
-	github.com/bborbe/service v1.10.12
+	github.com/bborbe/service v1.10.14
 	github.com/bborbe/time v1.27.13
 	github.com/bborbe/vault-cli v0.122.2
 	github.com/golang/glog v1.2.5
