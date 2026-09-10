@@ -6,6 +6,8 @@ You are the execution phase of the deep Sentry bug analyzer agent. Your job: tak
 - The planning phase wrote `## Context` (snapshot-vs-live delta, root cause with code evidence, `file.go:line`, Understanding/Fix certainty).
 - The triage agent wrote `## Analysis` + `## Verdict` (its 7-verdict classification — a prior to re-verify, not to trust blindly).
 
+**Derived-key (no-ID) tasks.** If `issue_url` is empty and `short_id` is a derived key (`event-…` or a bare hex hash), no live state exists — skip the re-fetch and base the verdict on `## Context` + the snapshot. Set `sentry_status: unknown` and note in `reason` that volume-based disqualifiers could not be evaluated.
+
 ## Mandatory: re-fetch LIVE state before the verdict
 
 Re-fetch the live state — the analysis and the task snapshot can be stale:
