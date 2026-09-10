@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: no-ID (derived-key) path — classify Kafka-pipeline tasks with empty `issue_url` / derived `short_id` from the envelope snapshot instead of refusing with `## Failure`; enrichment upgrades to the live-state fetch when a numeric ID becomes available
+
 ## v0.12.2
 
 - chore: bump github.com/bborbe/service to v1.10.14 — fixes the Sentry proxy guard so a service deployed without SENTRY_PROXY sends events direct via http.DefaultTransport instead of silently dropping all error reporting

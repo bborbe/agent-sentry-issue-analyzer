@@ -137,6 +137,38 @@ var _ = Describe("output-format shared contract", func() {
 	})
 })
 
+var _ = Describe("no-ID (derived-key) path", func() {
+	It(
+		"planning prompt instructs skipping the live fetch and classifying from the snapshot instead of refusing",
+		func() {
+			instrs := prompts.BuildPlanningInstructions()
+			Expect(instrs[0].Content).To(ContainSubstring("Derived-key (no-ID) tasks"))
+			Expect(
+				instrs[0].Content,
+			).To(ContainSubstring("do NOT call `sentry-read.sh` and do NOT refuse"))
+			Expect(instrs[0].Content).To(ContainSubstring("outcome"))
+		},
+	)
+
+	It("execution prompt handles no-ID tasks without a live-state re-fetch", func() {
+		instrs := prompts.BuildExecutionInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("Derived-key (no-ID) tasks"))
+		Expect(instrs[0].Content).To(ContainSubstring("sentry_status: unknown"))
+	})
+
+	It("deep planning prompt handles derived-key real-bug tasks", func() {
+		instrs := prompts.BuildDeepPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("Derived-key (no-ID) tasks"))
+		Expect(instrs[0].Content).To(ContainSubstring("no stack trace to implicate a repo"))
+	})
+
+	It("deep execution prompt handles derived-key tasks", func() {
+		instrs := prompts.BuildDeepExecutionInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("Derived-key (no-ID) tasks"))
+		Expect(instrs[0].Content).To(ContainSubstring("sentry_status: unknown"))
+	})
+})
+
 var _ = Describe("BuildExecutionInstructions (triage)", func() {
 	It("returns exactly 2 instructions", func() {
 		instrs := prompts.BuildExecutionInstructions()
