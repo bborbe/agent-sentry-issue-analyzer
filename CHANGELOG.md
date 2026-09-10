@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.13.2
 
 - fix: derived-key (no-ID) tasks deterministically emit an analysis + verdict (`unanalyzable` / `needs_input`) instead of a `## Failure` for a missing trace or unmapped project — E2E-observed inconsistency (one fixture escalated, the other emitted `unanalyzable` for the same structural situation)
 
