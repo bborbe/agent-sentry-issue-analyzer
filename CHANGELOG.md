@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: derived-key (no-ID) tasks deterministically emit an analysis + verdict (`unanalyzable` / `needs_input`) instead of a `## Failure` for a missing trace or unmapped project — E2E-observed inconsistency (one fixture escalated, the other emitted `unanalyzable` for the same structural situation)
+
 ## v0.13.1
 
 - fix: delete the dead `k8s/` directory and drop the `apply` half of `make buca` — every manifest it held described quant leftovers with zero scheduled pods; the live sentry agents (`sentry-analyzer-agent`, `sentry-collector-agent`) run on nukedev/nukeprod and are managed by the `nuke` repo (adopted from the hand-applied kubectl CRs on 2026-08-26). `make buca` is now `build upload clean`; the image it produces is consumed by the nuke-managed agents.

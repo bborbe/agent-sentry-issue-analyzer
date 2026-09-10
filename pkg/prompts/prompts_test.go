@@ -156,6 +156,20 @@ var _ = Describe("no-ID (derived-key) path", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("sentry_status: unknown"))
 	})
 
+	It("planning prompt forbids ## Failure for derived-key tasks", func() {
+		instrs := prompts.BuildPlanningInstructions()
+		Expect(instrs[0].Content).To(ContainSubstring("NEVER emit a `## Failure`"))
+	})
+
+	It(
+		"execution prompt forbids ## Failure and assigns unanalyzable/needs_input for derived-key tasks",
+		func() {
+			instrs := prompts.BuildExecutionInstructions()
+			Expect(instrs[0].Content).To(ContainSubstring("NEVER emit a `## Failure`"))
+			Expect(instrs[0].Content).To(ContainSubstring("unanalyzable"))
+		},
+	)
+
 	It("deep planning prompt handles derived-key real-bug tasks", func() {
 		instrs := prompts.BuildDeepPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("Derived-key (no-ID) tasks"))

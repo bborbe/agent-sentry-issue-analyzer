@@ -23,6 +23,8 @@ Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you
 - `Project`, `Event` id, and the derived `short_id`
 - recurrence hints: a repeated `received_at` / event_id pattern across tasks implies an ongoing condition
 
+For derived-key tasks, NEVER emit a `## Failure` for a missing stack trace or an unmapped project — write the analysis noting the limitations (no trace, no repo to clone, enrichment pending), and let the execution phase assign the verdict per its rubric.
+
 ### Step 2: Fetch LIVE state for this alert
 
 Call `Bash(scripts/sentry-read.sh <sentry_link from task>)` and capture: `live_event_count`, `last_seen`, `status` (`unresolved` / `resolved` / `regressed`), `first_seen`, `users_impacted`. The LIVE state overrides the task snapshot for every downstream decision (see [[Sentry Live State vs Ticket Snapshot]]).
