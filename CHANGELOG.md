@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: delete the dead `k8s/` directory and drop the `apply` half of `make buca` — every manifest it held described quant leftovers with zero scheduled pods; the live sentry agents (`sentry-analyzer-agent`, `sentry-collector-agent`) run on nukedev/nukeprod and are managed by the `nuke` repo (adopted from the hand-applied kubectl CRs on 2026-08-26). `make buca` is now `build upload clean`; the image it produces is consumed by the nuke-managed agents.
+
 ## v0.13.0
 
 - feat: no-ID (derived-key) path — classify Kafka-pipeline tasks with empty `issue_url` / derived `short_id` from the envelope snapshot instead of refusing with `## Failure`; enrichment upgrades to the live-state fetch when a numeric ID becomes available

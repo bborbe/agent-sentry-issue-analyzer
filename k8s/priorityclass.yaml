@@ -1,8 +1,0 @@
-apiVersion: scheduling.k8s.io/v1
-kind: PriorityClass
-metadata:
-  name: agent-sentry-issue-analyzer
-value: 500
-globalDefault: false
-preemptionPolicy: Never
-description: "Agent claude — namespace-local concurrency via matching ResourceQuota. Never preempts."
