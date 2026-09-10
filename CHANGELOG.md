@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.13.0
 
 - feat: no-ID (derived-key) path — classify Kafka-pipeline tasks with empty `issue_url` / derived `short_id` from the envelope snapshot instead of refusing with `## Failure`; enrichment upgrades to the live-state fetch when a numeric ID becomes available
 
