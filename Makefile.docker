@@ -1,5 +1,3 @@
-DIRS += $(shell find */* -maxdepth 0 -name Makefile -exec dirname "{}" \;)
-
 .PHONY: build
 build: check-go-mod
 	DOCKER_BUILDKIT=1 \
@@ -35,14 +33,5 @@ clean:
 	docker builder prune --all -f || true
 	rm -rf vendor
 
-.PHONY: apply
-apply:
-	@for i in $(DIRS); do \
-		cd $$i; \
-		echo "apply $${i}"; \
-		make apply; \
-		cd ..; \
-	done
-
 .PHONY: buca
-buca: build upload clean apply
+buca: build upload clean

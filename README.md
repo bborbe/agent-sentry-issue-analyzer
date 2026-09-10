@@ -20,12 +20,23 @@ Built on `bborbe/agent-claude` template — AI-heavy reference. Two active phase
 
 ## Build + Deploy
 
+This repo builds and uploads the image; it no longer owns cluster objects.
+
 ```bash
 make precommit                 # lint + test
-BRANCH=dev make buca           # build + upload + commit + apply k8s
-kubectlquant -n dev apply -f k8s/agent-sentry-issue-analyzer-config.yaml
+BRANCH=dev make buca           # build + upload + clean (no apply)
 ```
+
+The `k8s/` directory was deleted on 2026-09-10 — every manifest it held described
+dead quant leftovers. The live sentry agents (`sentry-analyzer-agent`,
+`sentry-collector-agent`) run on nukedev/nukeprod and their Config CRs, Secrets,
+PVCs and quotas are managed by the `nuke` repo (`agent/values-{dev,prod}.yaml`),
+which adopted the sentry pipeline from the hand-applied kubectl CRs on 2026-08-26.
 
 ## SDK
 
 Imports `github.com/bborbe/agent` (see [bborbe/agent](https://github.com/bborbe/agent)) for runtime contract.
+
+## License
+
+See [LICENSE](LICENSE).
