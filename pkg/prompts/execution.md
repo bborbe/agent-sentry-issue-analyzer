@@ -17,6 +17,8 @@ Capture: `live_event_count`, `last_seen`, `status` (`unresolved` / `resolved` / 
 
 **Derived-key (no-ID) tasks — no live state available.** If the task has no `sentry_link` / `issue_url` is empty and `short_id` is a derived key (`event-…` or a bare hex hash), skip the re-fetch — there is no Sentry ID to query. Base the verdict on the planning phase's `## Analysis` and the snapshot (outcome, received_at, exception-derived title, project). In the verdict block set `sentry_status: unknown`, leave the live-state fields unavailable, and note in `reason` that volume-based disqualifiers could not be evaluated — keep `confidence` conservative when the snapshot is thin.
 
+For derived-key tasks, NEVER emit a `## Failure`: no first-party trace / unmapped project → `unanalyzable` (status `done`); a thin snapshot you cannot judge → `needs_input` naming what is missing. The derived key is a legitimate identity — a missing Sentry ID is not a reason to refuse.
+
 ## The 7-verdict rubric
 
 Assign exactly one verdict:
