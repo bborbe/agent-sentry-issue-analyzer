@@ -36,3 +36,7 @@ which adopted the sentry pipeline from the hand-applied kubectl CRs on 2026-08-2
 ## SDK
 
 Imports `github.com/bborbe/agent` (see [bborbe/agent](https://github.com/bborbe/agent)) for runtime contract.
+
+## License
+
+See [LICENSE](LICENSE).
