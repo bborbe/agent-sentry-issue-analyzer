@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: pin counterfeiter at the point of use in both //go:generate directives (go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2, no -mod=mod) and delete the superseded tools/tools.go so go run builds the tool in a temporary module — counterfeiter leaves go.mod/go.sum, make precommit becomes idempotent with respect to the module files, and the nine-dependency churn on every gate run ends
+
 ## v0.13.3
 
 - fix: derived-key `needs_input` is an envelope status inside the `## Verdict` block, never a `## Failure` section — prod E2E (2026-09-11) showed the execution LLM still routing a thin-snapshot `needs_input` through `## Failure`, which reverts the task to planning and unassigns the analyzer

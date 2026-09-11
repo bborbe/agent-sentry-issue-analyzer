@@ -56,7 +56,7 @@ type DisqualifierInput struct {
 // The model supplies the live-state fields and the signature classification;
 // the numeric thresholds are decided here, in code.
 //
-//go:generate go run -mod=mod github.com/maxbrunsfeld/counterfeiter/v6 -o mocks/disqualifier-evaluator.go --fake-name DisqualifierEvaluator . DisqualifierEvaluator
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2 -o mocks/disqualifier-evaluator.go --fake-name DisqualifierEvaluator . DisqualifierEvaluator
 type DisqualifierEvaluator interface {
 	Evaluate(ctx context.Context, input DisqualifierInput) ([]Disqualifier, error)
 }
