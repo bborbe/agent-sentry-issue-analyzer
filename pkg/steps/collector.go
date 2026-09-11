@@ -111,9 +111,19 @@ func (s *collectorStep) Run(
 	}
 	observation, ok := parseCollectorResult(section.Body)
 	if !ok {
-		// No result line at all: only positive evidence downgrades the status,
-		// so a missing line must never turn every run into a failure.
-		return result, nil
+		// No result line at all. The collector's entire job is to observe the
+		// creation phase, so a run that produced no observation did not do its
+		// work. A stalled run — e.g. the script never executed because its Bash
+		// grant did not match the `bash scripts/...` form the model used — must
+		// NOT report success. Absence of evidence is evidence of failure here,
+		// not neutrality: reporting done on a missing line is exactly the
+		// false-green this step exists to close. Observed on dev 2026-09-11: a
+		// run that did nothing was recorded `status: completed`.
+		return &agentlib.Result{
+			Status: agentlib.AgentStatusFailed,
+			Message: "collector produced no creation-count observation — the step did not " +
+				"run to completion, so it cannot report success",
+		}, nil
 	}
 
 	// Failure contract: Failed with NO NextPhase — the controller owns

@@ -30,7 +30,13 @@ var _ = Describe("CollectorPlanningStep", func() {
 	})
 
 	It("writes the ## Analysis summary section and advances to done (terminates the task)", func() {
-		runner.RunReturns(&claudelib.ClaudeResult{Result: "2 tasks: SENTRY-X-1 SENTRY-X-2"}, nil)
+		// A complete observation: new alerts were expected and task files landed,
+		// so the step may report done. The fixture must carry the result line —
+		// without it the step now returns Failed (see the "no result line" spec
+		// below), which is the point of the gate.
+		summary := "sentry-create-tasks-result: fetched=2 published=2 expected_new=2 landed=2 observed=true status=done\n" +
+			"2 tasks: SENTRY-X-1 SENTRY-X-2"
+		runner.RunReturns(&claudelib.ClaudeResult{Result: summary}, nil)
 
 		step := steps.NewCollectorPlanningStep(
 			runner,
@@ -55,7 +61,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 
 		section, ok := md.FindSection("## Analysis")
 		Expect(ok).To(BeTrue())
-		Expect(section.Body).To(Equal("2 tasks: SENTRY-X-1 SENTRY-X-2"))
+		Expect(section.Body).To(Equal(summary))
 	})
 
 	It("skips Claude when ## Analysis already exists (idempotent resume)", func() {
@@ -199,9 +205,12 @@ var _ = Describe("CollectorPlanningStep", func() {
 		Expect(result.NextPhase).To(BeEmpty())
 	})
 
-	It("stays done when the summary carries no result line", func() {
-		// Only positive evidence downgrades the status — a missing line must
-		// never turn every run into a failure.
+	It("returns failed when the summary carries no result line", func() {
+		// A run with no observation did not do its work. Reporting done here is
+		// the false-green this step exists to close — observed on dev
+		// 2026-09-11, when the script never executed because its Bash grant did
+		// not match the `bash scripts/...` form the model actually used, and the
+		// task was recorded `status: completed` having done nothing.
 		runner.RunReturns(&claudelib.ClaudeResult{Result: "summary with no result line"}, nil)
 
 		step := steps.NewCollectorPlanningStep(
@@ -218,7 +227,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 
 		result, err := step.Run(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
-		Expect(result.NextPhase).To(Equal("done"))
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
+		Expect(result.NextPhase).To(BeEmpty())
 	})
 })

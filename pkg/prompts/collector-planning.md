@@ -12,11 +12,15 @@ Production only. The fetch is constrained to `is:unresolved` — resolved and re
 
 ### Step 1: Validate Sentry access
 
-Run `Bash(scripts/sentry-create-tasks.sh)`. It fails fast if `SENTRY_API_TOKEN` is missing and prints the fetched alert count + short-IDs. A working run proves the token is valid.
+Run the script directly — invoke it as `scripts/sentry-create-tasks.sh`, with **no** `bash ` prefix.
+
+The tool grant is `Bash(scripts/sentry-create-tasks.sh:*)`, which prefix-matches the **whole** command. `bash scripts/sentry-create-tasks.sh` does **not** match it, so it hits an approval gate an unattended run cannot grant: the step stalls and the task reports success having done nothing. Observed on dev 2026-09-11.
+
+It fails fast if `SENTRY_API_TOKEN` is missing and prints the fetched alert count + short-IDs. A working run proves the token is valid.
 
 ### Step 2: Fetch the day's alerts and create the per-alert tasks
 
-Run `Bash(scripts/sentry-create-tasks.sh)` to fetch the day's active unresolved Sentry alerts and publish one per-alert task for each so the triage agent can classify it.
+Run `scripts/sentry-create-tasks.sh` (again — no `bash ` prefix) to fetch the day's active unresolved Sentry alerts and publish one per-alert task for each so the triage agent can classify it.
 
 ### Step 3: If the script fails, stop
 
