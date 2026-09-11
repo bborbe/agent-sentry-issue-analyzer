@@ -26,11 +26,11 @@ If the script fails (auth/network error), STOP: return `needs_input` with the fa
 
 The script's final line is machine-readable, and the collector step gates the task's terminal status on it:
 
-`sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> status=<done|failed>`
+`sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> observed=<true|false> status=<done|failed|unobserved>`
 
 Copy that line into the task body under `## Analysis` **verbatim**, followed by the fetched short-IDs. Do not compute, restate, round or paraphrase any of the numbers yourself.
 
-`landed` is the number of per-alert task files actually observed in the vault after publishing — not the number published. A summary that reports a number it did not observe is the exact defect this step exists to prevent: on 2026-08-26 and 2026-08-27 the collector reported success while zero per-alert tasks landed, and nothing surfaced it for ~20 hours.
+`landed` is the number of per-alert task files actually observed in the vault after publishing — not the number published. `observed=false` means the vault could not be read at all, which is **not** the same as an observed zero; report it as-is rather than smoothing it over. A summary that reports a number it did not observe is the exact defect this step exists to prevent: on 2026-08-26 and 2026-08-27 the collector reported success while zero per-alert tasks landed, and nothing surfaced it for ~20 hours.
 
 ## Rules
 

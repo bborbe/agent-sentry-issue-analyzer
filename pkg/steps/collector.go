@@ -17,8 +17,18 @@ import (
 // scripts/sentry-create-tasks.sh. The step gates the task's terminal status on
 // the observed counts in this line, not on anything the model wrote.
 var collectorResultLine = regexp.MustCompile(
-	`sentry-create-tasks-result:\s+fetched=(\d+)\s+published=(\d+)\s+expected_new=(\d+)\s+landed=(\d+)\s+status=(\w+)`,
+	`sentry-create-tasks-result:\s+fetched=(\d+)\s+published=(\d+)\s+expected_new=(\d+)\s+landed=(\d+)\s+observed=(\w+)\s+status=(\w+)`,
 )
+
+// collectorResult is the parsed observation from the collector script.
+type collectorResult struct {
+	expectedNew int
+	landed      int
+	// observed is false when the script could not read the vault at all. That is
+	// NOT the same as an observed zero: an unverifiable run must not report
+	// success, or the gate re-opens the false-green it exists to close.
+	observed bool
+}
 
 // collectorStep wraps the collector's Claude planning step so the task's
 // terminal status is decided by what was OBSERVED to land, not by whether the
@@ -99,40 +109,55 @@ func (s *collectorStep) Run(
 	if !ok {
 		return result, nil
 	}
-	if !collectorSawZeroLanding(section.Body) {
+	observation, ok := parseCollectorResult(section.Body)
+	if !ok {
+		// No result line at all: only positive evidence downgrades the status,
+		// so a missing line must never turn every run into a failure.
 		return result, nil
 	}
 
 	// Failure contract: Failed with NO NextPhase — the controller owns
 	// unassign + ## Failure. Never signal failure through NextPhase
 	// ("human_review" is reserved for a successful verdict needing a human).
-	return &agentlib.Result{
-		Status: agentlib.AgentStatusFailed,
-		Message: "collector reported no per-alert task files landed while new alerts " +
-			"were expected — refusing to report success",
-	}, nil
+	if !observation.observed {
+		return &agentlib.Result{
+			Status: agentlib.AgentStatusFailed,
+			Message: "collector could not observe the creation phase (the vault listing " +
+				"failed) — an unverifiable run must not report success",
+		}, nil
+	}
+	if observation.expectedNew > 0 && observation.landed == 0 {
+		return &agentlib.Result{
+			Status: agentlib.AgentStatusFailed,
+			Message: "collector reported no per-alert task files landed while new alerts " +
+				"were expected — refusing to report success",
+		}, nil
+	}
+	return result, nil
 }
 
-// collectorSawZeroLanding reports whether the script's result line says that
-// new alerts were expected but nothing landed.
+// parseCollectorResult extracts the script's observation from the ## Analysis
+// body. Returns false when the line is absent or malformed.
 //
 // The rule is applied here rather than read from the line's status= token: the
 // script observes the counts, the step owns the policy, so a bug in the
 // script's own status wording cannot silently re-open the false-green path.
-// A body with no result line returns false — the wrapper only downgrades on
-// positive evidence, never on a missing one.
-func collectorSawZeroLanding(body string) bool {
+func parseCollectorResult(body string) (collectorResult, bool) {
 	m := collectorResultLine.FindStringSubmatch(body)
 	if m == nil {
-		return false
+		return collectorResult{}, false
 	}
 	expectedNew, err := strconv.Atoi(m[3])
 	if err != nil {
-		return false
+		return collectorResult{}, false
 	}
 	landed, err := strconv.Atoi(m[4])
 	if err != nil {
-		return false
+		return collectorResult{}, false
 	}
-	return expectedNew > 0 && landed == 0
+	return collectorResult{
+		expectedNew: expectedNew,
+		landed:      landed,
+		observed:    m[5] == "true",
+	}, true
 }

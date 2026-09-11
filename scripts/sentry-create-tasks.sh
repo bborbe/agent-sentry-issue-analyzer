@@ -27,7 +27,11 @@
 # 2026-08-26/27/28 outage signature this script exists to surface.
 #
 # The final line is machine-readable and the collector step gates on it:
-#   sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> status=<done|failed>
+#   sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> observed=<true|false> status=<done|failed|unobserved>
+#
+# `observed=false` means the vault could not be read at all — that is NOT the
+# same as an observed zero, and the step treats it as a failure rather than
+# letting an unverifiable run report done.
 
 set -euo pipefail
 
@@ -112,8 +116,21 @@ echo "sentry-create-tasks: ${count} active unresolved alerts: ${short_ids}"
 # filename /create-tasks will produce ("Analyze Sentry issue <short-id> - <date>.md").
 # This is a dedup check, NOT the created count — the created count is observed
 # after publishing, never predicted.
-existing_files="$("${vault_list}" "24 Tasks/Analyze Sentry issue *.md" || true)"
-python3 -c '
+#
+# A failed listing is NOT an empty listing. `|| true` here would make an auth or
+# network failure indistinguishable from "nothing exists", and the caller gates
+# on the number this produces — so the failure is recorded and surfaced instead.
+observed="true"
+unobserved_reason=""
+existing_files=""
+if ! existing_files="$("${vault_list}" "24 Tasks/Analyze Sentry issue *.md")"; then
+  observed="false"
+  unobserved_reason="vault-list failed while checking which alerts are already tracked"
+fi
+
+expected_new=0
+if [ "${observed}" = "true" ]; then
+  python3 -c '
 import datetime, json, sys
 alerts = json.load(open(sys.argv[1]))
 existing = sys.argv[2]
@@ -124,7 +141,8 @@ for a in alerts:
     if name not in existing:
         print(name)
 ' "${tmp_file}" "${existing_files}" > "${expected_file}"
-expected_new="$(grep -c . "${expected_file}" || true)"
+  expected_new="$(grep -c . "${expected_file}" || true)"
+fi
 
 # Publish. NOT exec'd: the script needs a return path so it can observe what
 # actually landed (exec replaces this shell and discards the counts).
@@ -144,12 +162,19 @@ published="${published:-0}"
 
 # Observe how many of the expected task files actually landed. The controller
 # materializes them asynchronously off Kafka, so this is a bounded poll, not a
-# single read.
+# single read. A failed listing ends the poll as UNOBSERVED — never as a
+# zero-landing, which would be a false failure on an otherwise healthy run.
 landed=0
-attempt=1
-while :; do
-  current_files="$("${vault_list}" "24 Tasks/Analyze Sentry issue *.md" || true)"
-  landed="$(python3 -c '
+if [ "${observed}" = "true" ]; then
+  attempt=1
+  while :; do
+    current_files=""
+    if ! current_files="$("${vault_list}" "24 Tasks/Analyze Sentry issue *.md")"; then
+      observed="false"
+      unobserved_reason="vault-list failed while observing which task files landed"
+      break
+    fi
+    landed="$(python3 -c '
 import sys
 current = sys.argv[1]
 n = 0
@@ -159,22 +184,29 @@ for line in open(sys.argv[2]):
         n += 1
 print(n)
 ' "${current_files}" "${expected_file}")"
-  if [ "${landed}" -ge "${expected_new}" ] || [ "${attempt}" -ge "${VAULT_POLL_ATTEMPTS}" ]; then
-    break
-  fi
-  attempt=$((attempt + 1))
-  sleep "${VAULT_POLL_INTERVAL_SECONDS}"
-done
+    if [ "${landed}" -ge "${expected_new}" ] || [ "${attempt}" -ge "${VAULT_POLL_ATTEMPTS}" ]; then
+      break
+    fi
+    attempt=$((attempt + 1))
+    sleep "${VAULT_POLL_INTERVAL_SECONDS}"
+  done
+fi
 
 # Status rule: a zero-creation run is a FAILURE when new alerts were expected,
 # and HEALTHY when every fetched alert was already tracked — dedup is the
-# designed idempotency, so a quiet day must not alarm.
+# designed idempotency, so a quiet day must not alarm. An UNOBSERVED run is
+# neither: it cannot prove anything, so it must not report done either.
 status="done"
-if [ "${expected_new}" -gt 0 ] && [ "${landed}" -eq 0 ]; then
+if [ "${observed}" != "true" ]; then
+  status="unobserved"
+elif [ "${expected_new}" -gt 0 ] && [ "${landed}" -eq 0 ]; then
   status="failed"
 fi
 
-echo "sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} status=${status}"
+echo "sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} observed=${observed} status=${status}"
 if [ "${status}" = "failed" ]; then
   echo "sentry-create-tasks: ${expected_new} new alert(s) expected but 0 task files landed (create-tasks rc=${create_rc})" >&2
+fi
+if [ "${status}" = "unobserved" ]; then
+  echo "sentry-create-tasks: could not observe the creation phase — ${unobserved_reason}" >&2
 fi

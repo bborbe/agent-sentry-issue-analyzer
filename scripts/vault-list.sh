@@ -37,7 +37,9 @@ fi
 
 # The URL path segment is ignored by git-rest — only ?glob matters.
 # `curl -G --data-urlencode` safely encodes spaces and special chars in the pattern.
-exec curl -sf --max-time 30 \
+# -sS: silent progress, but SHOW errors — a failed listing must be distinguishable
+# from an empty one, since the caller gates on the count it produces.
+exec curl -sfS --max-time 30 \
   ${gateway_args[@]+"${gateway_args[@]}"} \
   -G --data-urlencode "glob=$1" \
   "${GIT_REST_URL}/api/v1/files/"

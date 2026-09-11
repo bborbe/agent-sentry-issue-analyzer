@@ -101,7 +101,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 		// drops everything, zero per-alert task files land.
 		runner.RunReturns(&claudelib.ClaudeResult{
 			Result: "Fetched 48 active unresolved alerts.\n" +
-				"sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=0 status=failed",
+				"sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=0 observed=true status=failed",
 		}, nil)
 
 		step := steps.NewCollectorPlanningStep(
@@ -129,7 +129,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 		// Dedup is the designed idempotency: zero created with zero new alerts
 		// expected is healthy, not an alarm.
 		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "sentry-create-tasks-result: fetched=48 published=0 expected_new=0 landed=0 status=done",
+			Result: "sentry-create-tasks-result: fetched=48 published=0 expected_new=0 landed=0 observed=true status=done",
 		}, nil)
 
 		step := steps.NewCollectorPlanningStep(
@@ -152,7 +152,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 
 	It("stays done when task files landed", func() {
 		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=2 status=done",
+			Result: "sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=2 observed=true status=done",
 		}, nil)
 
 		step := steps.NewCollectorPlanningStep(
@@ -171,6 +171,32 @@ var _ = Describe("CollectorPlanningStep", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
 		Expect(result.NextPhase).To(Equal("done"))
+	})
+
+	It("returns failed when the vault could not be observed at all", func() {
+		// observed=false is NOT an observed zero. A run that could not read the
+		// vault proves nothing, so it must not report success — otherwise an
+		// auth/network failure becomes a silent green.
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "sentry-create-tasks-result: fetched=48 published=48 expected_new=0 landed=0 observed=false status=unobserved",
+		}, nil)
+
+		step := steps.NewCollectorPlanningStep(
+			runner,
+			prompts.BuildCollectorPlanningInstructions(),
+			nil,
+		)
+
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
+		Expect(result.NextPhase).To(BeEmpty())
 	})
 
 	It("stays done when the summary carries no result line", func() {
