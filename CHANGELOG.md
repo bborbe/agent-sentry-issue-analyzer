@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.13.4
 
 - fix: pin counterfeiter at the point of use in both //go:generate directives (go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2, no -mod=mod) and delete the superseded tools/tools.go so go run builds the tool in a temporary module — counterfeiter leaves go.mod/go.sum, make precommit becomes idempotent with respect to the module files, and the nine-dependency churn on every gate run ends
 
