@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.14.0
 
 - feat: wire the sentry-fix agent (task_type sentry-fix, assignee sentry-fix-agent): the fix step resolves the repo via the prompt-backed resolver, confirms freshness, and files a kind: bug spec through the GitHub API — stale citations file nothing and record why, out-of-scope repos fail loudly, emission is idempotent per Sentry issue id
 - test: widen the fix-handoff gate table to five distinct High/High verdicts — the positive class previously rested on one hand-picked fixture, so a gate keyed on that fixture's incidental content (issue id, root cause, file:line) would have passed; each new entry varies all three
