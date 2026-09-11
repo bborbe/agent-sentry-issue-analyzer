@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: declare counterfeiter as a direct, version-less tool requirement in a `//go:build tools` file so `go mod tidy` stops removing it and `go generate` resolves to the recorded v6.12.2 instead of the latest — makes `make precommit` idempotent with respect to go.mod/go.sum and ends the nine-dependency churn on every gate run
+
 ## v0.13.3
 
 - fix: derived-key `needs_input` is an envelope status inside the `## Verdict` block, never a `## Failure` section — prod E2E (2026-09-11) showed the execution LLM still routing a thin-snapshot `needs_input` through `## Failure`, which reverts the task to planning and unassigns the analyzer
