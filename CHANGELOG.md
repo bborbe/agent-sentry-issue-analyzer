@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-- fix: declare counterfeiter as a direct, version-less tool requirement in a `//go:build tools` file so `go mod tidy` stops removing it and `go generate` resolves to the recorded v6.12.2 instead of the latest — makes `make precommit` idempotent with respect to go.mod/go.sum and ends the nine-dependency churn on every gate run
+- fix: pin counterfeiter at the point of use in both //go:generate directives (go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2, no -mod=mod) and delete the superseded tools/tools.go so go run builds the tool in a temporary module — counterfeiter leaves go.mod/go.sum, make precommit becomes idempotent with respect to the module files, and the nine-dependency churn on every gate run ends
 
 ## v0.13.3
 

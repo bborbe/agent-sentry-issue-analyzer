@@ -15,7 +15,6 @@ require (
 	github.com/bborbe/vault-cli v0.122.2
 	github.com/golang/glog v1.2.5
 	github.com/google/uuid v1.6.0
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.2
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.43.0
 	github.com/prometheus/client_golang v1.24.1
