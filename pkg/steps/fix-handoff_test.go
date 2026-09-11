@@ -77,6 +77,19 @@ var _ = Describe("FixHandoffStep", func() {
 			nonFiringLiveState
 	}
 
+	// realBugVariant is realBugYAML with distinct issue id, root cause and
+	// file:line. SC1 requires >=5 High/High verdicts in with >=5 handoffs out,
+	// so the positive class cannot be satisfied by one hand-picked fixture: a
+	// gate keyed on any fixture-specific string would pass the single case and
+	// fail these.
+	realBugVariant := func(issueID, rootCause, fileLine string) string {
+		return "sentry_issue_id: " + issueID +
+			"\nverdict: real bug\nunderstanding: High\nfix_certainty: High" +
+			"\nroot_cause: " + rootCause +
+			"\nrecommended_fix: add nil guard\nfile:line: " + fileLine + "\n" +
+			nonFiringLiveState
+	}
+
 	nonRealBugYAML := func(verdictKey string) string {
 		return "sentry_issue_id: OCTOPUS-PROD-1J\nverdict: " + verdictKey +
 			"\nunderstanding: High\nfix_certainty: High\n" + nonFiringLiveState
@@ -117,6 +130,41 @@ var _ = Describe("FixHandoffStep", func() {
 			}
 		},
 		Entry("real bug with High/High hands off", realBugYAML("High", "High"), 1),
+		// SC1's positive class: >=5 High/High verdicts in, >=5 handoffs out,
+		// each with a distinct issue id, root cause and file:line so the gate
+		// cannot be passing on one fixture's incidental content.
+		Entry(
+			"real bug with High/High hands off (trading)",
+			realBugVariant(
+				"OCTOPUS-PROD-2K",
+				"unbounded retry loop",
+				"mt5/connector/mt5linux.py:88",
+			),
+			1,
+		),
+		Entry(
+			"real bug with High/High hands off (kafka)",
+			realBugVariant(
+				"NUKE-PROD-3M",
+				"offset committed before processing",
+				"pkg/kafka/consumer.go:214",
+			),
+			1,
+		),
+		Entry(
+			"real bug with High/High hands off (nuke)",
+			realBugVariant("NUKE-DEV-4N", "missing resource limit", "charts/agent/values.yaml:12"),
+			1,
+		),
+		Entry(
+			"real bug with High/High hands off (analyzer)",
+			realBugVariant(
+				"NUKE-DEV-5P",
+				"verdict parsed with the wrong schema",
+				"pkg/steps/reassign.go:41",
+			),
+			1,
+		),
 		Entry("real bug with High/Medium does not hand off", realBugYAML("High", "Medium"), 0),
 		Entry("real bug with High/Low does not hand off", realBugYAML("High", "Low"), 0),
 		Entry("real bug with Medium/High does not hand off", realBugYAML("Medium", "High"), 0),
