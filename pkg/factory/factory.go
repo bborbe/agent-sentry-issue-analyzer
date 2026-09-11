@@ -63,6 +63,23 @@ const assigneeSentryAnalyzerAgent = "sentry-analyzer-agent"
 // must match.
 var taskTypeSentryCollector = agentlib.TaskType("sentry-collector")
 
+// taskTypeSentryFix is the agent-lib TaskType literal for the fix agent's
+// domain task. The deep execution phase hands a task off to this type
+// (assignee + task_type + phase: planning) on a High/High `real bug` deep
+// verdict, and the executor routes the task by its assignee to the live
+// sentry-fix-agent Config CR, whose taskTypes list includes sentry-fix.
+var taskTypeSentryFix = agentlib.TaskType("sentry-fix")
+
+// assigneeSentryFixAgent is the `assignee` of the live agent Config CR that
+// handles fixes. It is a PLAIN string, not an agentlib.TaskType (contrast
+// taskTypeSentryFix above): it is the exact value agent-task-executor matches
+// against configs.agent.benjamin-borbe.de spec.assignee. agent-task-executor
+// resolves an agent by exact assignee string and silently drops unknown names
+// (skipped_unknown_assignee), so a wrong value here strands the task with no
+// error anywhere. Keep this literal in sync with the live Config CR
+// spec.assignee before shipping.
+const assigneeSentryFixAgent = "sentry-fix-agent"
+
 // CreateClaudeRunner constructs a ClaudeRunner pre-configured with tools,
 // model, working directory, and CLI environment.
 func CreateClaudeRunner(
@@ -176,7 +193,10 @@ func CreateAgentFromRunner(
 // `real bug` — the triage step already forced it, and the deep re-analysis must
 // not be able to override that (observed on NUKE-DEV-A4: triage forced real
 // bug via sustained span, deep re-analysis wrote `noise` with the same
-// events/day arithmetic error).
+// events/day arithmetic error). The guard is wrapped in the fix handoff: a
+// High/High `real bug` deep verdict promotes the task to the fix agent
+// (assignee sentry-fix-agent, task_type sentry-fix, phase planning) instead of
+// completing it.
 func CreateDeepAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
@@ -187,9 +207,17 @@ func CreateDeepAgentFromRunner(
 		prompts.BuildDeepPlanningInstructions(),
 		envContext,
 	)
-	execution := steps.NewDisqualifierGuardStep(
-		steps.NewDeepExecutionStep(runner, prompts.BuildDeepExecutionInstructions(), envContext),
-		verdict.NewDisqualifierEvaluator(currentDateTime),
+	execution := steps.NewFixHandoffStep(
+		steps.NewDisqualifierGuardStep(
+			steps.NewDeepExecutionStep(
+				runner,
+				prompts.BuildDeepExecutionInstructions(),
+				envContext,
+			),
+			verdict.NewDisqualifierEvaluator(currentDateTime),
+		),
+		assigneeSentryFixAgent,
+		string(taskTypeSentryFix),
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
