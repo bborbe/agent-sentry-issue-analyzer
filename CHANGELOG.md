@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: derived-key `needs_input` is an envelope status inside the `## Verdict` block, never a `## Failure` section — prod E2E (2026-09-11) showed the execution LLM still routing a thin-snapshot `needs_input` through `## Failure`, which reverts the task to planning and unassigns the analyzer
+
 ## v0.13.2
 
 - fix: derived-key (no-ID) tasks deterministically emit an analysis + verdict (`unanalyzable` / `needs_input`) instead of a `## Failure` for a missing trace or unmapped project — E2E-observed inconsistency (one fixture escalated, the other emitted `unanalyzable` for the same structural situation)

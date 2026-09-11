@@ -162,11 +162,15 @@ var _ = Describe("no-ID (derived-key) path", func() {
 	})
 
 	It(
-		"execution prompt forbids ## Failure and assigns unanalyzable/needs_input for derived-key tasks",
+		"execution prompt forbids ## Failure and routes derived-key outcomes through the ## Verdict block",
 		func() {
 			instrs := prompts.BuildExecutionInstructions()
 			Expect(instrs[0].Content).To(ContainSubstring("NEVER emit a `## Failure`"))
 			Expect(instrs[0].Content).To(ContainSubstring("unanalyzable"))
+			// channel clarity: needs_input is an envelope status inside ## Verdict,
+			// never a ## Failure section (E2E-observed on prod 2026-09-11)
+			Expect(instrs[0].Content).To(ContainSubstring("`needs_input` is an envelope status"))
+			Expect(instrs[0].Content).To(ContainSubstring("reverts the task to planning"))
 		},
 	)
 
