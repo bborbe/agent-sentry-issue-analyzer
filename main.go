@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	agentlib "github.com/bborbe/agent"
@@ -35,6 +36,7 @@ import (
 	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/golang/glog"
+	"github.com/google/go-github/v88/github"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/push"
 
@@ -50,6 +52,12 @@ const agentName = "claude-agent"
 // a different tool contract (scripts/sentry-create-tasks.sh instead of
 // sentry-read.sh / repo-clone.sh), so it gets its own preflight.
 const taskTypeSentryCollector = "sentry-collector"
+
+// taskTypeSentryFix is the fix step's task-type literal (mirrors
+// factory.taskTypeSentryFix). The fix agent has a single planning phase and a
+// tool contract that needs only the read-only repo-clone tool (it files specs
+// through the GitHub API, not Bash), so it gets its own preflight.
+const taskTypeSentryFix = "sentry-fix"
 
 func main() {
 	app := &application{}
@@ -70,6 +78,11 @@ type application struct {
 	AppID          int64  `required:"false" arg:"app-id"          env:"APP_ID"          usage:"GitHub App ID (numeric); required for App auth"`
 	InstallationID int64  `required:"false" arg:"installation-id" env:"INSTALLATION_ID" usage:"GitHub App installation ID; required for App auth"`
 	PEMKey         string `required:"false" arg:"pem-key"         env:"PEM_KEY"         usage:"GitHub App private key (PEM) as env var content"   display:"length"`
+
+	// RepoAllowlist bounds which repositories the fix agent may file specs into
+	// (comma-separated owner/name list, e.g. "bborbe/trading,bborbe/kafka").
+	// Empty means no allowlist bound — the App installation scope remains the hard wall.
+	RepoAllowlist string `required:"false" arg:"repo-allowlist" env:"REPO_ALLOWLIST" usage:"Comma-separated repo allowlist for the sentry-fix agent"`
 
 	// Claude Code CLI configuration
 	ClaudeConfigDir claudelib.ClaudeConfigDir `required:"false" arg:"claude-config-dir" env:"CLAUDE_CONFIG_DIR" usage:"Claude Code config directory"`
@@ -219,10 +232,48 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	return claudeEnv, nil
 }
 
+// parseRepoAllowlist splits a comma-separated REPO_ALLOWLIST value into its
+// non-empty, trimmed owner/name entries.
+func parseRepoAllowlist(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+// buildGithubClient returns an App-authenticated go-github client when App
+// auth is configured, nil otherwise. The fix agent files specs through the
+// GitHub Contents API using this client; a nil client makes the fix agent
+// fail loudly at write time rather than at startup.
+func (a *application) buildGithubClient(ctx context.Context) (*github.Client, error) {
+	if a.AppID == 0 || a.InstallationID == 0 || a.PEMKey == "" {
+		return nil, nil
+	}
+	appHTTPClient, err := githubapp.NewClient(ctx, githubapp.Config{
+		AppID:          a.AppID,
+		InstallationID: a.InstallationID,
+		PEM:            []byte(a.PEMKey),
+	})
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "create github app client")
+	}
+	githubClient, err := github.NewClient(github.WithHTTPClient(appHTTPClient))
+	if err != nil {
+		return nil, errors.Wrap(ctx, err, "create github client")
+	}
+	return githubClient, nil
+}
+
 // validatePreflight runs the task-type-appropriate fail-fast tool/token check.
 // The collector step uses its own constrained script (scripts/sentry-create-tasks.sh)
 // instead of sentry-read.sh / repo-clone.sh, so it is preflighted against its
-// own tool contract; all other task types keep the triage/deep checks.
+// own tool contract. The fix agent needs only the read-only repo-clone tool
+// (it files specs through the GitHub API, not Bash), so it is preflighted
+// against that alone. All other task types keep the triage/deep checks.
 func (a *application) validatePreflight(
 	ctx context.Context,
 	allowedTools claudelib.AllowedTools,
@@ -233,6 +284,12 @@ func (a *application) validatePreflight(
 			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken),
 			"sentry-collector preflight",
 		)
+	}
+	if a.TaskType == taskTypeSentryFix {
+		if err := preflight.ValidateRepoCloneTools(ctx, allowedTools); err != nil {
+			return errors.Wrap(ctx, err, "sentry-fix preflight")
+		}
+		return nil
 	}
 	if err := preflight.ValidateSentryTools(ctx, allowedTools, a.SentryAPIToken); err != nil {
 		return errors.Wrap(ctx, err, "sentry preflight")
@@ -283,6 +340,14 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		return err
 	}
 
+	githubClient, err := a.buildGithubClient(ctx)
+	if err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return err
+	}
+	repoAllowlist := parseRepoAllowlist(a.RepoAllowlist)
+
 	provider := factory.CreateAgentProvider(
 		a.ClaudeConfigDir,
 		a.AgentDir,
@@ -291,6 +356,8 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		claudeEnv,
 		envparse.KeyValuePairs(a.EnvContextRaw),
 		libtime.NewCurrentDateTime(),
+		githubClient,
+		repoAllowlist,
 	)
 	agent, err := provider.Get(ctx, agentlib.TaskType(a.TaskType))
 	if err != nil {

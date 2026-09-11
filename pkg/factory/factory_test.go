@@ -34,6 +34,8 @@ var _ = Describe("CreateAgentProvider", func() {
 			map[string]string{},
 			map[string]string{},
 			libtime.NewCurrentDateTime(),
+			nil,
+			nil,
 		)
 	})
 
@@ -83,6 +85,20 @@ var _ = Describe("CreateAgentProvider", func() {
 		Expect(collectorAgent).NotTo(BeIdenticalTo(sentryAgent))
 	})
 
+	It("Get returns the fix agent for taskTypeSentryFix", func() {
+		agent, err := provider.Get(ctx, agentlib.TaskType("sentry-fix"))
+		Expect(err).To(BeNil())
+		Expect(agent).NotTo(BeNil())
+	})
+
+	It("fix agent is distinct from the deep agent", func() {
+		deepAgent, err := provider.Get(ctx, agentlib.TaskType("sentry-deep-analyzer"))
+		Expect(err).To(BeNil())
+		fixAgent, err := provider.Get(ctx, agentlib.TaskType("sentry-fix"))
+		Expect(err).To(BeNil())
+		Expect(fixAgent).NotTo(BeIdenticalTo(deepAgent))
+	})
+
 	It("Get returns the liveness agent for TaskTypeHealthcheck", func() {
 		agent, err := provider.Get(ctx, agentlib.TaskTypeHealthcheck)
 		Expect(err).To(BeNil())
@@ -123,7 +139,7 @@ var _ = Describe("CreateAgentProvider", func() {
 		It("error message contains the sorted accepted-types list", func() {
 			Expect(
 				err.Error(),
-			).To(ContainSubstring("[healthcheck llm oauth-probe sentry-collector sentry-deep-analyzer sentry-issue-analyzer]"))
+			).To(ContainSubstring("[healthcheck llm oauth-probe sentry-collector sentry-deep-analyzer sentry-fix sentry-issue-analyzer]"))
 		})
 	})
 })

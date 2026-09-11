@@ -69,6 +69,45 @@ var _ = Describe("application", func() {
 	})
 })
 
+var _ = Describe("parseRepoAllowlist", func() {
+	It("splits a comma-separated list into trimmed non-empty entries", func() {
+		Expect(parseRepoAllowlist("bborbe/trading, bborbe/kafka ,")).To(Equal([]string{
+			"bborbe/trading", "bborbe/kafka",
+		}))
+	})
+
+	It("returns nil for an empty value", func() {
+		Expect(parseRepoAllowlist("")).To(BeEmpty())
+	})
+})
+
+var _ = Describe("buildGithubClient", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("returns nil when App auth is not configured", func() {
+		client, err := (&application{}).buildGithubClient(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client).To(BeNil())
+	})
+
+	It("returns nil when only part of App auth is configured", func() {
+		client, err := (&application{AppID: 1, InstallationID: 2}).buildGithubClient(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client).To(BeNil())
+	})
+
+	It("returns an error when App auth is configured with an invalid PEM", func() {
+		app := &application{AppID: 1, InstallationID: 2, PEMKey: "not a pem"}
+		client, err := app.buildGithubClient(ctx)
+		Expect(err).To(HaveOccurred())
+		Expect(client).To(BeNil())
+	})
+})
+
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })

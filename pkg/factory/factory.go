@@ -17,7 +17,9 @@ import (
 	libkafka "github.com/bborbe/kafka"
 	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
+	"github.com/google/go-github/v88/github"
 
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/fixagent"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
@@ -244,6 +246,25 @@ func CreateCollectorAgentFromRunner(
 	)
 }
 
+// CreateFixAgentFromRunner builds the fix agent given a pre-constructed
+// ClaudeRunner. The fix agent is a separate task type (sentry-fix) with a
+// single planning phase: it resolves the repo behind a High/High real-bug
+// deep verdict via the prompt-backed resolver, confirms the citation at the
+// current revision, and files a kind: bug spec through the GitHub API.
+// githubClient is the App-authenticated go-github client (nil when App auth
+// is not configured); repoAllowlist bounds emission (empty = unbounded).
+func CreateFixAgentFromRunner(
+	runner claudelib.ClaudeRunner,
+	githubClient *github.Client,
+	repoAllowlist []string,
+) *agentlib.Agent {
+	resolver := fixagent.NewPromptRepoResolver(runner, prompts.BuildFixPlanningInstructions())
+	writer := fixagent.NewGitHubSpecWriter(githubClient, repoAllowlist)
+	return agentlib.NewAgent(
+		agentlib.NewPhase("planning", steps.NewFixStep(resolver, writer)),
+	)
+}
+
 // CreateAgentProvider wires the per-task-type dispatch table for agent-sentry-issue-analyzer.
 // Returns lib.AgentProvider — main.go calls Get(ctx, taskType) to select the
 // appropriate *Agent. Pure plumbing; no conditional, no error.
@@ -252,9 +273,11 @@ func CreateCollectorAgentFromRunner(
 // triage agent. taskTypeSentryDeepAnalyzer routes to the deep analyzer (its
 // own prompts + octopus verdict). taskTypeSentryCollector routes to the
 // collector agent (single planning phase, fetches the day's alerts + publishes
-// per-alert tasks). TaskTypeHealthcheck and TaskTypeOAuthProbe (transition
-// alias) both route to the shared healthcheck-Claude liveness agent, reusing
-// the same ClaudeRunner.
+// per-alert tasks). taskTypeSentryFix routes to the fix agent (single planning
+// phase, resolves the repo behind a High/High deep verdict and files a
+// kind: bug spec through the GitHub API). TaskTypeHealthcheck and
+// TaskTypeOAuthProbe (transition alias) both route to the shared
+// healthcheck-Claude liveness agent, reusing the same ClaudeRunner.
 func CreateAgentProvider(
 	claudeConfigDir claudelib.ClaudeConfigDir,
 	agentDir claudelib.AgentDir,
@@ -263,16 +286,20 @@ func CreateAgentProvider(
 	claudeEnv map[string]string,
 	envContext map[string]string,
 	currentDateTime libtime.CurrentDateTimeGetter,
+	githubClient *github.Client,
+	repoAllowlist []string,
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(runner, envContext, currentDateTime)
 	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
+	fixAgent := CreateFixAgentFromRunner(runner, githubClient, repoAllowlist)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{
 		taskTypeSentryIssueAnalyzer:  domainAgent,
 		taskTypeSentryDeepAnalyzer:   deepAgent,
 		taskTypeSentryCollector:      collectorAgent,
+		taskTypeSentryFix:            fixAgent,
 		agentlib.TaskTypeLLM:         domainAgent,
 		agentlib.TaskTypeHealthcheck: livenessAgent,
 		agentlib.TaskTypeOAuthProbe:  livenessAgent,
