@@ -25,6 +25,9 @@ var deepPlanning string
 //go:embed deep-execution.md
 var deepExecution string
 
+//go:embed fix-planning.md
+var fixPlanning string
+
 //go:embed collector-planning.md
 var collectorPlanning string
 
@@ -79,5 +82,15 @@ func BuildDeepExecutionInstructions() claudelib.Instructions {
 	return claudelib.Instructions{
 		{Name: "deep-execution", Content: deepExecution},
 		{Name: "output-format", Content: outputFormat},
+	}
+}
+
+// BuildFixPlanningInstructions assembles the fix-agent resolution-phase prompt:
+// the fix-planning module (resolve file:line → repo via the deep analyzer's
+// procedure + confirm the citation at the current revision). Used by the
+// sentry-fix task type.
+func BuildFixPlanningInstructions() claudelib.Instructions {
+	return claudelib.Instructions{
+		{Name: "fix-planning", Content: fixPlanning},
 	}
 }
