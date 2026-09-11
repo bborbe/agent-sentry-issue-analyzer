@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.13.3
 
 - fix: derived-key `needs_input` is an envelope status inside the `## Verdict` block, never a `## Failure` section — prod E2E (2026-09-11) showed the execution LLM still routing a thin-snapshot `needs_input` through `## Failure`, which reverts the task to planning and unassigns the analyzer
 
