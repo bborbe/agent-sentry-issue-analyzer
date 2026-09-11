@@ -24,7 +24,13 @@ If the script fails (auth/network error), STOP: return `needs_input` with the fa
 
 ### Step 4: Write the summary
 
-Write a summary into the task body under `## Analysis`: the number of per-alert tasks created and the short-IDs.
+The script's final line is machine-readable, and the collector step gates the task's terminal status on it:
+
+`sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> status=<done|failed>`
+
+Copy that line into the task body under `## Analysis` **verbatim**, followed by the fetched short-IDs. Do not compute, restate, round or paraphrase any of the numbers yourself.
+
+`landed` is the number of per-alert task files actually observed in the vault after publishing — not the number published. A summary that reports a number it did not observe is the exact defect this step exists to prevent: on 2026-08-26 and 2026-08-27 the collector reported success while zero per-alert tasks landed, and nothing surfaced it for ~20 hours.
 
 ## Rules
 

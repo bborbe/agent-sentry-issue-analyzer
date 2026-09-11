@@ -95,4 +95,104 @@ var _ = Describe("CollectorPlanningStep", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
 	})
+
+	It("returns failed with no NextPhase when new alerts were expected but none landed", func() {
+		// The 2026-08-26/27/28 signature: publishes succeed, the controller
+		// drops everything, zero per-alert task files land.
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "Fetched 48 active unresolved alerts.\n" +
+				"sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=0 status=failed",
+		}, nil)
+
+		step := steps.NewCollectorPlanningStep(
+			runner,
+			prompts.BuildCollectorPlanningInstructions(),
+			nil,
+		)
+
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
+		// Failure contract: no NextPhase — the controller owns unassign +
+		// ## Failure. "human_review" is reserved for a successful verdict
+		// that needs a human, never for a failure.
+		Expect(result.NextPhase).To(BeEmpty())
+	})
+
+	It("stays done on a quiet day where every fetched alert was already tracked", func() {
+		// Dedup is the designed idempotency: zero created with zero new alerts
+		// expected is healthy, not an alarm.
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "sentry-create-tasks-result: fetched=48 published=0 expected_new=0 landed=0 status=done",
+		}, nil)
+
+		step := steps.NewCollectorPlanningStep(
+			runner,
+			prompts.BuildCollectorPlanningInstructions(),
+			nil,
+		)
+
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("done"))
+	})
+
+	It("stays done when task files landed", func() {
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=2 status=done",
+		}, nil)
+
+		step := steps.NewCollectorPlanningStep(
+			runner,
+			prompts.BuildCollectorPlanningInstructions(),
+			nil,
+		)
+
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("done"))
+	})
+
+	It("stays done when the summary carries no result line", func() {
+		// Only positive evidence downgrades the status — a missing line must
+		// never turn every run into a failure.
+		runner.RunReturns(&claudelib.ClaudeResult{Result: "summary with no result line"}, nil)
+
+		step := steps.NewCollectorPlanningStep(
+			runner,
+			prompts.BuildCollectorPlanningInstructions(),
+			nil,
+		)
+
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("done"))
+	})
 })
