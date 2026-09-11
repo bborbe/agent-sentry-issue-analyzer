@@ -6,12 +6,24 @@ package steps
 
 import (
 	"context"
+	"os"
 	"regexp"
 	"strconv"
 
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 )
+
+// collectorResultPath is where scripts/sentry-create-tasks.sh writes its
+// machine-readable result line. Keep it in step with RESULT_FILE in that script.
+//
+// The step reads this FILE rather than the ## Analysis body. The script already
+// computes every count itself, so routing them through the model's
+// transcription adds a failure mode without adding information — observed on
+// dev 2026-09-12, where the model wrote a prose JSON summary and never copied
+// the line at all, making a run that HAD observed nothing indistinguishable
+// from one that never ran.
+const collectorResultPath = "/tmp/sentry-create-tasks-result"
 
 // collectorResultLine matches the machine-readable result line emitted by
 // scripts/sentry-create-tasks.sh. The step gates the task's terminal status on
@@ -95,6 +107,16 @@ func (s *collectorStep) Run(
 	ctx context.Context,
 	md *agentlib.Markdown,
 ) (*agentlib.Result, error) {
+	// Clear any result left behind by an earlier run in this container, so a
+	// stale file can never be mistaken for this run's observation.
+	if err := os.Remove(collectorResultPath); err != nil && !os.IsNotExist(err) {
+		return &agentlib.Result{
+			Status: agentlib.AgentStatusFailed,
+			Message: "collector could not clear the previous run's result file — " +
+				"refusing to report success on a possibly stale observation",
+		}, nil
+	}
+
 	result, err := s.inner.Run(ctx, md)
 	if err != nil {
 		return result, err
@@ -105,11 +127,15 @@ func (s *collectorStep) Run(
 		return result, nil
 	}
 
-	section, ok := md.FindSection("## Analysis")
-	if !ok {
-		return result, nil
+	body, readErr := os.ReadFile(collectorResultPath)
+	if readErr != nil {
+		return &agentlib.Result{
+			Status: agentlib.AgentStatusFailed,
+			Message: "collector produced no creation-count observation — the script did " +
+				"not run to completion, so it cannot report success",
+		}, nil
 	}
-	observation, ok := parseCollectorResult(section.Body)
+	observation, ok := parseCollectorResult(string(body))
 	if !ok {
 		// No result line at all. The collector's entire job is to observe the
 		// creation phase, so a run that produced no observation did not do its
@@ -146,8 +172,8 @@ func (s *collectorStep) Run(
 	return result, nil
 }
 
-// parseCollectorResult extracts the script's observation from the ## Analysis
-// body. Returns false when the line is absent or malformed.
+// parseCollectorResult extracts the script's observation from the contents of
+// the result file. Returns false when the line is absent or malformed.
 //
 // The rule is applied here rather than read from the line's status= token: the
 // script observes the counts, the step owns the policy, so a bug in the

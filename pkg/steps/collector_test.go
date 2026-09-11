@@ -10,7 +10,6 @@ import (
 
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
-	claudemocks "github.com/bborbe/agent/mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -18,39 +17,75 @@ import (
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 )
 
+// resultPath is where scripts/sentry-create-tasks.sh writes its machine-readable
+// line (RESULT_FILE there, collectorResultPath in pkg/steps). It is spelled out
+// here rather than referenced so this suite fails if the two ever drift apart.
+const resultPath = "/tmp/sentry-create-tasks-result"
+
+// scriptRunner stands in for the claude CLI. The real script writes the result
+// line itself, so the stub writes it INSIDE Run: the step clears the file
+// before invoking the runner, and a fixture that pre-wrote it would be erased.
+// resultLine empty stands for a script that never ran; err for a CLI failure.
+type scriptRunner struct {
+	resultLine string
+	summary    string
+	err        error
+	ran        bool
+}
+
+func (r *scriptRunner) Run(_ context.Context, _ string) (*claudelib.ClaudeResult, error) {
+	r.ran = true
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.resultLine != "" {
+		if err := os.WriteFile(resultPath, []byte(r.resultLine+"\n"), 0o600); err != nil {
+			return nil, err
+		}
+	}
+	return &claudelib.ClaudeResult{Result: r.summary}, nil
+}
+
 var _ = Describe("CollectorPlanningStep", func() {
-	var (
-		ctx    context.Context
-		runner *claudemocks.ClaudeRunner
-	)
+	var ctx context.Context
 
-	BeforeEach(func() {
-		ctx = context.Background()
-		runner = &claudemocks.ClaudeRunner{}
-	})
-
-	It("writes the ## Analysis summary section and advances to done (terminates the task)", func() {
-		// A complete observation: new alerts were expected and task files landed,
-		// so the step may report done. The fixture must carry the result line —
-		// without it the step now returns Failed (see the "no result line" spec
-		// below), which is the point of the gate.
-		summary := "sentry-create-tasks-result: fetched=2 published=2 expected_new=2 landed=2 observed=true status=done\n" +
-			"2 tasks: SENTRY-X-1 SENTRY-X-2"
-		runner.RunReturns(&claudelib.ClaudeResult{Result: summary}, nil)
-
-		step := steps.NewCollectorPlanningStep(
-			runner,
+	newStep := func(r claudelib.ClaudeRunner) agentlib.Step {
+		return steps.NewCollectorPlanningStep(
+			r,
 			prompts.BuildCollectorPlanningInstructions(),
 			nil,
 		)
+	}
 
+	newMarkdown := func() *agentlib.Markdown {
 		md, err := agentlib.ParseMarkdown(
 			ctx,
 			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
 		)
 		Expect(err).NotTo(HaveOccurred())
+		return md
+	}
 
-		result, err := step.Run(ctx, md)
+	BeforeEach(func() {
+		ctx = context.Background()
+		Expect(os.RemoveAll(resultPath)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(resultPath)).To(Succeed())
+	})
+
+	It("writes the ## Analysis summary section and advances to done (terminates the task)", func() {
+		// A complete observation: new alerts were expected and task files landed,
+		// so the step may report done.
+		summary := "Fetched 2 alerts; 2 task files landed: SENTRY-X-1 SENTRY-X-2"
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=2 published=2 expected_new=2 landed=2 observed=true status=done",
+			summary:    summary,
+		}
+
+		md := newMarkdown()
+		result, err := newStep(runner).Run(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
 		// NextPhase "done" is the terminal-literal path (agent_agent.go:91): the
@@ -65,12 +100,7 @@ var _ = Describe("CollectorPlanningStep", func() {
 	})
 
 	It("skips Claude when ## Analysis already exists (idempotent resume)", func() {
-		runner.RunReturns(&claudelib.ClaudeResult{Result: "summary"}, nil)
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
+		runner := &scriptRunner{summary: "summary"}
 
 		md, err := agentlib.ParseMarkdown(
 			ctx,
@@ -78,26 +108,14 @@ var _ = Describe("CollectorPlanningStep", func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		shouldRun, err := step.ShouldRun(ctx, md)
+		shouldRun, err := newStep(runner).ShouldRun(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(shouldRun).To(BeFalse())
+		Expect(runner.ran).To(BeFalse())
 	})
 
 	It("returns failed when Claude fails", func() {
-		runner.RunReturns(nil, os.ErrPermission)
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
-
-		md, err := agentlib.ParseMarkdown(
-			ctx,
-			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		result, err := step.Run(ctx, md)
+		result, err := newStep(&scriptRunner{err: os.ErrPermission}).Run(ctx, newMarkdown())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
 	})
@@ -105,24 +123,12 @@ var _ = Describe("CollectorPlanningStep", func() {
 	It("returns failed with no NextPhase when new alerts were expected but none landed", func() {
 		// The 2026-08-26/27/28 signature: publishes succeed, the controller
 		// drops everything, zero per-alert task files land.
-		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "Fetched 48 active unresolved alerts.\n" +
-				"sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=0 observed=true status=failed",
-		}, nil)
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=0 observed=true status=failed",
+			summary:    "Fetched 48 active unresolved alerts.",
+		}
 
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
-
-		md, err := agentlib.ParseMarkdown(
-			ctx,
-			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		result, err := step.Run(ctx, md)
+		result, err := newStep(runner).Run(ctx, newMarkdown())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
 		// Failure contract: no NextPhase — the controller owns unassign +
@@ -134,46 +140,24 @@ var _ = Describe("CollectorPlanningStep", func() {
 	It("stays done on a quiet day where every fetched alert was already tracked", func() {
 		// Dedup is the designed idempotency: zero created with zero new alerts
 		// expected is healthy, not an alarm.
-		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "sentry-create-tasks-result: fetched=48 published=0 expected_new=0 landed=0 observed=true status=done",
-		}, nil)
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=48 published=0 expected_new=0 landed=0 observed=true status=done",
+			summary:    "quiet day",
+		}
 
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
-
-		md, err := agentlib.ParseMarkdown(
-			ctx,
-			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		result, err := step.Run(ctx, md)
+		result, err := newStep(runner).Run(ctx, newMarkdown())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
 		Expect(result.NextPhase).To(Equal("done"))
 	})
 
 	It("stays done when task files landed", func() {
-		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=2 observed=true status=done",
-		}, nil)
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=2 observed=true status=done",
+			summary:    "2 landed",
+		}
 
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
-
-		md, err := agentlib.ParseMarkdown(
-			ctx,
-			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		result, err := step.Run(ctx, md)
+		result, err := newStep(runner).Run(ctx, newMarkdown())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
 		Expect(result.NextPhase).To(Equal("done"))
@@ -182,52 +166,67 @@ var _ = Describe("CollectorPlanningStep", func() {
 	It("returns failed when the vault could not be observed at all", func() {
 		// observed=false is NOT an observed zero. A run that could not read the
 		// vault proves nothing, so it must not report success — otherwise an
-		// auth/network failure becomes a silent green.
-		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "sentry-create-tasks-result: fetched=48 published=48 expected_new=0 landed=0 observed=false status=unobserved",
-		}, nil)
+		// auth/network failure becomes a silent green. This is the dev
+		// 2026-09-12 shape: the collector has no GATEWAY_SECRET, so git-rest
+		// rejects the listing with 500 and the count is unknowable.
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=48 published=48 expected_new=0 landed=0 observed=false status=unobserved",
+			summary:    "published 48, could not verify",
+		}
 
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
-
-		md, err := agentlib.ParseMarkdown(
-			ctx,
-			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		result, err := step.Run(ctx, md)
+		result, err := newStep(runner).Run(ctx, newMarkdown())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
 		Expect(result.NextPhase).To(BeEmpty())
 	})
 
-	It("returns failed when the summary carries no result line", func() {
-		// A run with no observation did not do its work. Reporting done here is
-		// the false-green this step exists to close — observed on dev
+	It("returns failed when the script wrote no result file", func() {
+		// No result file means the script never ran to completion. Reporting done
+		// here is the false-green this step exists to close — observed on dev
 		// 2026-09-11, when the script never executed because its Bash grant did
 		// not match the `bash scripts/...` form the model actually used, and the
 		// task was recorded `status: completed` having done nothing.
-		runner.RunReturns(&claudelib.ClaudeResult{Result: "summary with no result line"}, nil)
+		runner := &scriptRunner{summary: "summary with no result line"}
 
-		step := steps.NewCollectorPlanningStep(
-			runner,
-			prompts.BuildCollectorPlanningInstructions(),
-			nil,
-		)
-
-		md, err := agentlib.ParseMarkdown(
-			ctx,
-			"---\nstatus: in_progress\n---\n\n## Task\n\ndaily sentry-collector trigger\n",
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		result, err := step.Run(ctx, md)
+		result, err := newStep(runner).Run(ctx, newMarkdown())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
 		Expect(result.NextPhase).To(BeEmpty())
+	})
+
+	It("gates on the result file even when the model's prose claims success", func() {
+		// The reason this step reads a file instead of the summary. Observed on
+		// dev 2026-09-12: the model wrote a confident prose summary and never
+		// copied the result line, so a run that had observed nothing looked
+		// exactly like one that had. A summary is the model's *claim*; the file
+		// is the script's *measurement*, and the measurement wins.
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=11 published=11 expected_new=0 landed=0 observed=false status=unobserved",
+			summary: "sentry-create-tasks-result: fetched=11 published=11 " +
+				"expected_new=11 landed=11 observed=true status=done",
+		}
+
+		result, err := newStep(runner).Run(ctx, newMarkdown())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
+		Expect(result.NextPhase).To(BeEmpty())
+	})
+
+	It("ignores a result file left behind by an earlier run in the same container", func() {
+		// A stale file must never be read as this run's observation, or a run
+		// that produced nothing inherits the previous run's healthy counts. The
+		// stub writes nothing, standing in for a script that did not run; the
+		// step's pre-run clear is what turns that into a failure.
+		Expect(os.WriteFile(
+			resultPath,
+			[]byte(
+				"sentry-create-tasks-result: fetched=48 published=48 expected_new=48 landed=48 observed=true status=done\n",
+			),
+			0o600,
+		)).To(Succeed())
+
+		result, err := newStep(&scriptRunner{summary: "did nothing"}).Run(ctx, newMarkdown())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
 	})
 })

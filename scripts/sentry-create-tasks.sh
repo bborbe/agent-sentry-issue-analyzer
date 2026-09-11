@@ -45,6 +45,10 @@ TARGET_VAULT="${TARGET_VAULT:-personal}"
 STAGE="${STAGE:-dev}"
 VAULT_POLL_ATTEMPTS="${VAULT_POLL_ATTEMPTS:-12}"
 VAULT_POLL_INTERVAL_SECONDS="${VAULT_POLL_INTERVAL_SECONDS:-5}"
+# Where the result line is written for the Go step to read. This path is shared
+# with pkg/steps/collector.go (collectorResultPath) — the step gates the task's
+# terminal status on THIS FILE, never on the model's transcription of stdout.
+RESULT_FILE="/tmp/sentry-create-tasks-result"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 vault_list="${script_dir}/vault-list.sh"
@@ -203,7 +207,13 @@ elif [ "${expected_new}" -gt 0 ] && [ "${landed}" -eq 0 ]; then
   status="failed"
 fi
 
-echo "sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} observed=${observed} status=${status}"
+result_line="sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} observed=${observed} status=${status}"
+echo "${result_line}"
+# Write it for the Go step as well. The script computes every count itself, so
+# handing them to the model to re-type adds a failure mode without adding
+# information — observed on dev 2026-09-12, where the model wrote a prose JSON
+# summary and never copied this line at all.
+printf '%s\n' "${result_line}" > "${RESULT_FILE}"
 if [ "${status}" = "failed" ]; then
   echo "sentry-create-tasks: ${expected_new} new alert(s) expected but 0 task files landed (create-tasks rc=${create_rc})" >&2
 fi
