@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- fix: align the `fix-planning.md` candidate list with `planning.md` / `deep-planning.md` — the block must match across all three prompt files, and `docs/repo-mapping.md` now states the real invariant (same text and order, differing only in list indentation) instead of claiming byte-identity the nested copy cannot satisfy
 - feat: add the sentry-fix resolution prompt and an injectable prompt-backed repo resolver — file:line to repo runs the deep analyzer's resolution procedure with a freshness check at the current revision
 - feat: promote a High/High real-bug deep verdict to the fix agent (assignee `sentry-fix-agent`, task_type `sentry-fix`, phase planning) instead of completing the task — the deep-to-fix handoff (`NewFixHandoffStep`) is wired outside the disqualifier guard so a guard-forced `real bug` still reaches the fix agent, keyed idempotent on the current assignee, and every other verdict completes exactly as before
 
