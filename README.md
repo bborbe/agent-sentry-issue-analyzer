@@ -18,6 +18,19 @@ Built on `bborbe/agent-claude` template — AI-heavy reference. Two active phase
 | `execution` | Re-check LIVE state, apply 7-verdict rubric + noise disqualifiers | `## Verdict` YAML block |
 | `done` | Terminal — verdict written back to task body | — |
 
+## Fix agent (`sentry-fix`)
+
+The pipeline's third task type (`assignee: sentry-fix-agent`). It turns a
+High/High `real bug` deep verdict into a filed `kind: bug` spec: resolve the
+repo behind the verdict's `file:line` (prompt-backed), confirm the citation at
+the current revision, build the spec from the verdict's own words, and file it
+through the GitHub Contents API on a `sentry-fix/<issue-slug>` branch. Stale
+citations file nothing (recorded `status: stale` in `## Fix Result`),
+out-of-scope repos fail loudly, and emission is idempotent per Sentry issue
+id. `REPO_ALLOWLIST` (comma-separated owner/name, e.g. `bborbe/trading`)
+bounds which repos it may write into; empty means unbound (the App
+installation scope remains the hard wall).
+
 ## Build + Deploy
 
 This repo builds and uploads the image; it no longer owns cluster objects.

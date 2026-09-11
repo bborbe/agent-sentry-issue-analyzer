@@ -427,3 +427,62 @@ var _ = Describe("BuildDeepExecutionInstructions", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("## Verdict"))
 	})
 })
+
+var _ = Describe("BuildFixPlanningInstructions", func() {
+	It("returns exactly 1 instruction", func() {
+		instrs := prompts.BuildFixPlanningInstructions()
+		Expect(instrs).To(HaveLen(1))
+	})
+
+	It("first instruction is fix-planning with non-empty content", func() {
+		instrs := prompts.BuildFixPlanningInstructions()
+		Expect(instrs[0].Name).To(Equal("fix-planning"))
+		Expect(instrs[0].Content).NotTo(BeEmpty())
+	})
+
+	It(
+		"fix planning prompt instructs filing a kind: bug spec with a ## Reproduction section",
+		func() {
+			content := prompts.BuildFixPlanningInstructions()[0].Content
+			Expect(content).To(ContainSubstring("kind: bug"))
+			Expect(content).To(ContainSubstring("## Reproduction"))
+		},
+	)
+
+	It("fix planning prompt carries the deep analyzer's resolution procedure", func() {
+		content := prompts.BuildFixPlanningInstructions()[0].Content
+		Expect(content).To(ContainSubstring("scripts/repo-clone.sh clone"))
+		Expect(content).To(ContainSubstring("bborbe/trading"))
+		Expect(content).To(ContainSubstring("bborbe/kafka"))
+		Expect(content).To(ContainSubstring("bborbe/nuke"))
+		Expect(content).To(ContainSubstring("docs/repo-mapping.md"))
+		Expect(content).To(ContainSubstring("resolved from frame path"))
+		Expect(content).To(ContainSubstring("candidate position"))
+		Expect(content).To(ContainSubstring("third-party"))
+		Expect(content).To(ContainSubstring("rpyc"))
+		Expect(content).To(ContainSubstring("netref.py"))
+	})
+
+	It(
+		"fix planning prompt resolves the repo frame-path-first with an ordered candidate list",
+		func() {
+			content := prompts.BuildFixPlanningInstructions()[0].Content
+			Expect(content).To(ContainSubstring("nuke-dev"))
+			Expect(content).To(ContainSubstring("nuke-prod"))
+			Expect(strings.Index(content, "frame path")).
+				To(BeNumerically("<", strings.Index(content, "candidate")))
+		},
+	)
+
+	It("fix planning prompt orders the infrastructure repo after the application repos", func() {
+		content := prompts.BuildFixPlanningInstructions()[0].Content
+		Expect(strings.Index(content, "bborbe/nuke")).
+			To(BeNumerically(">", strings.Index(content, "bborbe/trading")))
+	})
+
+	It("fix planning prompt requires confirming the citation at the current revision", func() {
+		content := prompts.BuildFixPlanningInstructions()[0].Content
+		Expect(content).To(ContainSubstring("current revision"))
+		Expect(content).To(ContainSubstring("stale"))
+	})
+})
