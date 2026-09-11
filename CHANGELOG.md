@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: wire the sentry-fix agent (task_type sentry-fix, assignee sentry-fix-agent): the fix step resolves the repo via the prompt-backed resolver, confirms freshness, and files a kind: bug spec through the GitHub API — stale citations file nothing and record why, out-of-scope repos fail loudly, emission is idempotent per Sentry issue id
+- test: widen the fix-handoff gate table to five distinct High/High verdicts — the positive class previously rested on one hand-picked fixture, so a gate keyed on that fixture's incidental content (issue id, root cause, file:line) would have passed; each new entry varies all three
+- feat: add the sentry-fix kind: bug spec builder (verdict words verbatim, validated by dark-factory spec.Load) and the GitHub Contents API writer (traversal-safe, REPO_ALLOWLIST-bounded, idempotent per Sentry issue id, filed on a non-default branch)
+- fix: align the `fix-planning.md` candidate list with `planning.md` / `deep-planning.md` — the block must match across all three prompt files, and `docs/repo-mapping.md` now states the real invariant (same text and order, differing only in list indentation) instead of claiming byte-identity the nested copy cannot satisfy
+- feat: add the sentry-fix resolution prompt and an injectable prompt-backed repo resolver — file:line to repo runs the deep analyzer's resolution procedure with a freshness check at the current revision
+- feat: promote a High/High real-bug deep verdict to the fix agent (assignee `sentry-fix-agent`, task_type `sentry-fix`, phase planning) instead of completing the task — the deep-to-fix handoff (`NewFixHandoffStep`) is wired outside the disqualifier guard so a guard-forced `real bug` still reaches the fix agent, keyed idempotent on the current assignee, and every other verdict completes exactly as before
+
 ## v0.13.4
 
 - fix: pin counterfeiter at the point of use in both //go:generate directives (go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2, no -mod=mod) and delete the superseded tools/tools.go so go run builds the tool in a temporary module — counterfeiter leaves go.mod/go.sum, make precommit becomes idempotent with respect to the module files, and the nine-dependency churn on every gate run ends
