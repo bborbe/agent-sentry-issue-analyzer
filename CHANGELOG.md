@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.14.2
 
 - fix: `scripts/repo-clone.sh` clones into `/agent/repos` instead of `/tmp/repos`, so the deep-analysis phase can actually read the repo it just cloned. Claude's tool sandbox is its `WorkingDirectory`, which is `AGENT_DIR` — the relative default `"agent"` resolved against the runtime image's cwd `/`, i.e. `/agent`. `/tmp/repos` sits outside that root, so every run cloned successfully and was then refused by Read/Glob/Bash (`tools cannot access /tmp/repos/... (scoped to /agent only)`) and escalated — the work was wasted at the last step. Widening the sandbox was not an option: `WorkingDirectory` is the only knob `lib/claude` exposes, and that package is never-modify, so the clone path is the side that had to move. The clone goes in a dedicated `repos/` subdir rather than `/agent` itself, because the agent root also holds the agent's own `.claude/` config and `scripts/`, and cloned repo content is untrusted. Nothing else moves with it: the emitted `clone_path`/`head_sha`/`default_branch` keys, `chmod -R a-w`, and `normalize_repo`'s charset guard are unchanged, and no prompt or preflight check hardcoded the old location.
 
