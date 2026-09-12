@@ -17,17 +17,25 @@
 #   clone_path, head_sha, default_branch
 #
 # Read-only by construction: the clone is created in REPO_CLONE_DIR (default
-# /tmp/repos), then the ENTIRE working tree — including .git — is chmod a-w.
+# /agent/repos), then the ENTIRE working tree — including .git — is chmod a-w.
 # The agent can read every file but cannot modify, commit, or push anything;
 # a `git log` on the read-only tree still works (it only reads objects).
 #
-# Env: REPO_CLONE_DIR (default /tmp/repos), GIT_CLONE_DEPTH (default 0 = full
+# The default MUST stay inside the agent root. Claude's tool sandbox is its
+# WorkingDirectory, which is AGENT_DIR — default the relative string "agent",
+# resolved against the runtime image's cwd "/", i.e. /agent. A clone outside
+# that root succeeds and is then unreadable: Read/Glob/Bash all refuse it, so
+# the run wastes the clone at the last step and escalates. Use a dedicated
+# subdir, never /agent itself — the agent root also holds the agent's own
+# .claude/ config and scripts/, and cloned repo content is untrusted.
+#
+# Env: REPO_CLONE_DIR (default /agent/repos), GIT_CLONE_DEPTH (default 0 = full
 #      history so git log regression checks work), GIT_CLONE_TOKEN (optional;
 #      never echoed).
 
 set -euo pipefail
 
-REPO_CLONE_DIR="${REPO_CLONE_DIR:-/tmp/repos}"
+REPO_CLONE_DIR="${REPO_CLONE_DIR:-/agent/repos}"
 GIT_CLONE_DEPTH="${GIT_CLONE_DEPTH:-0}"
 
 # normalize_repo validates a repo reference and echoes the canonical https URL.
