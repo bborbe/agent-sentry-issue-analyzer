@@ -69,6 +69,14 @@ type application struct {
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
+	// git-rest endpoint for the target vault. The collector step observes how
+	// many per-alert task files actually landed through it (scripts/vault-list.sh),
+	// because the controller owns dedup — published != landed.
+	GitRestURL string `required:"false" arg:"git-rest-url" env:"GIT_REST_URL" usage:"git-rest HTTP endpoint for the target vault, e.g. http://vault-obsidian-personal:9090"`
+
+	// Optional git-rest gateway shared secret, forwarded to the subprocess when set.
+	GatewaySecret string `required:"false" arg:"gateway-secret" env:"GATEWAY_SECRET" usage:"git-rest gateway shared secret" display:"length"`
+
 	// GitHub App auth for read-only cloning of private repos (repo-clone.sh).
 	// The pod mints an installation access token at startup (same pattern as
 	// github-pr-review-agent resolveAuth) and exposes it to the Claude
@@ -210,6 +218,16 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	if a.TargetVault != "" {
 		claudeEnv["TARGET_VAULT"] = a.TargetVault
 	}
+	// The collector step observes landed task files through git-rest
+	// (scripts/vault-list.sh). Both vars must be forwarded explicitly —
+	// buildSubprocessEnv strips non-allowlisted vars, so the pod secret alone
+	// is not enough.
+	if a.GitRestURL != "" {
+		claudeEnv["GIT_REST_URL"] = a.GitRestURL
+	}
+	if a.GatewaySecret != "" {
+		claudeEnv["GATEWAY_SECRET"] = a.GatewaySecret
+	}
 	if a.Stage != "" {
 		claudeEnv["STAGE"] = a.Stage
 	}
@@ -281,7 +299,7 @@ func (a *application) validatePreflight(
 	if a.TaskType == taskTypeSentryCollector {
 		return errors.Wrap(
 			ctx,
-			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken),
+			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken, a.GitRestURL),
 			"sentry-collector preflight",
 		)
 	}

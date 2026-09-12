@@ -34,6 +34,12 @@ const repoCloneToolPrefix = "Bash(scripts/repo-clone.sh"
 // per-alert tasks. It is granted only under its script constraint.
 const collectorScriptToolPrefix = "Bash(scripts/sentry-create-tasks.sh"
 
+// collectorVaultListToolPrefix is the constrained Bash tool the collector step
+// invokes to observe how many per-alert task files actually LANDED. Without it
+// the step can only see what it published, not what was created — the
+// controller owns dedup, so published != landed.
+const collectorVaultListToolPrefix = "Bash(scripts/vault-list.sh"
+
 // ValidateSentryTools returns an error if the token-based Sentry access path is
 // not wired: the `Bash(scripts/sentry-read.sh:*` tool must be present in
 // ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. Empty allowed tools or a
@@ -89,16 +95,22 @@ func hasSentryReadTool(ctx context.Context, allowed claudelib.AllowedTools) bool
 }
 
 // ValidateCollectorTools returns an error if the collector step's tool path is not
-// wired: the `Bash(scripts/sentry-create-tasks.sh:*` tool must be present in
-// ALLOWED_TOOLS, and SENTRY_API_TOKEN must be set. The collector agent needs
-// none of the triage/deep tools (sentry-read.sh, repo-clone.sh), so it is
-// validated against its own constrained script instead.
+// wired: the `Bash(scripts/sentry-create-tasks.sh:*` and
+// `Bash(scripts/vault-list.sh:*` tools must be present in ALLOWED_TOOLS, and
+// SENTRY_API_TOKEN + GIT_REST_URL must be set. The collector agent needs none
+// of the triage/deep tools (sentry-read.sh, repo-clone.sh), so it is validated
+// against its own constrained scripts instead.
+//
+// GIT_REST_URL is required, not optional: the collector observes the landed
+// per-alert task files through it, and a run that cannot observe its own
+// creation phase is exactly the false-green this path exists to prevent.
 func ValidateCollectorTools(
 	ctx context.Context,
 	allowed claudelib.AllowedTools,
 	apiToken string,
+	gitRestURL string,
 ) error {
-	present := false
+	present := map[string]bool{}
 	for _, t := range allowed {
 		select {
 		case <-ctx.Done():
@@ -106,16 +118,25 @@ func ValidateCollectorTools(
 		default:
 		}
 		if strings.HasPrefix(t, collectorScriptToolPrefix) {
-			present = true
+			present["script"] = true
+		}
+		if strings.HasPrefix(t, collectorVaultListToolPrefix) {
+			present["vaultList"] = true
 		}
 	}
 
 	var missing []string
-	if !present {
+	if !present["script"] {
 		missing = append(missing, "Bash(scripts/sentry-create-tasks.sh:*)")
+	}
+	if !present["vaultList"] {
+		missing = append(missing, "Bash(scripts/vault-list.sh:*)")
 	}
 	if apiToken == "" {
 		missing = append(missing, "SENTRY_API_TOKEN")
+	}
+	if gitRestURL == "" {
+		missing = append(missing, "GIT_REST_URL")
 	}
 	if len(missing) == 0 {
 		return nil
@@ -123,7 +144,7 @@ func ValidateCollectorTools(
 	sort.Strings(missing)
 	return errors.Errorf(
 		ctx,
-		"sentry-collector preflight failed: missing required piece(s) for the collector step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set SENTRY_API_TOKEN (teamvault-sourced).",
+		"sentry-collector preflight failed: missing required piece(s) for the collector step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) and Bash(scripts/vault-list.sh:*) tools in the agent Config CRD ALLOWED_TOOLS, and set SENTRY_API_TOKEN + GIT_REST_URL (teamvault-sourced).",
 		strings.Join(missing, ", "),
 	)
 }

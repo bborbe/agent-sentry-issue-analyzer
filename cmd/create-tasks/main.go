@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -243,6 +244,17 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 			continue
 		}
 	}
+	// Emit the publish result on stdout in a machine-readable form so the
+	// calling script can report a published count rather than echoing the
+	// fetched count. Printed on both paths — the caller needs the counts even
+	// when the run fails. This is the PUBLISH count: the controller owns dedup,
+	// so published != landed (see scripts/sentry-create-tasks.sh).
+	fmt.Printf(
+		"create-tasks-result: published=%d failed=%d total=%d\n",
+		len(alerts)-failed,
+		failed,
+		len(alerts),
+	)
 	if failed > 0 {
 		return errors.Errorf(
 			ctx,
