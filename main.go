@@ -145,6 +145,25 @@ type application struct {
 
 	PushgatewayURL string `required:"false" arg:"pushgateway-url" env:"PUSHGATEWAY_URL" usage:"Prometheus PushGateway URL"          default:"http://pushgateway:9090"`
 	TaskType       string `required:"false" arg:"task-type"       env:"TASK_TYPE"       usage:"Task type label for metric grouping" default:"unknown"`
+
+	// Build identity. Baked into the image at build time (Dockerfile ARG -> ENV,
+	// fed by Makefile.docker build-args) and printed unconditionally at startup
+	// by the argument framework — no verbosity flag needed.
+	//
+	// This is the deploy-freshness signal. The agents run from the mutable tags
+	// :dev/:prod, so neither the tag nor the image digest answers "which commit
+	// is this Job pod actually running?". These are Jobs, not Deployments: the
+	// pod exists only for the duration of one task, so there is no long-lived
+	// pod to inspect between runs. The startup log line is the only per-run
+	// provenance that survives the pod.
+	//
+	// Deliberately string, not libtime.DateTime: the Dockerfile defaults
+	// BUILD_DATE to "unknown", and the argument framework treats an
+	// unmarshal failure as fatal — a typed field would refuse to start the
+	// agent rather than report an unknown build date.
+	BuildGitVersion string `required:"false" arg:"build-git-version" env:"BUILD_GIT_VERSION" usage:"Build Git version (git describe)" default:"dev"`
+	BuildGitCommit  string `required:"false" arg:"build-git-commit"  env:"BUILD_GIT_COMMIT"  usage:"Build Git commit hash"            default:"none"`
+	BuildDate       string `required:"false" arg:"build-date"        env:"BUILD_DATE"        usage:"Build timestamp (RFC3339)"        default:"unknown"`
 }
 
 // createDeliverer builds the Kafka-or-Noop result deliverer. Empty taskID
