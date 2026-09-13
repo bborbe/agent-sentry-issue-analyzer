@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- test: both production verdict blocks now run through the reassign step, not only through `verdict.Parse`. The step-level regression test covered the 2026-09-13 `unavailable` block alone, so the 2026-09-12 `unknown` block — the exact input this crash was filed on — never reached `applyDisqualifiers`' date guard. One block was never enough: the int unmarshal and the date parse are separate failure modes, which is why a fix to the int alone left the Job still exiting 1.
+
 ## v0.15.1
 
 - fix: the analyzer no longer crashes parsing its own verdict when the live-state fields carry a word instead of a number. The execution prompt tells the model to leave `live_event_count` / `first_seen` / `last_seen` unavailable for derived-key alerts, and the model renders that instruction as a token — observed as `unknown` on 2026-09-12 and `unavailable` on 2026-09-13, because it echoes the prompt's own adjective. `live_event_count` was a bare `int`, so the unmarshal failed outright; `first_seen`/`last_seen` are `string`, so they parsed fine and only died later in the disqualifier guard's date parse. Both failure modes are fixed: `LiveEventCount` becomes `EventCount{Count, Known}`, whose `UnmarshalYAML` accepts **any** non-numeric token (an enumerated set fails on the next paraphrase) and maps it to `Known: false` rather than a coerced `0` — zero is a real measurement meaning "no events", so coercing would present a fabricated volume to the disqualifier arithmetic. The evaluator gates each count-based comparison on `Known`, so `Regressed` still fires when the count is unknown but the status is known, and `sustainedSpanFires` returns false when the count is not evaluable since both its branches derive from it. `applyDisqualifiers` returns early on a non-date token instead of wrapping it as an error. The prompt now names the literal token rather than the adjective that caused the drift. This was the largest single alert source on the fleet — 18 `Error`-state pods driving 34 `K8sPodStatus` alerts.

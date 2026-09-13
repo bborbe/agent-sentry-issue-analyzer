@@ -195,36 +195,42 @@ var _ = Describe("ReassignExecutionStep", func() {
 		Expect(section.Body).To(ContainSubstring("verdict: noise"))
 	})
 
-	It("does not error when the live-state fields carry a not-evaluable token", func() {
-		// Regression for the production crash (18 Error pods, 2026-09-13). The
-		// execution prompt tells the model to leave the live-state fields
-		// unavailable for derived-key alerts, and the model renders that
-		// instruction as a word. This block carries the 2026-09-13 spelling on
-		// the int field and the 2026-09-12 spelling on a string field - note
-		// that `sentry_status: unknown` is a string and exercises nothing on
-		// its own. The per-token coverage lives in pkg/verdict's Parse table,
-		// which pins each production block verbatim; here the point is that the
-		// whole step completes.
-		//
-		// The two failure modes are distinct and both are exercised here. A
-		// non-numeric token fails the int unmarshal. A non-date token
-		// unmarshals fine into the string field and only fails later, in
-		// applyDisqualifiers' date parse — which is why a fix to the int alone
-		// leaves the Job still exiting 1.
-		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nconfidence: low\nreason: no exception entry (stack trace unavailable)\nlive_event_count: unavailable\nfirst_seen: unavailable\nlast_seen: unavailable\nsentry_status: unknown\n```",
-		}, nil)
+	// Regression for the production crash (18 Error pods, 2026-09-13). The
+	// execution prompt tells the model to leave the live-state fields
+	// unavailable for derived-key alerts, and the model renders that
+	// instruction as a word - observed as `unknown` on 2026-09-12 and
+	// `unavailable` on 2026-09-13, because it echoes the prompt's own adjective.
+	//
+	// Both production blocks run through the whole step, not only through Parse.
+	// The two failure modes are distinct: a non-numeric token fails the int
+	// unmarshal, while a non-date token unmarshals fine into the string field
+	// and only fails later, in applyDisqualifiers' date parse. A fix to the int
+	// alone leaves the Job still exiting 1 - so covering one block would miss
+	// the half that let this crash survive its first "fix".
+	DescribeTable(
+		"does not error when the live-state fields carry a not-evaluable token",
+		func(block string) {
+			runner.RunReturns(&claudelib.ClaudeResult{Result: block}, nil)
 
-		step := buildStep()
-		md := buildTask("")
+			step := buildStep()
+			md := buildTask("")
 
-		result, err := step.Run(ctx, md)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
-		// The verdict is recorded rather than thrown away — the whole point of
-		// the change.
-		section, ok := md.FindSection("## Verdict")
-		Expect(ok).To(BeTrue())
-		Expect(section.Body).To(ContainSubstring("unanalyzable"))
-	})
+			result, err := step.Run(ctx, md)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+			// The verdict is recorded rather than thrown away — the whole point of
+			// the change.
+			section, ok := md.FindSection("## Verdict")
+			Expect(ok).To(BeTrue())
+			Expect(section.Body).To(ContainSubstring("unanalyzable"))
+		},
+		Entry(
+			"the 2026-09-12 block (`unknown` on the int field)",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nconfidence: low\nreason: no exception entry (stack trace unavailable)\nlive_event_count: unknown\nfirst_seen: unknown\nlast_seen: unknown\nsentry_status: unknown\n```",
+		),
+		Entry(
+			"the 2026-09-13 block (`unavailable` on the int field)",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nconfidence: low\nreason: no exception entry (stack trace unavailable)\nlive_event_count: unavailable\nfirst_seen: unavailable\nlast_seen: unavailable\nsentry_status: unknown\n```",
+		),
+	)
 })
