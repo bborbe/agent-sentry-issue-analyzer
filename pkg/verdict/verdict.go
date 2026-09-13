@@ -139,12 +139,12 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 			return v, ctx.Err()
 		default:
 		}
-		var parsed Verdict
-		if err := yaml.Unmarshal([]byte(block), &parsed); err != nil {
-			errs = append(errs, errors.Wrapf(ctx, err, "parse verdict block").Error())
+		parsed, found, parseErr := parseBlock(ctx, block)
+		if parseErr != nil {
+			errs = append(errs, errors.Wrapf(ctx, parseErr, "parse verdict block").Error())
 			continue
 		}
-		if parsed.Verdict == "" {
+		if !found {
 			continue
 		}
 		v = parsed
@@ -165,6 +165,34 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 		return v, errors.Errorf(ctx, "verdict parse errors: %s", strings.Join(errs, "; "))
 	}
 	return v, nil
+}
+
+// parseBlock decodes one fenced block into a verdict. found is false when the
+// block carries no verdict, and the error is always the block's own unmarshal
+// error, so a block that fails for a reason other than prose reports the exact
+// signature it failed with.
+//
+// A block that is illegal YAML is retried once with its prose values quoted:
+// model-authored prose in a free-text field with an unquoted `: ` takes the
+// whole block down with it, and that is the failure this path actually sees.
+func parseBlock(ctx context.Context, block string) (Verdict, bool, error) {
+	var parsed Verdict
+	originalErr := yaml.Unmarshal([]byte(block), &parsed)
+	if originalErr == nil {
+		return parsed, parsed.Verdict != "", nil
+	}
+	repaired, err := quoteProseValues(ctx, block)
+	if err != nil {
+		return Verdict{}, false, originalErr
+	}
+	if repaired != block {
+		var tolerant Verdict
+		if retryErr := yaml.Unmarshal([]byte(repaired), &tolerant); retryErr == nil &&
+			tolerant.Verdict != "" {
+			return tolerant, true, nil
+		}
+	}
+	return Verdict{}, false, originalErr
 }
 
 // Validate checks the verdict against the schema. Returns an error for

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: a verdict whose free-text prose carries an unquoted `: ` no longer kills the Job. `verdict.Parse` retries a block that fails to unmarshal with its `reason` / `root_cause` / `recommended_fix` values re-quoted as scalars, so arbitrary model prose parses instead of being read as a nested mapping. Eleven prod Jobs died on 2026-09-13 with `parse verdict block: yaml: line 13: mapping values are not allowed in this context`, discarding an otherwise ordinary `real bug` verdict over the literal text `tls: failed to send closeNotify`. Quoting the whole value — not escaping the one observed colon — is what makes the repair hold for any prose; a block broken some other way keeps its original error.
+
 ## v0.15.3
 
 - test: both production verdict blocks now run through the reassign step, not only through `verdict.Parse`. The step-level regression test covered the 2026-09-13 `unavailable` block alone, so the 2026-09-12 `unknown` block — the exact input this crash was filed on — never reached `applyDisqualifiers`' date guard. One block was never enough: the int unmarshal and the date parse are separate failure modes, which is why a fix to the int alone left the Job still exiting 1.
