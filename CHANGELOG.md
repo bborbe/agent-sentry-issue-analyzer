@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the collector no longer hardcodes the vault's tasks directory. `scripts/sentry-create-tasks.sh` globbed `24 Tasks/Analyze Sentry issue *.md`, and the vault renumbered `24 Tasks/` → `25 Tasks/` on 2026-09-13 — so the glob matched a directory that still existed and still held one stale file. Nothing errored: `existing` came back empty, every fetched alert looked untracked (so `expected_new` equalled `fetched`), and the landing clause fired on **every non-empty run**. The prod collector reported `failed` on healthy traffic — `fetched=11 published=11 landed=0`. That is the mirror of the false `done` this script exists to prevent: the same trust in a count nobody observed, one directory away. Both call sites now share `TASK_GLOB="* Tasks/Analyze Sentry issue *.md"`, which follows the numbered tasks directory wherever it moves, so the vault layout is no longer baked into the image and a future renumber cannot repeat this. A zero-match guard makes the remaining failure mode loud instead of silent: a pattern that matches nothing while alerts were fetched is a *wrong pattern*, not a zero-landing, so the run reports `unobserved` — which can prove nothing — rather than `failed`, which would claim a landing failure it never witnessed. The glob's semantics were checked against git-rest's `filepath.Match(pattern, line)` over the full `git ls-files` path, where `*` does not cross `/`, so the leading `* Tasks/` matches the directory segment.
+
 ## v0.15.3
 
 - test: both production verdict blocks now run through the reassign step, not only through `verdict.Parse`. The step-level regression test covered the 2026-09-13 `unavailable` block alone, so the 2026-09-12 `unknown` block — the exact input this crash was filed on — never reached `applyDisqualifiers`' date guard. One block was never enough: the int unmarshal and the date parse are separate failure modes, which is why a fix to the int alone left the Job still exiting 1.
