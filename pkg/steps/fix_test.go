@@ -77,12 +77,18 @@ var _ = Describe("FixStep", func() {
 		ctx      context.Context
 		resolver *fixagentmocks.RepoResolver
 		writer   *fixagentmocks.SpecWriter
+		trace    *fixagentmocks.TraceReader
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
 		resolver = &fixagentmocks.RepoResolver{}
 		writer = &fixagentmocks.SpecWriter{}
+		// Default world: the issue's trace carries a first-party frame, so a
+		// `resolved from frame path` claim is backed by evidence. Cases that
+		// exercise a false claim override this to false.
+		trace = &fixagentmocks.TraceReader{}
+		trace.HasFirstPartyFrameReturns(true, nil)
 	})
 
 	// realBugVerdict is the deep-verdict body the fix agent consumes: a ##
@@ -125,7 +131,7 @@ var _ = Describe("FixStep", func() {
 	}
 
 	buildStep := func() agentlib.Step {
-		return steps.NewFixStep(resolver, writer)
+		return steps.NewFixStep(resolver, writer, trace)
 	}
 
 	It("Name returns the sentry-fix step name", func() {
@@ -180,6 +186,67 @@ var _ = Describe("FixStep", func() {
 		Expect(ok).To(BeTrue())
 		Expect(section.Body).To(ContainSubstring("status: stale"))
 		Expect(section.Body).To(ContainSubstring("mt5/connector/mt5linux.py:42"))
+	})
+
+	// The enforcement this task exists to add: a rule claiming a frame path on an
+	// issue whose trace carries no first-party frame is a false claim, and a spec
+	// built on it carries that falsehood into a human-read document.
+	It(
+		"files nothing and records the mechanism as unverifiable when the trace has no first-party frame",
+		func() {
+			resolver.ResolveReturns(fixagent.Resolution{
+				Repo:  "bborbe/trading",
+				Rule:  "resolved from frame path mt5/connector/mt5linux.py",
+				Fresh: true,
+			}, nil)
+			trace.HasFirstPartyFrameReturns(false, nil)
+
+			step := buildStep()
+			md := buildTask(realBugVerdict)
+
+			result, err := step.Run(ctx, md)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+
+			// Acts on it, not merely calls it: nothing is filed.
+			Expect(writer.WriteCallCount()).To(Equal(0))
+			// And the check read the trace for this issue, not a constant.
+			Expect(trace.HasFirstPartyFrameCallCount()).To(Equal(1))
+			_, issueID := trace.HasFirstPartyFrameArgsForCall(0)
+			Expect(issueID).To(Equal("OCTOPUS-PROD-1J"))
+
+			section, ok := md.FindSection("## Fix Result")
+			Expect(ok).To(BeTrue())
+			Expect(section.Body).To(ContainSubstring("status: skipped"))
+			Expect(section.Body).To(ContainSubstring("no first-party frame"))
+			Expect(section.Body).To(ContainSubstring("mt5/connector/mt5linux.py"))
+		},
+	)
+
+	// The positive control: the same claim, the same resolution, and a trace that
+	// does carry a frame must file as before. Without it a check that rejects the
+	// claim unconditionally would pass every case above.
+	It("files the spec for the same claim when the trace does carry a first-party frame", func() {
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/trading",
+			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
+			Fresh: true,
+		}, nil)
+		writer.WriteReturns(nil)
+		trace.HasFirstPartyFrameReturns(true, nil)
+
+		step := buildStep()
+		md := buildTask(realBugVerdict)
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(trace.HasFirstPartyFrameCallCount()).To(Equal(1))
+		Expect(writer.WriteCallCount()).To(Equal(1))
+
+		section, ok := md.FindSection("## Fix Result")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("status: filed"))
 	})
 
 	It("fails loudly when the resolution is unmappable", func() {
@@ -287,7 +354,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		step := steps.NewFixStep(resolver, realWriter)
+		step := steps.NewFixStep(resolver, realWriter, trace)
 
 		first := buildTask(realBugVerdict)
 		result1, err := step.Run(ctx, first)

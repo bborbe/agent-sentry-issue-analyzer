@@ -41,15 +41,25 @@ type fixStep struct {
 	resolver fixagent.RepoResolver
 	// writer files the built spec through the GitHub Contents API.
 	writer fixagent.SpecWriter
+	// trace reports whether the issue's latest event carries a first-party
+	// stack frame — the evidence a `resolved from frame path` claim is checked
+	// against, since the claim itself is only the model's prose about the trace.
+	trace fixagent.TraceReader
 }
 
 // NewFixStep wraps the fix-agent orchestration as an agentlib.Step. Run
 // parses the deep verdict, resolves the repo through the injectable
-// resolver, honors staleness, builds the spec, and files it through the
-// injectable writer. Resolution and writing are injected so production
-// (prompt-backed resolver + GitHub API writer) is stub-able in tests.
-func NewFixStep(resolver fixagent.RepoResolver, writer fixagent.SpecWriter) agentlib.Step {
-	return &fixStep{resolver: resolver, writer: writer}
+// resolver, honors staleness, checks the resolution's claimed mechanism
+// against the trace, builds the spec, and files it through the injectable
+// writer. Resolution, tracing and writing are injected so production
+// (prompt-backed resolver + Sentry trace reader + GitHub API writer) is
+// stub-able in tests.
+func NewFixStep(
+	resolver fixagent.RepoResolver,
+	writer fixagent.SpecWriter,
+	trace fixagent.TraceReader,
+) agentlib.Step {
+	return &fixStep{resolver: resolver, writer: writer, trace: trace}
 }
 
 func (s *fixStep) Name() string {
@@ -119,6 +129,24 @@ func (s *fixStep) Run(
 			"sentry_issue_id: "+v.SentryIssueID,
 			"status: stale",
 			"message: stale: "+resolution.StaleReason,
+		)
+		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+	}
+
+	// A rule claiming a frame path is checked against the trace itself: on an
+	// issue with no first-party frame that claim is false, and a spec built on it
+	// carries the falsehood into a human-read document. Recorded as a no-op
+	// rather than returned as an error — the claim is deterministic, so an error
+	// would make the controller retry a run that can only fail identically.
+	hasFirstPartyFrame, err := s.trace.HasFirstPartyFrame(ctx, v.SentryIssueID)
+	if err != nil {
+		return nil, errors.Wrapf(ctx, err, "fix-agent: read trace")
+	}
+	if err := fixagent.VerifyResolutionMechanism(ctx, resolution, hasFirstPartyFrame); err != nil {
+		s.recordResult(ctx, md,
+			"sentry_issue_id: "+v.SentryIssueID,
+			"status: skipped",
+			"message: "+err.Error(),
 		)
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}

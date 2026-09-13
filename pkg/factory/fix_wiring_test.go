@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	fixagentmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/fixagent/mocks"
 )
 
 var _ = Describe("CreateFixAgentFromRunner wiring", func() {
@@ -27,6 +28,7 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 		deliver  *agentmocks.AgentResultDeliverer
 		server   *fakeFixGithubAPI
 		response *agentlib.AgentResultInfo
+		trace    *fixagentmocks.TraceReader
 	)
 
 	BeforeEach(func() {
@@ -42,7 +44,17 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 
 		deliver = &agentmocks.AgentResultDeliverer{}
 
-		agent := factory.CreateFixAgentFromRunner(runner, client, []string{"bborbe/trading"})
+		// The resolution above claims a frame path, so the trace must back it for
+		// this wiring test to reach the filing it asserts.
+		trace = &fixagentmocks.TraceReader{}
+		trace.HasFirstPartyFrameReturns(true, nil)
+
+		agent := factory.CreateFixAgentFromRunner(
+			runner,
+			client,
+			[]string{"bborbe/trading"},
+			trace,
+		)
 		_, err := agent.Run(
 			ctx,
 			domain.TaskPhasePlanning,
