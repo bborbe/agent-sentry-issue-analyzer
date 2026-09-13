@@ -6,6 +6,7 @@ package steps_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
+	verdictmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict/mocks"
 )
 
 var _ = Describe("FixHandoffStep", func() {
@@ -46,14 +48,18 @@ var _ = Describe("FixHandoffStep", func() {
 	// wires it: deep execution wrapped in the disqualifier guard, wrapped in
 	// the fix handoff (handoff nests OUTSIDE the guard so it observes the
 	// guard's overrides).
-	buildDeepStep := func() agentlib.Step {
+	buildDeepStepWithEvaluator := func(evaluator verdict.DisqualifierEvaluator) agentlib.Step {
 		execution := steps.NewDeepExecutionStep(
 			runner,
 			prompts.BuildDeepExecutionInstructions(),
 			nil,
 		)
-		guarded := steps.NewDisqualifierGuardStep(execution, newEvaluator())
+		guarded := steps.NewDisqualifierGuardStep(execution, evaluator)
 		return steps.NewFixHandoffStep(guarded, "sentry-fix-agent", "sentry-fix")
+	}
+
+	buildDeepStep := func() agentlib.Step {
+		return buildDeepStepWithEvaluator(newEvaluator())
 	}
 
 	buildTask := func(body string) *agentlib.Markdown {
@@ -281,15 +287,27 @@ var _ = Describe("FixHandoffStep", func() {
 		Expect(md.Frontmatter["assignee"]).To(Equal("sentry-analyzer-agent"))
 	})
 
-	It("propagates the guard's date-parse error without handing off", func() {
-		// applyDisqualifiers fails parsing first_seen and the guard returns the
-		// wrapped error; the handoff propagates it untouched — no handoff, no
-		// panic.
+	It("propagates the guard's evaluator error without handing off", func() {
+		// A guard failure is propagated by the handoff untouched — no handoff,
+		// no panic. The trigger is the evaluator itself erroring: a malformed
+		// first_seen used to serve here, but a non-date token is now the
+		// expected not-evaluable shape in the triage vocabulary and no longer
+		// produces an error.
+		//
+		// NOTE: this step runs the DEEP path (pkg/deepverdict), which still
+		// carries its own `LiveEventCount int` and would reject a non-numeric
+		// token. That is deliberately out of scope here and tracked in
+		// [[sentry-deep-analyzer Shares the unknown Verdict Schema Gap]] — the
+		// production crash this task fixes is the triage path
+		// (sentry-execution-reassign), covered in reassign_test.go.
 		runner.RunReturns(&claudelib.ClaudeResult{
-			Result: "```yaml\nsentry_issue_id: NUKE-DEV-A4\nverdict: noise\nreason: count 193 < 100\nlive_event_count: 193\nfirst_seen: not-a-date\nlast_seen: 2026-09-05T12:28:01Z\nsentry_status: unresolved\n```",
+			Result: "```yaml\nsentry_issue_id: NUKE-DEV-A4\nverdict: noise\nreason: count 193 < 100\nlive_event_count: 193\nfirst_seen: 2026-09-05T12:28:01Z\nlast_seen: 2026-09-05T12:28:01Z\nsentry_status: unresolved\n```",
 		}, nil)
 
-		step := buildDeepStep()
+		evaluator := &verdictmocks.DisqualifierEvaluator{}
+		evaluator.EvaluateReturns(nil, errors.New("evaluator unavailable"))
+
+		step := buildDeepStepWithEvaluator(evaluator)
 		md := buildTask("")
 
 		result, err := step.Run(ctx, md)

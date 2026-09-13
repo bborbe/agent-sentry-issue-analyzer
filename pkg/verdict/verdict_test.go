@@ -58,7 +58,7 @@ recommended_fix: add nil guard
 		Expect(v.SentryIssueID).To(Equal("OCTOPUS-PROD-1J"))
 		Expect(v.Verdict).To(Equal("real bug"))
 		Expect(v.Confidence).To(Equal("high"))
-		Expect(v.LiveEventCount).To(Equal(142))
+		Expect(v.LiveEventCount).To(Equal(verdict.EventCount{Count: 142, Known: true}))
 	})
 
 	It("parses a noise verdict", func() {
@@ -80,7 +80,7 @@ recommended_fix: add nil guard
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v.Verdict).To(Equal("real bug"))
 		Expect(v.Confidence).To(Equal("high"))
-		Expect(v.LiveEventCount).To(Equal(142))
+		Expect(v.LiveEventCount).To(Equal(verdict.EventCount{Count: 142, Known: true}))
 	})
 
 	It("parses a legacy unfenced raw JSON verdict", func() {
@@ -166,5 +166,40 @@ var _ = Describe("Vocabulary", func() {
 			"regression",
 			"unanalyzable",
 		}))
+	})
+})
+
+var _ = Describe("Parse not-evaluable live-state tokens", func() {
+	// The execution prompt tells the model to leave the live-state fields
+	// unavailable for derived-key alerts, and it renders that instruction as a
+	// token. The token drifts with the prompt's own adjective, so both
+	// production spellings are pinned here as verbatim blocks - one per token,
+	// because the int field is what crashes and a block carrying `unknown` only
+	// on `sentry_status` (a string field) would not exercise it.
+	DescribeTable(
+		"parses the production block and marks the count not evaluable",
+		func(block string) {
+			v, err := verdict.Parse(context.Background(), "## Verdict\n\n"+block)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(v.Verdict).To(Equal("unanalyzable"))
+			// The whole point: a token must not be observable as a number. A
+			// coerced 0 would present "volume unknown" to the disqualifier
+			// arithmetic as "no events" - a fabricated measurement.
+			Expect(v.LiveEventCount.Known).To(BeFalse())
+			Expect(v.LiveEventCount.Count).To(Equal(0))
+		},
+		Entry("the 2026-09-12 block (`unknown`)", "```yaml\nverdict: unanalyzable\nconfidence: low\nlive_event_count: unknown\nfirst_seen: unknown\nlast_seen: unknown\nsentry_status: unknown\n```"),
+		Entry("the 2026-09-13 block (`unavailable`)", "```yaml\nverdict: unanalyzable\nconfidence: low\nlive_event_count: unavailable\nfirst_seen: unavailable\nlast_seen: unavailable\nsentry_status: unknown\n```"),
+		Entry("an unobserved paraphrase, to keep the set open", "```yaml\nverdict: unanalyzable\nconfidence: low\nlive_event_count: not-determined\nfirst_seen: not-determined\nlast_seen: not-determined\nsentry_status: unknown\n```"),
+	)
+
+	It("still reports a real zero as a known count", func() {
+		// The mirror case: 0 must remain distinguishable from not-evaluable, or
+		// the distinction this change exists to preserve is lost in the other
+		// direction.
+		v, err := verdict.Parse(context.Background(), "## Verdict\n\n```yaml\nverdict: noise\nlive_event_count: 0\nfirst_seen: 2026-09-05T12:28:01Z\nlast_seen: 2026-09-05T12:28:01Z\nsentry_status: unresolved\n```")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.LiveEventCount.Known).To(BeTrue())
+		Expect(v.LiveEventCount.Count).To(Equal(0))
 	})
 })

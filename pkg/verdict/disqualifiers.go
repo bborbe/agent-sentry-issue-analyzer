@@ -44,9 +44,10 @@ const (
 
 // DisqualifierInput is the live-state evidence the evaluator computes from.
 // Timestamps are pre-parsed by the caller from the verdict YAML's first_seen /
-// last_seen fields.
+// last_seen fields. LiveEventCount may be not-evaluable, in which case every
+// count-based comparison is skipped rather than evaluated against zero.
 type DisqualifierInput struct {
-	LiveEventCount int
+	LiveEventCount EventCount
 	FirstSeen      time.Time
 	LastSeen       time.Time
 	SentryStatus   string
@@ -82,12 +83,14 @@ func (e *disqualifierEvaluator) Evaluate(
 	}
 
 	var fired []Disqualifier
-	if input.LiveEventCount > volumeThreshold {
-		fired = append(fired, DisqualifierVolume)
-	}
-	if input.LiveEventCount > burstEventThreshold &&
-		e.currentDateTime.Now().Time().Sub(input.LastSeen) <= burstWindow {
-		fired = append(fired, DisqualifierActiveBurst)
+	if input.LiveEventCount.Known {
+		if input.LiveEventCount.Count > volumeThreshold {
+			fired = append(fired, DisqualifierVolume)
+		}
+		if input.LiveEventCount.Count > burstEventThreshold &&
+			e.currentDateTime.Now().Time().Sub(input.LastSeen) <= burstWindow {
+			fired = append(fired, DisqualifierActiveBurst)
+		}
 	}
 	if input.SentryStatus == "regressed" {
 		fired = append(fired, DisqualifierRegressed)
@@ -104,6 +107,13 @@ func (e *disqualifierEvaluator) Evaluate(
 // low-rate transient (rate < ~1/day AND count < 100) stays `noise` regardless
 // of how old it is.
 func sustainedSpanFires(input DisqualifierInput) bool {
+	// Both branches below need a measurement: the rate is derived from the
+	// count, and the count branch compares it directly. With the count not
+	// evaluable neither can be established, so the rubric's default stands
+	// rather than firing on a fabricated zero.
+	if !input.LiveEventCount.Known {
+		return false
+	}
 	if input.LastSeen.Before(input.FirstSeen) {
 		return false
 	}
@@ -115,6 +125,6 @@ func sustainedSpanFires(input DisqualifierInput) bool {
 	if spanDays <= 0 {
 		return false
 	}
-	rate := float64(input.LiveEventCount) / spanDays
-	return rate >= minDailyRate || input.LiveEventCount >= minSpanCount
+	rate := float64(input.LiveEventCount.Count) / spanDays
+	return rate >= minDailyRate || input.LiveEventCount.Count >= minSpanCount
 }
