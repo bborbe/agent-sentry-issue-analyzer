@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.15.8
 
 - fix: the fix agent no longer files a `kind: bug` spec built on an unverified resolution mechanism. `fixagent.VerifyResolutionMechanism` checks a `resolved from frame path <path>` claim against the issue's actual trace — read over the Sentry API by the new `SentryTraceReader`, never from the model's prose about it — and `fixStep.Run` records a skipped no-op instead of building the spec when the trace carries no first-party frame. Observed 2026-09-13 on `sentry-analyzer-agent-4c46f7bb-20260913181909-4v9jj`: the path claimed as a frame path was the triage phase's root-cause conclusion, on an alert whose own body says it has no frames, and because nothing checked the claim it would have travelled into the filed spec's `## Reproduction` as `resolution rule:`. Three deliberate boundaries: a candidate-list claim is never rejected (it asserts no trace evidence, so a trace cannot contradict it); a *read failure* errors rather than reporting "no frame", so only a readable trace can reject a resolution; and the refusal is a recorded no-op rather than a returned error, because the falsehood is deterministic and an error would make the controller retry a run that can only fail identically.
 
