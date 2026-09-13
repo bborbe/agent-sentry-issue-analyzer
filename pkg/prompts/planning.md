@@ -67,7 +67,7 @@ You have READ-ONLY source access — never modify, commit, or push to any source
 
 ### Step 4: Write the analysis
 
-Write your root-cause analysis into the task body under `## Analysis`:
+Your final response MUST contain your root-cause analysis as markdown — the framework places your entire response under the task's `## Analysis` section, and the execution phase reads it from there. Do NOT try to write a task file (there is no file path in this environment). Structure your response as: the `## Analysis` markdown content first, then the `<output-format>` JSON envelope (`status`/`message`/`files`). Include:
 
 - implicated repo + `file.go:line`
 - how the repo was resolved — write either `resolved from frame path <path>` or `candidate position N (<repo>)`, so the frame-path and candidate-list mechanisms are distinguishable in the output

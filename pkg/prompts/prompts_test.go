@@ -123,6 +123,25 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		instrs := prompts.BuildPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("in_app"))
 	})
+
+	It("planning prompt forbids writing a task file", func() {
+		content := prompts.BuildPlanningInstructions()[0].Content
+		guard := "Do NOT try to write a task file (there is no file path in this environment)"
+		Expect(content).To(ContainSubstring(guard))
+		Expect(
+			content,
+		).To(ContainSubstring("the framework places your entire response under the task's"))
+		Expect(
+			content,
+		).To(ContainSubstring("Your final response MUST contain your root-cause analysis"))
+		Expect(content).NotTo(ContainSubstring("into the task body under"))
+		// Proximity: the contract sentence must open Step 4 — a substring grep
+		// cannot see placement, so pin it inside the section it governs.
+		Expect(strings.Index(content, "### Step 4: Write the analysis")).
+			To(BeNumerically("<", strings.Index(content, guard)))
+		Expect(strings.Index(content, guard)).
+			To(BeNumerically("<", strings.Index(content, "- implicated repo +")))
+	})
 })
 
 var _ = Describe("output-format shared contract", func() {
@@ -251,6 +270,26 @@ var _ = Describe("BuildExecutionInstructions (triage)", func() {
 		content := prompts.BuildExecutionInstructions()[0].Content
 		Expect(content).To(ContainSubstring("in_app=unknown"))
 		Expect(content).To(ContainSubstring("NOT evidence of third-party"))
+	})
+
+	It("execution prompt forbids writing a task file", func() {
+		content := prompts.BuildExecutionInstructions()[0].Content
+		guard := "Do NOT try to write a task file (there is no file path in this environment)"
+		Expect(content).To(ContainSubstring(guard))
+		Expect(
+			content,
+		).To(ContainSubstring("the framework places your entire response under the task's"))
+		Expect(
+			content,
+		).To(ContainSubstring("Your final response MUST contain the fenced YAML block"))
+		Expect(content).NotTo(ContainSubstring("into the task body under"))
+		// Proximity: "## Output\n" is the heading; the bare "## Output" also
+		// matches an inline reference in the Disqualifiers paragraph, so the
+		// newline is what makes this a placement assertion.
+		Expect(strings.Index(content, "## Output\n")).
+			To(BeNumerically("<", strings.Index(content, guard)))
+		Expect(strings.Index(content, guard)).
+			To(BeNumerically("<", strings.Index(content, "sentry_issue_id: OCTOPUS-PROD-1J")))
 	})
 })
 
