@@ -34,6 +34,12 @@ var collectorResultLine = regexp.MustCompile(
 
 // collectorResult is the parsed observation from the collector script.
 type collectorResult struct {
+	// fetched is how many active unresolved alerts Sentry returned; published is
+	// how many CreateTaskCommands the script put on Kafka. They are different
+	// numbers, and published == 0 is the one signal that says the run never got
+	// as far as creating anything.
+	fetched     int
+	published   int
 	expectedNew int
 	landed      int
 	// observed is false when the script could not read the vault at all. That is
@@ -162,6 +168,23 @@ func (s *collectorStep) Run(
 				"failed) — an unverifiable run must not report success",
 		}, nil
 	}
+	// A failed publish is checked BEFORE the landing clause below, because a
+	// landing failure is its consequence: when nothing reached Kafka, "no task
+	// files landed" is true but misattributes the cause. This is the branch the
+	// rule was missing — `published` was captured by the regex and discarded, so
+	// a run that fetched 11 alerts and published none reported done whenever
+	// expected_new happened to be 0.
+	//
+	// fetched > 0 is required so a genuinely empty fetch (Sentry returned no
+	// active unresolved alerts) stays a healthy quiet day rather than a publish
+	// failure — nothing to publish is not the same as failing to publish it.
+	if observation.fetched > 0 && observation.published == 0 {
+		return &agentlib.Result{
+			Status: agentlib.AgentStatusFailed,
+			Message: "collector fetched alerts but published none — the publish step " +
+				"failed, so no task can have been created",
+		}, nil
+	}
 	if observation.expectedNew > 0 && observation.landed == 0 {
 		return &agentlib.Result{
 			Status: agentlib.AgentStatusFailed,
@@ -183,6 +206,14 @@ func parseCollectorResult(body string) (collectorResult, bool) {
 	if m == nil {
 		return collectorResult{}, false
 	}
+	fetched, err := strconv.Atoi(m[1])
+	if err != nil {
+		return collectorResult{}, false
+	}
+	published, err := strconv.Atoi(m[2])
+	if err != nil {
+		return collectorResult{}, false
+	}
 	expectedNew, err := strconv.Atoi(m[3])
 	if err != nil {
 		return collectorResult{}, false
@@ -192,6 +223,8 @@ func parseCollectorResult(body string) (collectorResult, bool) {
 		return collectorResult{}, false
 	}
 	return collectorResult{
+		fetched:     fetched,
+		published:   published,
 		expectedNew: expectedNew,
 		landed:      landed,
 		observed:    m[5] == "true",
