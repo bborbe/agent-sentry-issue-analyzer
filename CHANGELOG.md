@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.14.3
 
 - fix: the two base phase prompts state their output as a **response contract** instead of a file write — `pkg/prompts/planning.md` Step 4 and `pkg/prompts/execution.md` `## Output` now say the final response MUST contain the analysis / fenced YAML verdict block, that the framework places the entire response under the task's `## Analysis` / `## Verdict` section, and that the `<output-format>` JSON envelope comes last; both carry the `deep-execution.md` prohibition verbatim (`Do NOT try to write a task file (there is no file path in this environment)`), and the retired `into the task body under` imperative is gone from both. `pkg/prompts/prompts_test.go` locks each prompt (guard present, retired phrase absent, guard placed inside the section it governs) so the guard cannot be deleted or appended-out-of-place without turning the suite red. The job environment has no task-file path by design — the executor passes none and the controller owns the write-back — but on 2026-09-02 a prod run on the base path formed a verdict, hunted a hallucinated `/agent/tasks/<uuid>.md`, emitted `## Failure` instead of the verdict, and discarded a complete analysis; the deep prompts were fixed for exactly this on 2026-08-25 and the base ones were left behind. Text-only: no prompt file added or removed, no builder, runtime, controller, executor, config, or flag change.
 
