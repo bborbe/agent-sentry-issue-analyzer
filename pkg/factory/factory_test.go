@@ -36,6 +36,7 @@ var _ = Describe("CreateAgentProvider", func() {
 			libtime.NewCurrentDateTime(),
 			nil,
 			nil,
+			"test-token",
 		)
 	})
 

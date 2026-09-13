@@ -395,6 +395,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		libtime.NewCurrentDateTime(),
 		githubClient,
 		repoAllowlist,
+		a.SentryAPIToken,
 	)
 	agent, err := provider.Get(ctx, agentlib.TaskType(a.TaskType))
 	if err != nil {

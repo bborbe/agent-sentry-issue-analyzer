@@ -9,6 +9,8 @@
 package factory
 
 import (
+	"net/http"
+
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 	delivery "github.com/bborbe/agent/delivery"
@@ -257,11 +259,12 @@ func CreateFixAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	githubClient *github.Client,
 	repoAllowlist []string,
+	trace fixagent.TraceReader,
 ) *agentlib.Agent {
 	resolver := fixagent.NewPromptRepoResolver(runner, prompts.BuildFixPlanningInstructions())
 	writer := fixagent.NewGitHubSpecWriter(githubClient, repoAllowlist)
 	return agentlib.NewAgent(
-		agentlib.NewPhase("planning", steps.NewFixStep(resolver, writer)),
+		agentlib.NewPhase("planning", steps.NewFixStep(resolver, writer, trace)),
 	)
 }
 
@@ -288,12 +291,18 @@ func CreateAgentProvider(
 	currentDateTime libtime.CurrentDateTimeGetter,
 	githubClient *github.Client,
 	repoAllowlist []string,
+	sentryAPIToken string,
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(runner, envContext, currentDateTime)
 	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
-	fixAgent := CreateFixAgentFromRunner(runner, githubClient, repoAllowlist)
+	fixAgent := CreateFixAgentFromRunner(
+		runner,
+		githubClient,
+		repoAllowlist,
+		fixagent.NewSentryTraceReader(http.DefaultClient, "", sentryAPIToken),
+	)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{
 		taskTypeSentryIssueAnalyzer:  domainAgent,
