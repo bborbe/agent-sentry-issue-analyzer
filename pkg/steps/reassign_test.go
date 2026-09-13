@@ -199,9 +199,12 @@ var _ = Describe("ReassignExecutionStep", func() {
 		// Regression for the production crash (18 Error pods, 2026-09-13). The
 		// execution prompt tells the model to leave the live-state fields
 		// unavailable for derived-key alerts, and the model renders that
-		// instruction as a word. Both spellings observed in production appear
-		// in one block on purpose: the token set is open, so a fix that
-		// normalised on one spelling would still crash on the other.
+		// instruction as a word. This block carries the 2026-09-13 spelling on
+		// the int field and the 2026-09-12 spelling on a string field - note
+		// that `sentry_status: unknown` is a string and exercises nothing on
+		// its own. The per-token coverage lives in pkg/verdict's Parse table,
+		// which pins each production block verbatim; here the point is that the
+		// whole step completes.
 		//
 		// The two failure modes are distinct and both are exercised here. A
 		// non-numeric token fails the int unmarshal. A non-date token
