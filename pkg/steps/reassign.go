@@ -140,11 +140,18 @@ func applyDisqualifiers(
 	}
 	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
 	if err != nil {
-		return errors.Wrapf(ctx, err, "apply disqualifiers: parse first_seen %q", v.FirstSeen)
+		// A non-date token here is the expected shape, not a defect: the prompt
+		// tells the model to leave the live-state fields unavailable for
+		// derived-key alerts, and it renders that instruction as a word
+		// ("unknown", "unavailable"). It means the same thing as an empty field
+		// — there is no live state to evaluate, so the disqualifier override
+		// does not apply. Treating it as a parse failure crashed every such Job
+		// and left no verdict recorded.
+		return nil
 	}
 	lastSeen, err := libtime.ParseDateTime(ctx, v.LastSeen)
 	if err != nil {
-		return errors.Wrapf(ctx, err, "apply disqualifiers: parse last_seen %q", v.LastSeen)
+		return nil
 	}
 	fired, err := disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
 		LiveEventCount: v.LiveEventCount,
