@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the deep analyzer no longer rejects its own verdict when the live event count carries a word instead of a number, mirroring the v0.15.1 triage fix. `pkg/deepverdict.Verdict.LiveEventCount` becomes `EventCount{Count, Known}`, whose `UnmarshalYAML` accepts any non-numeric token and reports `Known: false` rather than a coerced `0` — zero is a real measurement meaning "no events", so coercing would present a fabricated volume to the downstream rubric. A derived-key alert (no live state to fetch) previously died at the `sentry-deep-execution-fix-handoff` step with `fix-handoff: parse verdict: cannot unmarshal !!str ... into int`, discarding an analysis that was already complete; the disqualifier guard parses the same block with the already-tolerant triage parser, which is why the failure surfaced only at the handoff. The recorded production block is committed as a step-level regression test driving the real deep path.
+
 ## v0.15.5
 
 - fix: a verdict whose free-text prose carries an unquoted `: ` no longer kills the Job. `verdict.Parse` retries a block that fails to unmarshal with its `reason` / `root_cause` / `recommended_fix` values re-quoted as scalars, so arbitrary model prose parses instead of being read as a nested mapping. Eleven prod Jobs died on 2026-09-13 with `parse verdict block: yaml: line 13: mapping values are not allowed in this context`, discarding an otherwise ordinary `real bug` verdict over the literal text `tls: failed to send closeNotify`. Quoting the whole value — not escaping the one observed colon — is what makes the repair hold for any prose; a block broken some other way keeps its original error.

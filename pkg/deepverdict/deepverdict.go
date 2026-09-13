@@ -21,21 +21,44 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// EventCount is a live-event count that may be explicitly not-evaluable.
+//
+// Zero is a real measurement and not-evaluable is not zero. Coercing a token to
+// 0 would present "volume unknown" as "no events" - a fabricated measurement
+// the downstream rubric would then reason from.
+type EventCount struct {
+	Count int
+	Known bool
+}
+
+// UnmarshalYAML accepts either a number or any non-numeric token. The token set
+// is deliberately open: it is the prompt's own vocabulary rendered by the
+// model, so an enumerated set would fail on the next paraphrase.
+func (c *EventCount) UnmarshalYAML(value *yaml.Node) error {
+	var n int
+	if err := value.Decode(&n); err == nil {
+		c.Count, c.Known = n, true
+		return nil
+	}
+	c.Count, c.Known = 0, false
+	return nil
+}
+
 // Verdict is the machine-readable deep classification of the single Sentry
 // alert. The execution-phase Claude prompt emits one fenced YAML block into
 // the ## Verdict section with EXACTLY these keys (see
 // pkg/prompts/deep-execution.md). Unknown verdicts or missing required fields
 // fail validation.
 type Verdict struct {
-	SentryIssueID      string   `yaml:"sentry_issue_id"`
-	Verdict            string   `yaml:"verdict"`
-	Understanding      string   `yaml:"understanding"`
-	FixCertainty       string   `yaml:"fix_certainty"`
-	RootCause          string   `yaml:"root_cause"`
-	RecommendedFix     string   `yaml:"recommended_fix"`
-	FileLine           string   `yaml:"file:line"`
-	DisqualifiersFired []string `yaml:"disqualifiers_fired"`
-	LiveEventCount     int      `yaml:"live_event_count"`
+	SentryIssueID      string     `yaml:"sentry_issue_id"`
+	Verdict            string     `yaml:"verdict"`
+	Understanding      string     `yaml:"understanding"`
+	FixCertainty       string     `yaml:"fix_certainty"`
+	RootCause          string     `yaml:"root_cause"`
+	RecommendedFix     string     `yaml:"recommended_fix"`
+	FileLine           string     `yaml:"file:line"`
+	DisqualifiersFired []string   `yaml:"disqualifiers_fired"`
+	LiveEventCount     EventCount `yaml:"live_event_count"`
 }
 
 // Valid verdict vocabulary (octopus-analyse-bugs, mirrored verbatim from the
