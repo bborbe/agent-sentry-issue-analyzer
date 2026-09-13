@@ -62,7 +62,7 @@ Do NOT use simple `<50 events = noise`. That heuristic fails for long-running lo
 
 ## Output
 
-Write a fenced YAML block into the task body under the section `## Verdict` with EXACTLY these keys:
+Your final response MUST contain the fenced YAML block below — the framework places your entire response under the task's `## Verdict` section, and a downstream orchestrator parses the YAML from it. Do NOT try to write a task file (there is no file path in this environment). Structure your response as: the fenced ````yaml` block first, then the `<output-format>` JSON envelope (`status`/`message`/`files`). The JSON envelope drives task status; the YAML block carries the verdict. Do NOT omit the YAML block — it must carry EXACTLY these keys:
 
 ```yaml
 sentry_issue_id: OCTOPUS-PROD-1J
