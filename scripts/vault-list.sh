@@ -15,8 +15,12 @@
 # Usage: vault-list.sh <glob>
 #
 # Examples:
-#   vault-list.sh "24 Tasks/*NUKE-DEV-3A*"
-#   vault-list.sh "24 Tasks/*.md"
+#   vault-list.sh "* Tasks/*NUKE-DEV-3A*"
+#   vault-list.sh "* Tasks/*.md"
+#
+# The tasks directory is deliberately not named by number — the vault renumbered
+# it once already and a numbered glob silently matched a dead directory. `* Tasks/`
+# matches whichever numbered directory is current; `*` does not cross `/`.
 #
 # stdout = one path per line (empty when nothing matches); stderr = diagnostics.
 

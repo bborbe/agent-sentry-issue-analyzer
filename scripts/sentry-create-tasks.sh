@@ -67,6 +67,13 @@ TARGET_VAULT="${TARGET_VAULT:-personal}"
 STAGE="${STAGE:-dev}"
 VAULT_POLL_ATTEMPTS="${VAULT_POLL_ATTEMPTS:-12}"
 VAULT_POLL_INTERVAL_SECONDS="${VAULT_POLL_INTERVAL_SECONDS:-5}"
+
+# The per-alert task files, matched WITHOUT naming the numbered tasks directory.
+# The vault renumbered `24 Tasks/` -> `25 Tasks/` on 2026-09-13 and this script
+# kept globbing the old name, which is what the zero-match guard below exists to
+# catch. `* Tasks/` follows the directory wherever it moves: the vault's layout
+# is not baked into the image, and a future renumber cannot repeat the failure.
+TASK_GLOB="* Tasks/Analyze Sentry issue *.md"
 # Where the result line is written for the Go step to read. This path is shared
 # with pkg/steps/collector.go (collectorResultPath) — the step gates the task's
 # terminal status on THIS FILE, never on the model's transcription of stdout.
@@ -149,9 +156,25 @@ echo "sentry-create-tasks: ${count} active unresolved alerts: ${short_ids}"
 observed="true"
 unobserved_reason=""
 existing_files=""
-if ! existing_files="$("${vault_list}" "24 Tasks/Analyze Sentry issue *.md")"; then
+if ! existing_files="$("${vault_list}" "${TASK_GLOB}")"; then
   observed="false"
   unobserved_reason="vault-list failed while checking which alerts are already tracked"
+fi
+
+# A pattern that matches NOTHING while alerts were fetched means the pattern is
+# wrong, not that no task exists. That is the exact shape the 2026-09-13
+# renumbering hid behind: `24 Tasks/` still EXISTED and still held one stale
+# file, so nothing errored — `existing` came back empty, every alert looked
+# untracked, `expected_new` equalled the fetched count, and the landing clause
+# fired on every non-empty run. A false `failed` on healthy traffic, and the
+# mirror of the false `done` this script exists to prevent.
+#
+# `unobserved` is the honest verdict: it cannot prove anything, and unlike
+# `failed` it never claims a landing failure it did not witness. On a vault that
+# has never run this collector it fires once and self-resolves on the next run.
+if [ "${observed}" = "true" ] && [ "${count}" -gt 0 ] && [ -z "${existing_files}" ]; then
+  observed="false"
+  unobserved_reason="the task glob '${TASK_GLOB}' matched no files at all while ${count} alert(s) were fetched — the tasks directory is probably renamed"
 fi
 
 expected_new=0
@@ -195,7 +218,7 @@ if [ "${observed}" = "true" ]; then
   attempt=1
   while :; do
     current_files=""
-    if ! current_files="$("${vault_list}" "24 Tasks/Analyze Sentry issue *.md")"; then
+    if ! current_files="$("${vault_list}" "${TASK_GLOB}")"; then
       observed="false"
       unobserved_reason="vault-list failed while observing which task files landed"
       break
