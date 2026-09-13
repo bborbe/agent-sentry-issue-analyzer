@@ -13,7 +13,16 @@
 #      TOPIC_PREFIX (default empty), TARGET_VAULT (default personal),
 #      STAGE (default dev), GIT_REST_URL (required — vault observation),
 #      GATEWAY_SECRET (optional — git-rest gateway auth),
-#      VAULT_POLL_ATTEMPTS (default 12), VAULT_POLL_INTERVAL_SECONDS (default 5)
+#      VAULT_POLL_ATTEMPTS (default 12), VAULT_POLL_INTERVAL_SECONDS (default 5),
+#      CREATE_TASKS_KAFKA_BROKERS (TEST-ONLY, default KAFKA_BROKERS — see below)
+#
+# CREATE_TASKS_KAFKA_BROKERS overrides the brokers passed to /create-tasks ONLY,
+# leaving the agent's own producer on KAFKA_BROKERS. It exists to make a publish
+# failure constructible: pointing it at an unreachable address fails the send
+# while the agent stays up. Setting KAFKA_BROKERS itself cannot do this — the
+# agent reads that at startup and dies with `create sync producer failed` before
+# this script is ever reached (recorded 2026-09-12, Job Failed, pod_crash_no_stdout).
+# Never set it in dev/prod values; it is a probe lever, not a configuration.
 #
 # Read-only by construction: single GET to Sentry (issues filtered to
 # is:unresolved), then a publish to Kafka. Never echoes the token.
@@ -153,7 +162,7 @@ fi
 set +e
 create_out="$(/create-tasks \
   --alerts-file "${tmp_file}" \
-  --kafka-brokers "${KAFKA_BROKERS}" \
+  --kafka-brokers "${CREATE_TASKS_KAFKA_BROKERS:-${KAFKA_BROKERS}}" \
   --topic-prefix "${TOPIC_PREFIX}" \
   --target-vault "${TARGET_VAULT}" \
   --stage "${STAGE}")"
@@ -196,15 +205,24 @@ print(n)
   done
 fi
 
-# Status rule: a zero-creation run is a FAILURE when new alerts were expected,
-# and HEALTHY when every fetched alert was already tracked — dedup is the
-# designed idempotency, so a quiet day must not alarm. An UNOBSERVED run is
-# neither: it cannot prove anything, so it must not report done either.
+# Status rule: a run that PUBLISHED NOTHING is a failure whatever the controller
+# would have done with it, and a zero-creation run is a FAILURE when new alerts
+# were expected. It is HEALTHY when every fetched alert was already tracked —
+# dedup is the designed idempotency, so a quiet day must not alarm. Note that a
+# quiet day still PUBLISHES every fetched alert and lands none of them, so it
+# reads published=<fetched>; published=0 means the publish itself failed. An
+# UNOBSERVED run is neither: it cannot prove anything, so it must not report
+# done either.
 status="done"
+failure_reason=""
 if [ "${observed}" != "true" ]; then
   status="unobserved"
+elif [ "${count}" -gt 0 ] && [ "${published}" -eq 0 ]; then
+  status="failed"
+  failure_reason="fetched ${count} alert(s) but published 0 — the publish step failed (create-tasks rc=${create_rc})"
 elif [ "${expected_new}" -gt 0 ] && [ "${landed}" -eq 0 ]; then
   status="failed"
+  failure_reason="${expected_new} new alert(s) expected but 0 task files landed (create-tasks rc=${create_rc})"
 fi
 
 result_line="sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} observed=${observed} status=${status}"
@@ -214,8 +232,8 @@ echo "${result_line}"
 # information — observed on dev 2026-09-12, where the model wrote a prose JSON
 # summary and never copied this line at all.
 printf '%s\n' "${result_line}" > "${RESULT_FILE}"
-if [ "${status}" = "failed" ]; then
-  echo "sentry-create-tasks: ${expected_new} new alert(s) expected but 0 task files landed (create-tasks rc=${create_rc})" >&2
+if [ -n "${failure_reason}" ]; then
+  echo "sentry-create-tasks: ${failure_reason}" >&2
 fi
 if [ "${status}" = "unobserved" ]; then
   echo "sentry-create-tasks: could not observe the creation phase — ${unobserved_reason}" >&2

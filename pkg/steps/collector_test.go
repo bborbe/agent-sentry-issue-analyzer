@@ -139,10 +139,62 @@ var _ = Describe("CollectorPlanningStep", func() {
 
 	It("stays done on a quiet day where every fetched alert was already tracked", func() {
 		// Dedup is the designed idempotency: zero created with zero new alerts
-		// expected is healthy, not an alarm.
+		// expected is healthy, not an alarm. published is 48, NOT 0 — the script
+		// publishes every fetched alert and the controller dedups them, so a quiet
+		// day still publishes. This fixture previously read published=0, which is
+		// not a quiet day at all: it is the failed-publish shape covered below,
+		// and it only passed because the rule ignored published.
 		runner := &scriptRunner{
-			resultLine: "sentry-create-tasks-result: fetched=48 published=0 expected_new=0 landed=0 observed=true status=done",
+			resultLine: "sentry-create-tasks-result: fetched=48 published=48 expected_new=0 landed=0 observed=true status=done",
 			summary:    "quiet day",
+		}
+
+		result, err := newStep(runner).Run(ctx, newMarkdown())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("done"))
+	})
+
+	It("returns failed with no NextPhase when alerts were fetched but none were published", func() {
+		// The gap this rule change closes. expected_new is 0 here, so the landing
+		// clause below cannot fire and the old rule reported done — a run whose
+		// publish failed outright was indistinguishable from a quiet day.
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=11 published=0 expected_new=0 landed=0 observed=true status=failed",
+			summary:    "Fetched 11 active unresolved alerts.",
+		}
+
+		result, err := newStep(runner).Run(ctx, newMarkdown())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
+		Expect(result.Message).To(ContainSubstring("published none"))
+		Expect(result.NextPhase).To(BeEmpty())
+	})
+
+	It("attributes a failed publish to the publish, not to the landing it prevented", func() {
+		// Both clauses match: published == 0 AND expected_new > 0 with landed == 0.
+		// The publish is checked first because the landing failure is its
+		// consequence — "no task files landed" would be true but would point the
+		// reader at the controller instead of at Kafka.
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=11 published=0 expected_new=11 landed=0 observed=true status=failed",
+			summary:    "Fetched 11 active unresolved alerts.",
+		}
+
+		result, err := newStep(runner).Run(ctx, newMarkdown())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusFailed))
+		Expect(result.Message).To(ContainSubstring("published none"))
+		Expect(result.NextPhase).To(BeEmpty())
+	})
+
+	It("stays done when Sentry returned no alerts at all", func() {
+		// fetched == 0 means there was nothing to publish, so published == 0 is
+		// the correct outcome rather than a failed publish. This is what the
+		// fetched > 0 guard on the new clause protects.
+		runner := &scriptRunner{
+			resultLine: "sentry-create-tasks-result: fetched=0 published=0 expected_new=0 landed=0 observed=true status=done",
+			summary:    "no active unresolved alerts",
 		}
 
 		result, err := newStep(runner).Run(ctx, newMarkdown())
