@@ -465,6 +465,16 @@ var _ = Describe("BuildDeepExecutionInstructions", func() {
 		instrs := prompts.BuildDeepExecutionInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("## Verdict"))
 	})
+
+	It("deep execution prompt pins the not-evaluable live-state token", func() {
+		content := prompts.BuildDeepExecutionInstructions()[0].Content
+		// One occurrence in the derived-key paragraph, one in the required output
+		// example: a single mention satisfies a >=1 check while leaving the example
+		// block numeric-only, and the example is the form the model actually copies.
+		Expect(strings.Count(content, "unavailable")).To(BeNumerically(">=", 2))
+		Expect(content).To(ContainSubstring("to the literal `unavailable`"))
+		Expect(content).To(ContainSubstring("live_event_count: 142"))
+	})
 })
 
 var _ = Describe("BuildFixPlanningInstructions", func() {

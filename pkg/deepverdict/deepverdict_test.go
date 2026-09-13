@@ -61,7 +61,7 @@ live_event_count: 142
 		Expect(v.RecommendedFix).To(Equal("add nil guard"))
 		Expect(v.FileLine).To(Equal("pkg/handler/handler.go:142"))
 		Expect(v.DisqualifiersFired).To(Equal([]string{"Volume"}))
-		Expect(v.LiveEventCount).To(Equal(142))
+		Expect(v.LiveEventCount).To(Equal(deepverdict.EventCount{Count: 142, Known: true}))
 	})
 
 	It("parses a noise verdict with no disqualifiers fired", func() {
@@ -190,8 +190,63 @@ var _ = Describe("Validate", func() {
 			RecommendedFix:     "add guard",
 			FileLine:           "pkg/handler/handler.go:142",
 			DisqualifiersFired: []string{"Volume"},
-			LiveEventCount:     10000,
+			LiveEventCount:     deepverdict.EventCount{Count: 10000, Known: true},
 		})
 		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("Parse not-evaluable live-state tokens", func() {
+	// The deep execution prompt leaves the live-state fields unavailable for
+	// derived-key alerts, and the model renders that instruction as a token
+	// rather than a number. The token drifts with the prompt's own adjective, so
+	// both production spellings are pinned here as verbatim blocks - plus one
+	// unobserved paraphrase, because the accepted set is open by design and an
+	// enumerated implementation must fail it.
+	DescribeTable(
+		"parses the production block and marks the count NotEvaluable",
+		func(block string) {
+			v, err := deepverdict.Parse(context.Background(), "## Verdict\n\n"+block)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(v.LiveEventCount.Known).To(BeFalse())
+			Expect(v.LiveEventCount.Count).To(Equal(0))
+		},
+		Entry(
+			"the 2026-09-12 block (`unknown` on the event count)",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nlive_event_count: unknown\nfirst_seen: unknown\nlast_seen: unknown\nsentry_status: unknown\n```",
+		),
+		Entry(
+			"the 2026-09-13 block (`unavailable` on the event count)",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nlive_event_count: unavailable\nfirst_seen: unavailable\nlast_seen: unavailable\nsentry_status: unknown\n```",
+		),
+		Entry(
+			"an unobserved paraphrase, to keep the accepted set open",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nlive_event_count: not-determined\nfirst_seen: not-determined\nlast_seen: not-determined\nsentry_status: unknown\n```",
+		),
+	)
+
+	It("never exposes a non-numeric token as a coerced zero", func() {
+		// A coerced zero would be EventCount{Count: 0, Known: true} - the exact
+		// shape of a measured "no events", so the distinction this change exists
+		// to preserve would be lost.
+		v, err := deepverdict.Parse(
+			context.Background(),
+			"## Verdict\n\n```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nlive_event_count: unknown\nfirst_seen: unknown\nlast_seen: unknown\nsentry_status: unknown\n```",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.LiveEventCount).NotTo(Equal(deepverdict.EventCount{Count: 0, Known: true}))
+		Expect(v.LiveEventCount).To(Equal(deepverdict.EventCount{Count: 0, Known: false}))
+	})
+
+	It("keeps a measured zero distinguishable from not-evaluable", func() {
+		// The mirror case: 0 must stay a known measurement, or the tolerance
+		// swallows legitimate values in the other direction.
+		v, err := deepverdict.Parse(
+			context.Background(),
+			"## Verdict\n\n```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: noise\nlive_event_count: 0\nfirst_seen: 2026-09-05T12:28:01Z\nlast_seen: 2026-09-05T12:28:01Z\nsentry_status: unresolved\n```",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.LiveEventCount.Known).To(BeTrue())
+		Expect(v.LiveEventCount.Count).To(Equal(0))
 	})
 })

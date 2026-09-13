@@ -317,4 +317,44 @@ var _ = Describe("FixHandoffStep", func() {
 		Expect(md.Frontmatter["assignee"]).To(Equal("sentry-analyzer-agent"))
 		Expect(md.Frontmatter["phase"]).To(Equal("execution"))
 	})
+
+	// FixHandoffNonNumeric: the recorded production fixture (a derived-key deep
+	// verdict whose live-state fields carry a token) was never committed, so the
+	// crash exists only as testimony. Driving the REAL step here makes it
+	// re-runnable: the guard's triage parser accepts the token, and the handoff's
+	// own deepverdict.Parse used to reject it with `cannot unmarshal !!str ...
+	// into int`, failing the step AFTER the analysis was already complete.
+	DescribeTable(
+		"FixHandoffNonNumeric: completes and returns done on a non-numeric event count",
+		func(block string) {
+			runner.RunReturns(&claudelib.ClaudeResult{Result: block}, nil)
+
+			step := buildDeepStep()
+			md := buildTask("")
+
+			result, err := step.Run(ctx, md)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+
+			// The frontmatter is untouched: an unanalyzable verdict is not a
+			// High/High real bug, so no handoff.
+			Expect(md.Frontmatter["assignee"]).To(Equal("sentry-analyzer-agent"))
+			Expect(md.Frontmatter["phase"]).To(Equal("execution"))
+
+			// The verdict is recorded rather than thrown away — the production
+			// defect is precisely that the verdict was never recorded, so
+			// asserting only "no error" would pass on a step that swallowed it.
+			section, ok := md.FindSection("## Verdict")
+			Expect(ok).To(BeTrue())
+			Expect(section.Body).To(ContainSubstring("unanalyzable"))
+		},
+		Entry(
+			"the 2026-09-12 block (`unknown` on the event count)",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nlive_event_count: unknown\nfirst_seen: unknown\nlast_seen: unknown\nsentry_status: unknown\n```",
+		),
+		Entry(
+			"the 2026-09-13 block (`unavailable` on the event count)",
+			"```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nlive_event_count: unavailable\nfirst_seen: unavailable\nlast_seen: unavailable\nsentry_status: unknown\n```",
+		),
+	)
 })
