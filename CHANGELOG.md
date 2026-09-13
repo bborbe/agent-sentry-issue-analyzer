@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.15.3
 
 - test: both production verdict blocks now run through the reassign step, not only through `verdict.Parse`. The step-level regression test covered the 2026-09-13 `unavailable` block alone, so the 2026-09-12 `unknown` block — the exact input this crash was filed on — never reached `applyDisqualifiers`' date guard. One block was never enough: the int unmarshal and the date parse are separate failure modes, which is why a fix to the int alone left the Job still exiting 1.
 
