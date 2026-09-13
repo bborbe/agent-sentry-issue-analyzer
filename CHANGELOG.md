@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.15.0
 
 - feat: log the build identity at startup — `BuildGitVersion` / `BuildGitCommit` / `BuildDate` are now declared on the `application` struct, so the argument framework prints them on every run. The image already carried `BUILD_GIT_COMMIT` and `BUILD_DATE` as `ENV` (the Dockerfile has exported all three from the start) but nothing ever read them, so a Job pod's log said nothing about which build it was running. That is the entire deploy-verification problem for these agents: they run from the mutable `:dev`/`:prod` tags, and they are Jobs rather than Deployments, so the pod exists only for the duration of one task and there is no long-lived object to inspect between runs. A digest therefore answers "same or different?" but never "which commit?". Now `kubectl logs <job-pod> | grep BuildGitCommit` is per-run provenance that outlives the pod. Also passes `BUILD_GIT_VERSION` as a build-arg from `git describe --tags --always --dirty` in `Makefile.docker` — the Dockerfile declared it but no caller ever supplied it, so every image reported the literal default `dev`. The three fields are `string`, not `libtime.DateTime`: `BUILD_DATE` defaults to `unknown`, and the argument framework treats an unmarshal failure as fatal, so a typed field would refuse to start the agent rather than report an unknown build date.
 
