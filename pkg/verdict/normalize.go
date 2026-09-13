@@ -19,8 +19,10 @@ var proseFields = []string{"reason", "root_cause", "recommended_fix"}
 // execution prompt emits them. A prose value ends at the next line that starts
 // one of these. The full set is required, not just proseFields: a wrapped prose
 // line that happens to begin `tls: failed …` must be folded into the value,
-// while a real field boundary must end it. Pinned against the Verdict struct's
-// yaml tags by TestVerdict so a new field cannot be added without landing here.
+// while a real field boundary must end it. A key dropped from this list fails
+// TestVerdict's boundary case; a new field on the Verdict struct has to be added
+// here by hand, and forgetting one would let a wrapped prose line beginning with
+// the new key be swallowed into the value above it.
 var verdictFields = []string{
 	"sentry_issue_id",
 	"verdict",

@@ -304,6 +304,18 @@ var _ = Describe("Parse prose carrying an unquoted colon", func() {
 		).To(Equal("first half of the story and the second half with a colon: right here"))
 	})
 
+	It("ends a folded prose value at the next schema key", func() {
+		// The fold must stop at a real field boundary: were the boundary line
+		// swallowed into the prose, the field after it would silently lose its
+		// value. This is what keeps verdictFields in step with the schema - drop a
+		// key from that list and this case fails.
+		content := "## Verdict\n\n```yaml\nverdict: real bug\nconfidence: high\nreason: the retry fires on every rollout: the counter resets\nroot_cause: nil check missing\n```\n"
+		v, err := verdict.Parse(context.Background(), content)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Reason).To(Equal("the retry fires on every rollout: the counter resets"))
+		Expect(v.RootCause).To(Equal("nil check missing"))
+	})
+
 	It("still reports malformed YAML that is not prose", func() {
 		// The repair is scoped to prose values: a block broken some other way must
 		// keep failing, with its own error rather than a repaired verdict.
