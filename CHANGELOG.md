@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- test: the step-level regression test now carries the colon block, not only the sentinel-era one. `verdict.Parse` coverage was the gap this closes: the reassign step is where the Job dies, and its end-to-end test asserted through the step machinery against a schema-valid block alone — so the production block that killed eleven Jobs on 2026-09-13 (`yaml: line 13: mapping values are not allowed in this context`) never reached the layer that actually failed. Red against the `v0.15.4` verdict package, where it reproduces the production fatal line verbatim (`step "sentry-execution-reassign" Run: reassign: parse verdict: verdict parse errors: parse verdict block: …`), green against `v0.15.5`. The sibling entry passes in both, so the case discriminates rather than merely being present.
+
 ## v0.15.5
 
 - fix: a verdict whose free-text prose carries an unquoted `: ` no longer kills the Job. `verdict.Parse` retries a block that fails to unmarshal with its `reason` / `root_cause` / `recommended_fix` values re-quoted as scalars, so arbitrary model prose parses instead of being read as a nested mapping. Eleven prod Jobs died on 2026-09-13 with `parse verdict block: yaml: line 13: mapping values are not allowed in this context`, discarding an otherwise ordinary `real bug` verdict over the literal text `tls: failed to send closeNotify`. Quoting the whole value — not escaping the one observed colon — is what makes the repair hold for any prose; a block broken some other way keeps its original error.
