@@ -22,7 +22,20 @@
 # while the agent stays up. Setting KAFKA_BROKERS itself cannot do this — the
 # agent reads that at startup and dies with `create sync producer failed` before
 # this script is ever reached (recorded 2026-09-12, Job Failed, pod_crash_no_stdout).
-# Never set it in dev/prod values; it is a probe lever, not a configuration.
+#
+# It does NOT arrive on its own. main.go's buildClaudeEnv forwards an explicit
+# list (KAFKA_BROKERS, TOPIC_PREFIX, TARGET_VAULT, GIT_REST_URL, GATEWAY_SECRET,
+# STAGE, ...) into the Claude subprocess, and the runner's allowlist passes only
+# HOME/PATH/USER/TZ/ZONEINFO/TMPDIR/LANG/LC_ALL — so a bare
+# CREATE_TASKS_KAFKA_BROKERS set on the pod never reaches this script and the
+# override silently does nothing. Inject it through CLAUDE_ENV instead: that is
+# the documented passthrough, and it becomes the runner's highest-precedence env
+# layer, which is where the vars above reach the script from too.
+#
+#   CLAUDE_ENV: "CREATE_TASKS_KAFKA_BROKERS=127.0.0.1:1"
+#
+# Verified 2026-09-13 against agent@v0.87.3 — claude-runner.go buildSubprocessEnv
+# (3 layers) and main.go buildClaudeEnv. Never set it outside a probe.
 #
 # Read-only by construction: single GET to Sentry (issues filtered to
 # is:unresolved), then a publish to Kafka. Never echoes the token.
