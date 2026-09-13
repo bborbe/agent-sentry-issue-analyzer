@@ -17,25 +17,67 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// NotEvaluable is the single token rendered for a live-state field the agent
+// could not determine. The execution prompt leaves these fields unavailable for
+// derived-key alerts, and the model renders that instruction as a word rather
+// than a number — the spelling drifts with the prompt's own wording, so
+// UnmarshalYAML accepts any non-numeric token and only MarshalYAML pins one.
+const NotEvaluable = "unavailable"
+
+// EventCount is a live-event count that may be explicitly not-evaluable.
+//
+// Zero is a real measurement and NotEvaluable is not zero. Coercing the token
+// to 0 would present "volume unknown" to the disqualifier arithmetic as "no
+// events" — a fabricated measurement the rubric then reasons from. Known
+// carries that distinction through to the evaluator, which skips every
+// count-based comparison when it is false.
+type EventCount struct {
+	Count int
+	Known bool
+}
+
+// UnmarshalYAML accepts either a number or any non-numeric token. The token set
+// is deliberately open: it is the prompt's own vocabulary rendered by the
+// model, observed as both "unknown" (2026-09-12) and "unavailable"
+// (2026-09-13), and an enumerated set would fail on the next paraphrase.
+func (c *EventCount) UnmarshalYAML(value *yaml.Node) error {
+	var n int
+	if err := value.Decode(&n); err == nil {
+		c.Count, c.Known = n, true
+		return nil
+	}
+	c.Count, c.Known = 0, false
+	return nil
+}
+
+// MarshalYAML round-trips a not-evaluable count back to the sentinel token, so
+// a verdict that parsed from a word does not re-render as a fabricated 0.
+func (c EventCount) MarshalYAML() (interface{}, error) {
+	if !c.Known {
+		return NotEvaluable, nil
+	}
+	return c.Count, nil
+}
+
 // Verdict is the machine-readable classification of the single Sentry alert.
 //
 // The execution-phase Claude prompt emits one fenced YAML block into the
 // ## Verdict section with EXACTLY these keys (see pkg/prompts/execution.md).
 // Unknown verdicts or missing required fields fail validation.
 type Verdict struct {
-	SentryIssueID      string   `yaml:"sentry_issue_id"`
-	Verdict            string   `yaml:"verdict"`
-	Confidence         string   `yaml:"confidence"`
-	Reason             string   `yaml:"reason"`
-	LiveEventCount     int      `yaml:"live_event_count"`
-	FirstSeen          string   `yaml:"first_seen"`
-	LastSeen           string   `yaml:"last_seen"`
-	SentryStatus       string   `yaml:"sentry_status"`
-	DisqualifiersFired []string `yaml:"disqualifiers_fired"`
-	Understanding      string   `yaml:"understanding"`
-	FixCertainty       string   `yaml:"fix_certainty"`
-	RootCause          string   `yaml:"root_cause"`
-	RecommendedFix     string   `yaml:"recommended_fix"`
+	SentryIssueID      string     `yaml:"sentry_issue_id"`
+	Verdict            string     `yaml:"verdict"`
+	Confidence         string     `yaml:"confidence"`
+	Reason             string     `yaml:"reason"`
+	LiveEventCount     EventCount `yaml:"live_event_count"`
+	FirstSeen          string     `yaml:"first_seen"`
+	LastSeen           string     `yaml:"last_seen"`
+	SentryStatus       string     `yaml:"sentry_status"`
+	DisqualifiersFired []string   `yaml:"disqualifiers_fired"`
+	Understanding      string     `yaml:"understanding"`
+	FixCertainty       string     `yaml:"fix_certainty"`
+	RootCause          string     `yaml:"root_cause"`
+	RecommendedFix     string     `yaml:"recommended_fix"`
 }
 
 // Valid verdict vocabulary (the 7-verdict rubric, mirrored verbatim from

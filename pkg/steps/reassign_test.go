@@ -194,4 +194,34 @@ var _ = Describe("ReassignExecutionStep", func() {
 		Expect(ok).To(BeTrue())
 		Expect(section.Body).To(ContainSubstring("verdict: noise"))
 	})
+
+	It("does not error when the live-state fields carry a not-evaluable token", func() {
+		// Regression for the production crash (18 Error pods, 2026-09-13). The
+		// execution prompt tells the model to leave the live-state fields
+		// unavailable for derived-key alerts, and the model renders that
+		// instruction as a word. Both spellings observed in production appear
+		// in one block on purpose: the token set is open, so a fix that
+		// normalised on one spelling would still crash on the other.
+		//
+		// The two failure modes are distinct and both are exercised here. A
+		// non-numeric token fails the int unmarshal. A non-date token
+		// unmarshals fine into the string field and only fails later, in
+		// applyDisqualifiers' date parse — which is why a fix to the int alone
+		// leaves the Job still exiting 1.
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "```yaml\nsentry_issue_id: NUKE-PROD-BT\nverdict: unanalyzable\nconfidence: low\nreason: no exception entry (stack trace unavailable)\nlive_event_count: unavailable\nfirst_seen: unavailable\nlast_seen: unavailable\nsentry_status: unknown\n```",
+		}, nil)
+
+		step := buildStep()
+		md := buildTask("")
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		// The verdict is recorded rather than thrown away — the whole point of
+		// the change.
+		section, ok := md.FindSection("## Verdict")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("unanalyzable"))
+	})
 })

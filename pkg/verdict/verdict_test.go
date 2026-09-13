@@ -58,7 +58,7 @@ recommended_fix: add nil guard
 		Expect(v.SentryIssueID).To(Equal("OCTOPUS-PROD-1J"))
 		Expect(v.Verdict).To(Equal("real bug"))
 		Expect(v.Confidence).To(Equal("high"))
-		Expect(v.LiveEventCount).To(Equal(142))
+		Expect(v.LiveEventCount).To(Equal(verdict.EventCount{Count: 142, Known: true}))
 	})
 
 	It("parses a noise verdict", func() {
@@ -80,7 +80,7 @@ recommended_fix: add nil guard
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v.Verdict).To(Equal("real bug"))
 		Expect(v.Confidence).To(Equal("high"))
-		Expect(v.LiveEventCount).To(Equal(142))
+		Expect(v.LiveEventCount).To(Equal(verdict.EventCount{Count: 142, Known: true}))
 	})
 
 	It("parses a legacy unfenced raw JSON verdict", func() {
