@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.15.9
 
 - fix: the `bborbe/trading` candidate entry in the analyzer and fix planning prompts now names the Go Capital.com broker services under `capitalcom/`, so a `capitalcom/…` frame path resolves to `bborbe/trading` instead of being invented into `bborbe/capitalcom`. Observed 2026-09-14 on `NUKE-DEV-EY`/`EZ`: the frame path `capitalcom/marketdata/fetcher/pkg/market-data-websocket.go` starts with `capitalcom/`, the model read that leading segment as the repo name, cloned `bborbe/capitalcom` — a repo that does not exist — and reported `resolved from frame path …` with `fresh: false`, because the candidate entry described `bborbe/trading` as holding only `mt5/connector/` and so gave it no reason to try it. The same text is amended in `planning.md`, `deep-planning.md` and `fix-planning.md` (identical modulo list indentation), the `docs/repo-mapping.md` table row follows it, and `bborbe/capitalcom` joins that doc's list of names that must never be guessed. `pkg/prompts/prompts_test.go` gains the guard this invariant never had: the three candidate lists must be identical once indentation is stripped — the existing assertions checked substrings and relative order only, so a list amended in one file stayed green.
 
