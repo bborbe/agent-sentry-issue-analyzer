@@ -28,7 +28,7 @@ From the stack trace identify the implicated repo + file (`file.go:line`). Clone
 
 **Fallback — ordered candidate list.** Only when no application frame carries a repo path, walk the per-Sentry-project candidate list in order, cloning each candidate until one contains the implicated frames. For Sentry projects `nuke-dev` and `nuke-prod`:
 
-1. `bborbe/trading` — private repo holding the Python MT5 connector under `mt5/connector/` (`runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py`); cloned with the `GIT_CLONE_TOKEN` the runtime already mints
+1. `bborbe/trading` — private repo holding the Python MT5 connector under `mt5/connector/` (`runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py`) and the Go Capital.com broker services under `capitalcom/` (`marketdata/`, `gateway/`, `trade-executor/`, `position/`, `transaction/`, `account/`); cloned with the `GIT_CLONE_TOKEN` the runtime already mints
 2. `bborbe/kafka` — public Go repo holding the Sarama client and its consumer/producer configuration
 3. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
 

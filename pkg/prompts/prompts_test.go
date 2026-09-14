@@ -535,3 +535,48 @@ var _ = Describe("BuildFixPlanningInstructions", func() {
 		Expect(content).To(ContainSubstring("stale"))
 	})
 })
+
+var _ = Describe("candidate-list invariant across the planning prompts", func() {
+	// docs/repo-mapping.md requires the ordered candidate list to stay identical
+	// in all three prompts, differing only in list indentation (fix-planning.md's
+	// copy is nested one level deeper). Nothing enforced that before this test:
+	// the per-builder assertions above check substrings and relative order, so a
+	// list amended in one file stayed green.
+	It("keeps the ordered candidate list identical across all three prompts", func() {
+		planning := candidateEntries(prompts.BuildPlanningInstructions()[0].Content)
+		deepPlanning := candidateEntries(prompts.BuildDeepPlanningInstructions()[0].Content)
+		fixPlanning := candidateEntries(prompts.BuildFixPlanningInstructions()[0].Content)
+
+		Expect(planning).To(HaveLen(3))
+		Expect(deepPlanning).To(Equal(planning))
+		Expect(fixPlanning).To(Equal(planning))
+	})
+
+	It("names the capitalcom tree in the trading candidate entry", func() {
+		entries := candidateEntries(prompts.BuildFixPlanningInstructions()[0].Content)
+		Expect(entries).NotTo(BeEmpty())
+		Expect(entries[0]).To(ContainSubstring("bborbe/trading"))
+		Expect(entries[0]).To(ContainSubstring("capitalcom/"))
+	})
+})
+
+// candidateEntries returns the ordered candidate-list entries of a planning
+// prompt with leading indentation stripped, so fix-planning.md's deeper nesting
+// compares equal to the other two. A candidate entry is a numbered line whose
+// text opens with a `bborbe/` repo — the prompts carry other numbered lines
+// (planning.md's `Bash(scripts/sentry-read.sh …)` step), so the repo prefix is
+// what selects the candidate list.
+func candidateEntries(content string) []string {
+	var entries []string
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimLeft(line, " \t")
+		if len(trimmed) < 5 || trimmed[1] != '.' || trimmed[2] != ' ' || trimmed[3] != '`' {
+			continue
+		}
+		if !strings.HasPrefix(trimmed[4:], "bborbe/") {
+			continue
+		}
+		entries = append(entries, trimmed)
+	}
+	return entries
+}
