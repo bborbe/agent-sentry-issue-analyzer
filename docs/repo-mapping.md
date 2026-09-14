@@ -14,13 +14,13 @@ There is deliberately no single canonical repo per Sentry project. A single proj
 
 | Sentry project | Order | Candidate repo | Holds | Visibility |
 |---|---|---|---|---|
-| `nuke-dev`, `nuke-prod` | 1 | `bborbe/trading` | Python MT5 connector under `mt5/connector/` — `runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py` | private (cloned with `GIT_CLONE_TOKEN`) |
+| `nuke-dev`, `nuke-prod` | 1 | `bborbe/trading` | Python MT5 connector under `mt5/connector/` — `runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py` — and the Go Capital.com broker services under `capitalcom/` (`marketdata/`, `gateway/`, `trade-executor/`, `position/`, `transaction/`, `account/`) | private (cloned with `GIT_CLONE_TOKEN`) |
 | `nuke-dev`, `nuke-prod` | 2 | `bborbe/kafka` | Go Sarama client, consumer/producer configuration | public |
 | `nuke-dev`, `nuke-prod` | 3 | `bborbe/nuke` | Helm charts, YAML, deployment config only — no application source. Last, and only for infrastructure-shaped frames | private |
 
 `bborbe/nuke` is retained rather than removed because some `nuke-*` alerts are genuine infrastructure problems for which it is the correct repo. Demoting it to last stops it shadowing the application repos, which was the actual defect.
 
-Repo names that appear in past agent output but do **not** exist, and must never be cloned or guessed: `bborbe/trading-bot` (hallucinated) and `bborbe/nuke-dev` (a project-named variant the old prompt suggested). Never guess a project-named repo variant.
+Repo names that appear in past agent output but do **not** exist, and must never be cloned or guessed: `bborbe/trading-bot` (hallucinated), `bborbe/nuke-dev` (a project-named variant the old prompt suggested) and `bborbe/capitalcom` (hallucinated 2026-09-14 from the leading segment of a `capitalcom/…` frame path — the tree is in `bborbe/trading`). Never guess a project-named repo variant.
 
 ## Extending the mapping
 
@@ -30,6 +30,6 @@ An escalation matching `candidates tried` or `unmapped project` is the signal th
 2. Add it to the ordered candidate list in **all three** `pkg/prompts/planning.md` (inside `### Step 3: Read the implicated source code`), `pkg/prompts/deep-planning.md` (inside `### Step 2: Clone the implicated repo read-only`), and `pkg/prompts/fix-planning.md` (inside `### Step 1: Resolve the repository from the file:line`). The three files must stay identical in that block — same text, same order, differing only in list indentation (`fix-planning.md`'s copy is nested one level deeper).
 3. Add the same row to the candidate table above, keeping the doc order and the prompt order identical.
 4. Add a `## Unreleased` entry to `CHANGELOG.md`, run `make precommit`, and release — the prompts are `go:embed`ed, so an operator cannot change the mapping by editing config or a CRD. A release plus redeploy is the only path.
-5. Verify the deployed tag carries it: `grep -c '<repo>' pkg/prompts/*.md` returns `>= 1` for all three prompt files.
+5. Verify the deployed tag carries it: `grep -c '<repo>' pkg/prompts/*.md` returns `>= 1` for all three prompt files, and `make test` — which compares the three lists indentation-stripped and fails when they drift apart.
 
 A repo that is renamed or archived surfaces the same way — the escalation names the stale repo, and the stale name is the grep key for finding it here and in the prompts.
