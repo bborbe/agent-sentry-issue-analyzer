@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/bborbe/errors"
 )
@@ -15,6 +16,15 @@ import (
 // DefaultSentryBaseURL is the API base for the org this agent reads. The
 // deployed Config CRs set no org override, so the code default applies.
 const DefaultSentryBaseURL = "https://bborbe.sentry.io/api/0"
+
+// DefaultSentryOrg is the organization slug the issue routes are scoped to.
+// It mirrors the SENTRY_ORG default in scripts/sentry-read.sh.
+//
+// The org segment is not cosmetic: the non-org-scoped /issues/<id>/ route
+// resolves a NUMERIC issue id only, while the agent carries the short id
+// (NUKE-PROD-BX). Only /organizations/<org>/issues/<id>/ accepts both, so
+// dropping this segment 404s every fix run. See trace_reader_test.go.
+const DefaultSentryOrg = "bborbe"
 
 // sentryEvent is the slice of the event payload this reader needs: the
 // exception entry's frames. Everything else in the response is ignored.
@@ -46,24 +56,30 @@ type sentryFrame struct {
 type SentryTraceReader struct {
 	client  *http.Client
 	baseURL string
+	org     string
 	token   string
 }
 
 // NewSentryTraceReader constructs the API-backed trace reader. An empty
-// baseURL falls back to DefaultSentryBaseURL; the client is injectable so the
-// HTTP boundary can be exercised against a test server.
+// baseURL falls back to DefaultSentryBaseURL and an empty org to
+// DefaultSentryOrg; the client is injectable so the HTTP boundary can be
+// exercised against a test server.
 func NewSentryTraceReader(
 	client *http.Client,
 	baseURL string,
+	org string,
 	token string,
 ) TraceReader {
 	if baseURL == "" {
 		baseURL = DefaultSentryBaseURL
 	}
+	if org == "" {
+		org = DefaultSentryOrg
+	}
 	if client == nil {
 		client = http.DefaultClient
 	}
-	return &SentryTraceReader{client: client, baseURL: baseURL, token: token}
+	return &SentryTraceReader{client: client, baseURL: baseURL, org: org, token: token}
 }
 
 // HasFirstPartyFrame fetches the issue's latest event and reports whether any
@@ -75,8 +91,15 @@ func (r *SentryTraceReader) HasFirstPartyFrame(
 	ctx context.Context,
 	sentryIssueID string,
 ) (bool, error) {
-	url := r.baseURL + "/issues/" + sentryIssueID + "/events/latest/"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// Both segments are escaped: sentryIssueID is a yaml field parsed straight
+	// out of the model's verdict (verdict.go, `sentry_issue_id`) and is only
+	// checked for non-emptiness, so a value carrying "/", ".." or "?" would
+	// otherwise retarget the request.
+	requestURL := r.baseURL +
+		"/organizations/" + url.PathEscape(r.org) +
+		"/issues/" + url.PathEscape(sentryIssueID) +
+		"/events/latest/"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return false, errors.Wrapf(ctx, err, "sentry trace: build request")
 	}

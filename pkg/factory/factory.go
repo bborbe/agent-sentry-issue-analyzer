@@ -301,7 +301,7 @@ func CreateAgentProvider(
 		runner,
 		githubClient,
 		repoAllowlist,
-		fixagent.NewSentryTraceReader(http.DefaultClient, "", sentryAPIToken),
+		fixagent.NewSentryTraceReader(http.DefaultClient, "", "", sentryAPIToken),
 	)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{
