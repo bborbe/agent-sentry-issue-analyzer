@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/bborbe/errors"
 )
@@ -90,8 +91,15 @@ func (r *SentryTraceReader) HasFirstPartyFrame(
 	ctx context.Context,
 	sentryIssueID string,
 ) (bool, error) {
-	url := r.baseURL + "/organizations/" + r.org + "/issues/" + sentryIssueID + "/events/latest/"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// Both segments are escaped: sentryIssueID is a yaml field parsed straight
+	// out of the model's verdict (verdict.go, `sentry_issue_id`) and is only
+	// checked for non-emptiness, so a value carrying "/", ".." or "?" would
+	// otherwise retarget the request.
+	requestURL := r.baseURL +
+		"/organizations/" + url.PathEscape(r.org) +
+		"/issues/" + url.PathEscape(sentryIssueID) +
+		"/events/latest/"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return false, errors.Wrapf(ctx, err, "sentry trace: build request")
 	}

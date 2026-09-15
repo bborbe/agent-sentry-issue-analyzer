@@ -141,6 +141,24 @@ var _ = Describe("SentryTraceReader", func() {
 		},
 	)
 
+	// sentryIssueID is a yaml field off the model's verdict and is validated
+	// only for non-emptiness, so a traversal-shaped value must not be able to
+	// retarget the request at a different endpoint.
+	It("escapes the issue id rather than letting it retarget the request", func() {
+		var gotPath string
+		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.EscapedPath()
+			w.Write([]byte(eventWith(`{"in_app":true,"filename":"pkg/reader.go"}`)))
+		})
+
+		_, err := reader.HasFirstPartyFrame(ctx, "../../projects/other")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(gotPath).To(Equal(
+			"/organizations/bborbe/issues/..%2F..%2Fprojects%2Fother/events/latest/",
+		))
+		Expect(gotPath).To(HavePrefix("/organizations/bborbe/issues/"))
+	})
+
 	It("falls back to the default org when none is given", func() {
 		server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			Expect(
