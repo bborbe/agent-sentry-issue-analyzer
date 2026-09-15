@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.15.10
 
 - fix: `SentryTraceReader` now calls the org-scoped issue route, so the fix agent can read the trace of the issue it just resolved. Every fix run on prod died at `fix-agent: read trace: sentry trace: fetch issue NUKE-PROD-BX: unexpected status 404` (observed 2026-09-14, v0.15.9, pod `sentry-fix-agent-4c46f7bb-20260914204900-428vz`), because the reader built `…/api/0/issues/<id>/events/latest/` while the agent carries the *short* issue id. Probed against the live API with the prod token: that bare route serves a numeric id only (`/issues/7672007265/…` → 200) and 404s a short one (`/issues/NUKE-PROD-BX/…` → 404), whereas the org-scoped route accepts both (`/organizations/bborbe/issues/NUKE-PROD-BX/…` → 200). The token was never the cause — the same token returns 200 on three of the four probed routes. `NewSentryTraceReader` therefore takes an `org` (empty falls back to the new `DefaultSentryOrg`, mirroring `SENTRY_ORG` in `scripts/sentry-read.sh`) and builds `/organizations/<org>/issues/<id>/events/latest/`, keeping the existing short id rather than plumbing the numeric `issue_url` through the verdict struct. `trace_reader_test.go` gains a regression whose test server reproduces the real routing — 404 on anything not org-scoped — and its pre-existing assertion of the buggy bare path is corrected.
 
