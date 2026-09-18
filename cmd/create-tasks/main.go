@@ -69,7 +69,13 @@ type application struct {
 	// unknown names (`skipped_unknown_assignee`). Renamed 2026-08-26 when the
 	// 4 sentry Config CRs folded into 2 (`sentry-collector-agent` +
 	// `sentry-analyzer-agent`); the old `sentry-issue-analyzer` no longer resolves.
-	Assignee string `required:"false" arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee"                                                     default:"sentry-analyzer-agent"`
+	//
+	// required:"true" with no default, deliberately: the collector lane's env:
+	// block in nuke agent/values-{dev,prod}.yaml is the single source. A default
+	// here would be a second copy of the name, and an unset value would stamp an
+	// empty assignee the executor silently drops — the task is filed, nothing
+	// claims it, nothing errors. Fail loudly at startup instead.
+	Assignee string `required:"true"  arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee (must match the lane Config's spec.assignee)"`
 	Status   string `required:"false" arg:"status"       env:"STATUS"       usage:"Frontmatter status"                                                       default:"in_progress"`
 	Phase    string `required:"false" arg:"phase"        env:"PHASE"        usage:"Frontmatter phase"                                                        default:"planning"`
 }

@@ -44,20 +44,21 @@ var taskTypeSentryIssueAnalyzer = agentlib.TaskType("sentry-issue-analyzer")
 // sentry-deep-analyzer.
 var taskTypeSentryDeepAnalyzer = agentlib.TaskType("sentry-deep-analyzer")
 
-// assigneeSentryAnalyzerAgent is the `assignee` of the live agent Config CR
-// that handles deep analysis. It is a PLAIN string, not an agentlib.TaskType:
-// assigneeSentryAnalyzerAgent is intentionally a plain string assignee, not a
-// TaskType (contrast taskTypeSentryCollector below) -- it is the exact value
-// agent-task-executor matches against configs.agent.benjamin-borbe.de spec.assignee.
-// assignee and task_type are different namespaces and must never share one
-// constant. The dedicated sentry-deep-analyzer Config CR was deleted on
-// 2026-08-26 when the sentry pipeline consolidated from 4 Config CRs to 2;
-// the surviving sentry-analyzer-agent CR lists sentry-deep-analyzer in its
-// taskTypes. agent-task-executor resolves an agent by exact assignee string
-// and silently drops unknown names (skipped_unknown_assignee), so a wrong
-// value here strands the task with no error anywhere. Keep this literal in
-// sync with cmd/create-tasks/main.go's Assignee default.
-const assigneeSentryAnalyzerAgent = "sentry-analyzer-agent"
+// The deep-assignee is deliberately NOT a literal here. It is read from the
+// lane's ASSIGNEE env (application.Assignee in main.go) and threaded down
+// through CreateAgentProvider -> CreateAgentFromRunner -> NewReassignExecutionStep,
+// so a rename is a values-file edit rather than a code change plus rebuild.
+//
+// It stays a PLAIN string, not an agentlib.TaskType: it is the exact value
+// agent-task-executor matches against configs.agent.benjamin-borbe.de
+// spec.assignee, and assignee and task_type are different namespaces that must
+// never share one constant. The dedicated sentry-deep-analyzer Config CR was
+// deleted on 2026-08-26 when the sentry pipeline consolidated from 4 Config CRs
+// to 2; the surviving sentry-analyzer-agent CR lists sentry-deep-analyzer in its
+// taskTypes. agent-task-executor resolves an agent by exact assignee string and
+// silently drops unknown names (skipped_unknown_assignee), so a wrong value
+// strands the task with no error anywhere — which is why the producer's
+// ASSIGNEE tag is required:"true" rather than defaulted.
 
 // taskTypeSentryCollector is the agent-lib TaskType literal for the collector
 // step's domain task. The daily recurring trigger creates one task of this
@@ -152,11 +153,13 @@ func CreateAgent(
 	model claudelib.ClaudeModel,
 	claudeEnv map[string]string,
 	envContext map[string]string,
+	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
 ) *agentlib.Agent {
 	return CreateAgentFromRunner(
 		CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv),
 		envContext,
+		assignee,
 		currentDateTime,
 	)
 }
@@ -166,17 +169,19 @@ func CreateAgent(
 // domain agent and the healthcheck-Claude liveness agent.
 //
 // The triage execution step is wrapped in the real-bug reassign trigger: on a
-// `verdict: real bug` it reassigns the SAME task to sentry-analyzer-agent with
-// task_type: sentry-deep-analyzer instead of closing it.
+// `verdict: real bug` it reassigns the SAME task to the configured assignee
+// (the lane's ASSIGNEE env, threaded in as assignee) with task_type:
+// sentry-deep-analyzer instead of closing it.
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
+	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
 	execution := steps.NewReassignExecutionStep(
 		steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
-		assigneeSentryAnalyzerAgent,
+		assignee,
 		string(taskTypeSentryDeepAnalyzer),
 		verdict.NewDisqualifierEvaluator(currentDateTime),
 	)
@@ -288,13 +293,14 @@ func CreateAgentProvider(
 	model claudelib.ClaudeModel,
 	claudeEnv map[string]string,
 	envContext map[string]string,
+	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
 	githubClient *github.Client,
 	repoAllowlist []string,
 	sentryAPIToken string,
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
-	domainAgent := CreateAgentFromRunner(runner, envContext, currentDateTime)
+	domainAgent := CreateAgentFromRunner(runner, envContext, assignee, currentDateTime)
 	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
 	fixAgent := CreateFixAgentFromRunner(

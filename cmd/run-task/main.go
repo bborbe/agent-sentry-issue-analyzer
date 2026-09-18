@@ -41,6 +41,14 @@ type application struct {
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
+	// Assignee is this agent's own identity — the exact value agent-task-executor
+	// matches against the Config CR's spec.assignee, and the value the real-bug
+	// reassign step stamps onto a task. Required with no default: the lane's env:
+	// block is the single source (nuke agent/values-{dev,prod}.yaml). Pass
+	// --assignee / ASSIGNEE for local runs; an unset value fails loudly rather
+	// than stamping an empty assignee the executor would silently drop.
+	Assignee string `required:"true" arg:"assignee" env:"ASSIGNEE" usage:"This agent's Config CR assignee (the executor's dispatch key)"`
+
 	// Claude Code CLI configuration
 	ClaudeConfigDir claudelib.ClaudeConfigDir `required:"false" arg:"claude-config-dir" env:"CLAUDE_CONFIG_DIR" usage:"Claude Code config directory"`
 
@@ -118,6 +126,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		a.AnthropicModel,
 		claudeEnv,
 		envparse.KeyValuePairs(a.EnvContextRaw),
+		a.Assignee,
 		libtime.NewCurrentDateTime(),
 	)
 
