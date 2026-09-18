@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.15.11
 
 - fix: the analyzer's assignee is read from the lane's `ASSIGNEE` env instead of a hardcoded literal, so renaming an agent is a values-file edit rather than a code change plus rebuild. `pkg/factory` carried `const assigneeSentryAnalyzerAgent = "sentry-analyzer-agent"` — a third copy of a value already present in `cmd/create-tasks`'s `default:` tag and in nuke's lane values, with a source comment instructing the reader to keep the two in sync. That is a dispatch key: `agent-task-executor` matches it by exact string and silently drops unknown names (`skipped_unknown_assignee`), so a rename in one place files the task, claims nothing, and errors nowhere. Both binaries (`main.go`, `cmd/run-task`) now take a required `Assignee` field via the `env:"ASSIGNEE"` tag and thread it through `CreateAgentProvider` → `CreateAgent`/`CreateAgentFromRunner` → `NewReassignExecutionStep`. `cmd/create-tasks` drops its `default:` and flips to `required:"true"`, so an unset value fails the Job loudly instead of stamping `assignee: ""` — which would reproduce the exact silent break this removes. `Run` outgrew the funlen budget with the extra argument, so provider assembly moved to a `buildProvider` helper alongside the existing `buildClaudeEnv` / `buildGithubClient`. Tests pin the wiring rather than a coincidental literal: `reassign_wiring_test.go` passes a `testAssignee` into the factory and asserts the reassigned frontmatter against it, and `main_test.go` asserts `required:"true"` with an empty `default` rather than the default's value.
 
