@@ -18,6 +18,12 @@ import (
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
 )
 
+// testAssignee stands in for the lane's ASSIGNEE env. It is passed explicitly to
+// CreateAgentFromRunner and asserted against, so the test pins the wiring — the
+// configured value flowing into the reassigned frontmatter — rather than a
+// literal that merely happens to match it.
+const testAssignee = "sentry-analyzer-agent"
+
 var _ = Describe("CreateAgentFromRunner reassign wiring", func() {
 	var (
 		ctx        context.Context
@@ -36,7 +42,12 @@ var _ = Describe("CreateAgentFromRunner reassign wiring", func() {
 
 		deliverer = &agentmocks.AgentResultDeliverer{}
 
-		agent := factory.CreateAgentFromRunner(runner, nil, libtime.NewCurrentDateTime())
+		agent := factory.CreateAgentFromRunner(
+			runner,
+			nil,
+			testAssignee,
+			libtime.NewCurrentDateTime(),
+		)
 		_, err := agent.Run(
 			ctx,
 			domain.TaskPhaseExecution,
@@ -55,8 +66,8 @@ var _ = Describe("CreateAgentFromRunner reassign wiring", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("stamps the live sentry-analyzer-agent Config CR as the assignee", func() {
-		Expect(reassigned.Frontmatter["assignee"]).To(Equal("sentry-analyzer-agent"))
+	It("stamps the configured assignee onto the reassigned task", func() {
+		Expect(reassigned.Frontmatter["assignee"]).To(Equal(testAssignee))
 	})
 
 	It("keeps sentry-deep-analyzer as the task type", func() {

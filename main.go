@@ -69,6 +69,15 @@ type application struct {
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
+	// Assignee is this agent's own identity — the exact value agent-task-executor
+	// matches against the Config CR's spec.assignee. Required, deliberately with
+	// no default: the lane's env: block in nuke agent/values-{dev,prod}.yaml is
+	// the single source, so a rename is a config diff rather than a code change
+	// plus rebuild. An unset value fails loudly at startup instead of stamping an
+	// empty assignee onto a reassigned task, which the executor would silently
+	// drop (skipped_unknown_assignee) — task filed, nothing claims it, no error.
+	Assignee string `required:"true" arg:"assignee" env:"ASSIGNEE" usage:"This agent's Config CR assignee (the executor's dispatch key)"`
+
 	// git-rest endpoint for the target vault. The collector step observes how
 	// many per-alert task files actually landed through it (scripts/vault-list.sh),
 	// because the controller owns dedup — published != landed.
@@ -337,6 +346,30 @@ func (a *application) validatePreflight(
 	return nil
 }
 
+// buildProvider assembles the multi-agent provider. Extracted from Run for the
+// same reason buildClaudeEnv / buildGithubClient are: Run's funlen budget.
+// a.Assignee is this lane's own identity, read from the ASSIGNEE env the chart
+// injects from the lane's env: block.
+func (a *application) buildProvider(
+	claudeEnv map[string]string,
+	githubClient *github.Client,
+	repoAllowlist []string,
+) agentlib.AgentProvider {
+	return factory.CreateAgentProvider(
+		a.ClaudeConfigDir,
+		a.AgentDir,
+		claudelib.ParseAllowedTools(a.AllowedToolsRaw),
+		a.AnthropicModel,
+		claudeEnv,
+		envparse.KeyValuePairs(a.EnvContextRaw),
+		a.Assignee,
+		libtime.NewCurrentDateTime(),
+		githubClient,
+		repoAllowlist,
+		a.SentryAPIToken,
+	)
+}
+
 func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	registry := prometheus.NewRegistry()
 	jobMetrics := libmetrics.NewJobMetrics(registry, libtime.NewCurrentDateTime())
@@ -385,18 +418,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	repoAllowlist := parseRepoAllowlist(a.RepoAllowlist)
 
-	provider := factory.CreateAgentProvider(
-		a.ClaudeConfigDir,
-		a.AgentDir,
-		claudelib.ParseAllowedTools(a.AllowedToolsRaw),
-		a.AnthropicModel,
-		claudeEnv,
-		envparse.KeyValuePairs(a.EnvContextRaw),
-		libtime.NewCurrentDateTime(),
-		githubClient,
-		repoAllowlist,
-		a.SentryAPIToken,
-	)
+	provider := a.buildProvider(claudeEnv, githubClient, repoAllowlist)
 	agent, err := provider.Get(ctx, agentlib.TaskType(a.TaskType))
 	if err != nil {
 		jobMetrics.RecordRun(agentlib.AgentStatusFailed)

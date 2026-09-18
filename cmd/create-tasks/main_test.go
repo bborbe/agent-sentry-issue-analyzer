@@ -162,14 +162,16 @@ var _ = Describe("deriveStage", func() {
 
 var _ = Describe("application defaults", func() {
 	// The executor resolves an agent Config by the exact `assignee` string and
-	// silently skips unknown names (`skipped_unknown_assignee`). The default
-	// was reverted to the retired `sentry-issue-analyzer` once already
-	// (2026-08-29); this pins it so a struct-tag rewrite cannot regress it
-	// unnoticed again.
-	It("defaults assignee to the live sentry-analyzer-agent Config", func() {
+	// silently skips unknown names (`skipped_unknown_assignee`). The value is now
+	// sourced solely from the collector lane's env: block, so the tag must stay
+	// required with NO default: a default would be a second copy of the name, and
+	// an unset value would stamp an empty assignee the executor silently drops —
+	// task filed, nothing claims it, nothing errors.
+	It("requires assignee with no default, so an unset value fails loudly", func() {
 		field, ok := reflect.TypeOf(application{}).FieldByName("Assignee")
 		Expect(ok).To(BeTrue())
-		Expect(field.Tag.Get("default")).To(Equal("sentry-analyzer-agent"))
+		Expect(field.Tag.Get("required")).To(Equal("true"))
+		Expect(field.Tag.Get("default")).To(BeEmpty())
 	})
 
 	It("defaults stage to dev as the non-derivable fallback", func() {
