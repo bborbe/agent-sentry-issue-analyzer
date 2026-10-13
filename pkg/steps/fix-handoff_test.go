@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
@@ -54,7 +55,7 @@ var _ = Describe("FixHandoffStep", func() {
 			prompts.BuildDeepExecutionInstructions(),
 			nil,
 		)
-		guarded := steps.NewDisqualifierGuardStep(execution, evaluator)
+		guarded := steps.NewDisqualifierGuardStep(execution, evaluator, &metricsmocks.Metrics{})
 		return steps.NewFixHandoffStep(guarded, "sentry-fix-agent", "sentry-fix")
 	}
 

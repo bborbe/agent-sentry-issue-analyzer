@@ -12,6 +12,7 @@ import (
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
 
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
 
@@ -38,6 +39,10 @@ type reassignExecutionStep struct {
 	// disqualifiers computes the noise-to-real-bug disqualifiers from the
 	// verdict's live-state fields, overriding the model's verdict when any fire.
 	disqualifiers verdict.DisqualifierEvaluator
+	// verdictMetrics counts the finalized verdict so the unanalyzable rate is
+	// observable. Recorded after applyDisqualifiers, so the counted value is
+	// the one written to the task file's ## Verdict section.
+	verdictMetrics metrics.Metrics
 }
 
 // NewReassignExecutionStep wraps the triage execution step with the real-bug
@@ -47,12 +52,14 @@ func NewReassignExecutionStep(
 	deepAssignee string,
 	deepTaskType string,
 	disqualifiers verdict.DisqualifierEvaluator,
+	verdictMetrics metrics.Metrics,
 ) agentlib.Step {
 	return &reassignExecutionStep{
-		execution:     execution,
-		deepAssignee:  deepAssignee,
-		deepTaskType:  deepTaskType,
-		disqualifiers: disqualifiers,
+		execution:      execution,
+		deepAssignee:   deepAssignee,
+		deepTaskType:   deepTaskType,
+		disqualifiers:  disqualifiers,
+		verdictMetrics: verdictMetrics,
 	}
 }
 
@@ -99,6 +106,10 @@ func (s *reassignExecutionStep) Run(
 		if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
 			return nil, errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
 		}
+		// Count the finalized verdict — after applyDisqualifiers, so the value
+		// matches what the task file's ## Verdict section carries, override
+		// included. An absent verdict is not counted at all.
+		s.verdictMetrics.RecordVerdict(v.Verdict)
 	}
 
 	if v.Verdict != "real bug" {

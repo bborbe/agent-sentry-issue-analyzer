@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: `sentry-analyzer-agent` exports `agent_job_verdicts_total`, a `verdict`-labelled counter, so the unanalyzable-verdict rate is observable instead of invisible to Prometheus. The counter cannot ride the existing `agent_job_*` group: the pushgateway replaces a group's metric families on PUT, so a counter there is overwritten by the next run and never accumulates — and the `POST` route does not rescue it either, since POST preserves sibling families but still overwrites by family name. Each run therefore pushes to its own group (a process-derived `run` label, one value per process), making the runs coexist as distinct series readable as `sum by (verdict) (last_over_time(agent_job_verdicts_total[<window>]))`. The shared pusher is deliberately left unchanged: `AgentJobFailureLoop` counts distinct PUTs onto one `agent_job_last_run_timestamp_seconds` series, so a per-run label there would leave every series with a single sample, read 0 changes, and silence the alert. The counter is incremented by the triage reassign step and the deep disqualifier guard, in both cases *after* the disqualifier override, so the counted value is the one the task file's `## Verdict` section carries; a run that writes no verdict counts nothing. All seven verdict values are pre-initialized to 0, without which a never-seen verdict has no series and a ratio over the counter reads no-data rather than 0.
+
 ## v0.15.12
 
 - fix: bump `osv-scanner` to v2.6.0 and `golang.org/x/net` to v0.60.0 so the Linux vulnerability gates stop failing. v2.3.1 pins `golang.org/x/tools` v0.38.0, whose SSA builder aborts with `unexpected expr: *ast.KeyValueExpr` on the promoted-field composite-literal key Go 1.27 permits in the Linux stdlib, so a repo on the old pin passes locally on darwin and fails only in Linux CI. `x/net` v0.58.0 carries `GO-2026-6603/6610/6611/6612/6617`, which fail both `vulncheck` and `trivy`.

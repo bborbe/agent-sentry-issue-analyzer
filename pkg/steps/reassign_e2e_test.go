@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
@@ -38,6 +39,7 @@ var _ = Describe("ReassignExecutionStep via full agent", func() {
 				"sentry-deep-analyzer",
 				"sentry-deep-analyzer",
 				verdict.NewDisqualifierEvaluator(libtime.NewCurrentDateTime()),
+				&metricsmocks.Metrics{},
 			)
 			agent := agentlib.NewAgent(agentlib.NewPhase("execution", execution))
 

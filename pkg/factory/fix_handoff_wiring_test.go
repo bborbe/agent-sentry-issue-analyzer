@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 )
 
 var _ = Describe("CreateDeepAgentFromRunner fix handoff wiring", func() {
@@ -36,7 +37,12 @@ var _ = Describe("CreateDeepAgentFromRunner fix handoff wiring", func() {
 
 		deliverer = &agentmocks.AgentResultDeliverer{}
 
-		agent := factory.CreateDeepAgentFromRunner(runner, nil, libtime.NewCurrentDateTime())
+		agent := factory.CreateDeepAgentFromRunner(
+			runner,
+			nil,
+			libtime.NewCurrentDateTime(),
+			&metricsmocks.Metrics{},
+		)
 		_, err := agent.Run(
 			ctx,
 			domain.TaskPhaseExecution,
