@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 )
 
 // testAssignee stands in for the lane's ASSIGNEE env. It is passed explicitly to
@@ -47,6 +48,7 @@ var _ = Describe("CreateAgentFromRunner reassign wiring", func() {
 			nil,
 			testAssignee,
 			libtime.NewCurrentDateTime(),
+			&metricsmocks.Metrics{},
 		)
 		_, err := agent.Run(
 			ctx,

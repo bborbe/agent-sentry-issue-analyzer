@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/preflight"
 )
 
@@ -354,6 +356,7 @@ func (a *application) buildProvider(
 	claudeEnv map[string]string,
 	githubClient *github.Client,
 	repoAllowlist []string,
+	verdictMetrics metrics.Metrics,
 ) agentlib.AgentProvider {
 	return factory.CreateAgentProvider(
 		a.ClaudeConfigDir,
@@ -367,24 +370,71 @@ func (a *application) buildProvider(
 		githubClient,
 		repoAllowlist,
 		a.SentryAPIToken,
+		verdictMetrics,
 	)
 }
 
-func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
+// setupMetrics registers both metric sets and returns the pusher cleanup.
+// Extracted from Run for the same reason buildClaudeEnv / buildGithubClient
+// are: Run's funlen budget.
+//
+// Two registries and two pushers, deliberately:
+//
+//   - The agent_job_* series keep their existing grouping key
+//     (job=agent_job_<agent>, agent, task_type) and their PUT semantics. The
+//     agent-job-failure-loop alert depends on that: it counts distinct PUTs
+//     onto ONE agent_job_last_run_timestamp_seconds series, so adding a
+//     per-run label here would leave every series with a single sample, read 0
+//     changes, and silence the alert.
+//
+//   - The verdict counter gets its own registry and a per-run grouping key. It
+//     cannot ride the group above: the pushgateway replaces a group's metric
+//     families on PUT, so a counter in that group is overwritten by the next
+//     run and can never accumulate. One group per run makes the runs coexist
+//     as distinct series, readable as
+//     `sum by (verdict) (last_over_time(agent_job_verdicts_total[<window>]))`.
+//
+// runLabel is derived from the process — one value per run — never generated
+// per push: a per-push id would fragment the series count without adding
+// information.
+func (a *application) setupMetrics(
+	ctx context.Context,
+	runLabel string,
+) (libmetrics.JobMetrics, metrics.Metrics, func()) {
 	registry := prometheus.NewRegistry()
 	jobMetrics := libmetrics.NewJobMetrics(registry, libtime.NewCurrentDateTime())
 	pusher := push.New(a.PushgatewayURL, libmetrics.BuildJobMetricsName(agentName)).
 		Grouping("agent", agentName).
 		Grouping("task_type", a.TaskType).
 		Collector(registry)
-	defer func() {
+
+	verdictRegistry := prometheus.NewRegistry()
+	verdictMetrics := metrics.NewMetrics(verdictRegistry)
+	verdictPusher := push.New(a.PushgatewayURL, libmetrics.BuildJobMetricsName(agentName)).
+		Grouping("agent", agentName).
+		Grouping("task_type", a.TaskType).
+		Grouping("run", runLabel).
+		Collector(verdictRegistry)
+
+	return jobMetrics, verdictMetrics, func() {
 		if err := pusher.PushContext(ctx); err != nil {
 			glog.Warningf("prometheus push failed: %v", err)
-			return
+		} else {
+			glog.V(2).Infof("prometheus push completed")
 		}
-		glog.V(2).Infof("prometheus push completed")
-	}()
+		if err := verdictPusher.PushContext(ctx); err != nil {
+			glog.Warningf("prometheus verdict push failed: %v", err)
+		} else {
+			glog.V(2).Infof("prometheus verdict push completed")
+		}
+	}
+}
+
+func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	start := libtime.NewCurrentDateTime().Now().Time()
+	runLabel := strconv.FormatInt(start.Unix(), 10)
+	jobMetrics, verdictMetrics, pushMetrics := a.setupMetrics(ctx, runLabel)
+	defer pushMetrics()
 
 	glog.V(2).Infof("agent-sentry-issue-analyzer started phase=%s", a.Phase)
 
@@ -418,7 +468,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	}
 	repoAllowlist := parseRepoAllowlist(a.RepoAllowlist)
 
-	provider := a.buildProvider(claudeEnv, githubClient, repoAllowlist)
+	provider := a.buildProvider(claudeEnv, githubClient, repoAllowlist, verdictMetrics)
 	agent, err := provider.Get(ctx, agentlib.TaskType(a.TaskType))
 	if err != nil {
 		jobMetrics.RecordRun(agentlib.AgentStatusFailed)

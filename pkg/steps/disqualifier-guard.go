@@ -10,6 +10,7 @@ import (
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
 
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
 
@@ -28,6 +29,10 @@ type disqualifierGuardStep struct {
 	// disqualifiers computes the noise-to-real-bug disqualifiers from the
 	// verdict's live-state fields, overriding the model's verdict when any fire.
 	disqualifiers verdict.DisqualifierEvaluator
+	// verdictMetrics counts the finalized deep verdict. The triage path records
+	// through the reassign step instead — this guard wraps only the deep
+	// execution step, so a task is counted once per run, never twice.
+	verdictMetrics metrics.Metrics
 }
 
 // NewDisqualifierGuardStep wraps an execution step with the disqualifier
@@ -36,10 +41,12 @@ type disqualifierGuardStep struct {
 func NewDisqualifierGuardStep(
 	execution agentlib.Step,
 	disqualifiers verdict.DisqualifierEvaluator,
+	verdictMetrics metrics.Metrics,
 ) agentlib.Step {
 	return &disqualifierGuardStep{
-		execution:     execution,
-		disqualifiers: disqualifiers,
+		execution:      execution,
+		disqualifiers:  disqualifiers,
+		verdictMetrics: verdictMetrics,
 	}
 }
 
@@ -80,5 +87,8 @@ func (s *disqualifierGuardStep) Run(
 	if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply disqualifiers")
 	}
+	// Count the finalized deep verdict — after applyDisqualifiers, so the value
+	// matches what the task file's ## Verdict section carries.
+	s.verdictMetrics.RecordVerdict(v.Verdict)
 	return result, nil
 }

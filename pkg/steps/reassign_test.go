@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
@@ -53,6 +54,7 @@ var _ = Describe("ReassignExecutionStep", func() {
 			"sentry-deep-analyzer",
 			"sentry-deep-analyzer",
 			newEvaluator(),
+			&metricsmocks.Metrics{},
 		)
 	}
 

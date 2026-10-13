@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-github/v88/github"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/fixagent"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
@@ -155,12 +156,14 @@ func CreateAgent(
 	envContext map[string]string,
 	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
+	verdictMetrics metrics.Metrics,
 ) *agentlib.Agent {
 	return CreateAgentFromRunner(
 		CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv),
 		envContext,
 		assignee,
 		currentDateTime,
+		verdictMetrics,
 	)
 }
 
@@ -177,6 +180,7 @@ func CreateAgentFromRunner(
 	envContext map[string]string,
 	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
+	verdictMetrics metrics.Metrics,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
 	execution := steps.NewReassignExecutionStep(
@@ -184,6 +188,7 @@ func CreateAgentFromRunner(
 		assignee,
 		string(taskTypeSentryDeepAnalyzer),
 		verdict.NewDisqualifierEvaluator(currentDateTime),
+		verdictMetrics,
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
@@ -210,6 +215,7 @@ func CreateDeepAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
 	currentDateTime libtime.CurrentDateTimeGetter,
+	verdictMetrics metrics.Metrics,
 ) *agentlib.Agent {
 	planning := steps.NewDeepPlanningStep(
 		runner,
@@ -224,6 +230,7 @@ func CreateDeepAgentFromRunner(
 				envContext,
 			),
 			verdict.NewDisqualifierEvaluator(currentDateTime),
+			verdictMetrics,
 		),
 		assigneeSentryFixAgent,
 		string(taskTypeSentryFix),
@@ -298,10 +305,13 @@ func CreateAgentProvider(
 	githubClient *github.Client,
 	repoAllowlist []string,
 	sentryAPIToken string,
+	verdictMetrics metrics.Metrics,
 ) agentlib.AgentProvider {
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
-	domainAgent := CreateAgentFromRunner(runner, envContext, assignee, currentDateTime)
-	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime)
+	domainAgent := CreateAgentFromRunner(
+		runner, envContext, assignee, currentDateTime, verdictMetrics,
+	)
+	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime, verdictMetrics)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
 	fixAgent := CreateFixAgentFromRunner(
 		runner,

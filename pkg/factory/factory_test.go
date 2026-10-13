@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 )
 
 var _ = Describe("CreateAgentProvider", func() {
@@ -38,6 +39,7 @@ var _ = Describe("CreateAgentProvider", func() {
 			nil,
 			nil,
 			"test-token",
+			&metricsmocks.Metrics{},
 		)
 	})
 
@@ -205,6 +207,7 @@ var _ = Describe("CreateAgent", func() {
 			nil,
 			testAssignee,
 			libtime.NewCurrentDateTime(),
+			&metricsmocks.Metrics{},
 		)
 		Expect(agent).NotTo(BeNil())
 	})

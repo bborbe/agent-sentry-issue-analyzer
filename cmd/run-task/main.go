@@ -26,8 +26,10 @@ import (
 	"github.com/bborbe/service"
 	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/preflight"
 )
 
@@ -119,6 +121,9 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		return errors.Wrap(ctx, err, "repo-clone preflight")
 	}
 
+	// The local CLI mode has no pushgateway, so this registry is never
+	// scraped. The recorder is wired anyway to keep the agent graph identical
+	// to the Kafka path — a nil recorder would need a nil check in every step.
 	agent := factory.CreateAgent(
 		a.ClaudeConfigDir,
 		a.AgentDir,
@@ -128,6 +133,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		envparse.KeyValuePairs(a.EnvContextRaw),
 		a.Assignee,
 		libtime.NewCurrentDateTime(),
+		metrics.NewMetrics(prometheus.NewRegistry()),
 	)
 
 	result, err := agent.Run(ctx, a.Phase, string(taskContent), deliverer)

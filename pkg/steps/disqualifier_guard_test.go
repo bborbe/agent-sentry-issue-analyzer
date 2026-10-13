@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
@@ -53,7 +54,7 @@ var _ = Describe("DisqualifierGuardStep", func() {
 			prompts.BuildDeepExecutionInstructions(),
 			nil,
 		)
-		return steps.NewDisqualifierGuardStep(execution, newEvaluator())
+		return steps.NewDisqualifierGuardStep(execution, newEvaluator(), &metricsmocks.Metrics{})
 	}
 
 	buildTask := func(body string) *agentlib.Markdown {
