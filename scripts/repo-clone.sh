@@ -11,7 +11,12 @@
 # <repo> accepts https://github.com/<owner>/<name>(.git), git@github.com:<owner>/<name>.git,
 # or bare <owner>/<name>. The reference is validated to a strict charset and
 # normalized to an https URL before git sees it — no shell metacharacter
-# interpolation into a git command line.
+# interpolation into a git command line. The charset check alone is NOT enough:
+# `.` and `..` match it, so an owner/name segment that is exactly `.` or `..` is
+# rejected outright, and the resolved clone destination is checked to be strictly
+# inside REPO_CLONE_DIR (symlinks resolved) before any `rm -rf` or `chmod -R` acts
+# on it. Without both, `https://github.com/../..` resolves the delete target above
+# the clone dir and wipes the agent root.
 #
 # Emits (clone mode) a flat key=value block:
 #   clone_path, head_sha, default_branch
@@ -67,6 +72,22 @@ normalize_repo() {
     echo "invalid repo reference: ${ref}" >&2
     exit 2
   fi
+  # The charset admits `.` and `..`, which are path segments rather than names.
+  # Reject them per segment: `https://github.com/../..` otherwise resolves the
+  # clone destination above REPO_CLONE_DIR (see the containment guard in `clone`).
+  local repo_path="${out#https://github.com/}"
+  local seg rest="$repo_path"
+  while [ -n "$rest" ]; do
+    seg="${rest%%/*}"
+    if [ "$seg" = "." ] || [ "$seg" = ".." ]; then
+      echo "invalid repo reference: ${ref} ('.' and '..' are not valid owner or name segments)" >&2
+      exit 2
+    fi
+    case "$rest" in
+      */*) rest="${rest#*/}" ;;
+      *) rest="" ;;
+    esac
+  done
   printf '%s\n' "$out"
 }
 
@@ -87,9 +108,47 @@ case "$cmd" in
     url="$(normalize_repo "$2")"
     # owner/name derived from the normalized https URL.
     repo_path="${url#https://github.com/}"
+    # Belt-and-braces: normalize_repo already rejects `.`/`..` segments, but this
+    # guard is the containment boundary itself and must hold on its own — it also
+    # catches a symlinked component under REPO_CLONE_DIR that a name check cannot.
+    case "$repo_path" in
+      *"/../"*|*"/./"*|"../"*|"./"*|*"/.."|*"/."|".."|".")
+        echo "invalid repo reference: ${url} (path escapes the clone dir)" >&2
+        exit 2
+        ;;
+    esac
     dest="${REPO_CLONE_DIR}/${repo_path}"
+    # The clone dir itself may not exist yet on a fresh container; create it so the
+    # containment check below has a real path to resolve against. (The original
+    # script created only the destination's parent, which had the same effect.)
+    mkdir -p "$REPO_CLONE_DIR"
+    # Create the parent BEFORE resolving: realpath resolves symlinks only along a
+    # path that exists, so the parent must be real before the check means anything.
+    # mkdir -p follows a symlinked component too, but only ever *creates* dirs — it
+    # removes nothing, and the guard below still refuses before rm/chmod run.
+    dest_parent="$(dirname "$dest")"
+    mkdir -p "$dest_parent"
+    # Containment, resolved on the PARENT: `realpath` on the full destination is
+    # platform-dependent (BusyBox resolves a not-yet-created leaf; GNU/macOS
+    # realpath fails outright), and the leaf's parent is what the escape travels
+    # through. `..` is already rejected above, so a symlinked component is the only
+    # remaining way out and it shows up here.
+    real_clone_dir="$(realpath "$REPO_CLONE_DIR")"
+    real_dest_parent="$(realpath "$dest_parent")"
+    case "$real_dest_parent" in
+      "${real_clone_dir}"|"${real_clone_dir}/"*) : ;;
+      *)
+        echo "refusing to act on ${dest}: its parent resolves to ${real_dest_parent}, outside REPO_CLONE_DIR (${real_clone_dir})" >&2
+        exit 2
+        ;;
+    esac
+    # A symlink standing where the clone belongs would redirect both the rm and the
+    # clone out of the tree; a real clone destination is never a symlink.
+    if [ -L "$dest" ]; then
+      echo "refusing to act on ${dest}: it is a symlink (resolves to $(readlink "$dest"))" >&2
+      exit 2
+    fi
     rm -rf "$dest"
-    mkdir -p "$(dirname "$dest")"
 
     clone_args=(clone)
     if [ "${GIT_CLONE_DEPTH}" != "0" ]; then
