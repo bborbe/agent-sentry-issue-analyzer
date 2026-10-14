@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.1
 
 - fix: the deep-to-fix handoff now declares its reassignment. `sentry-deep-execution-fix-handoff` set `assignee`, `phase` and `task_type` together, but agent-task-controller's operator-owned-assignee guard discarded the assignee — it keeps the on-disk value over a differing incoming one, on the premise that an agent authors that key from its spawn-time snapshot — so the task reached the executor still addressed to `sentry-analyzer-agent` and failed its `task_type` filter, stranding every High/High verdict one step past the handoff. The step now also sets `assignee_reassigned_by` to its own name, the fresh declaration the guard honours. The key spelling is a frozen cross-repo contract: renaming it here reverts every handoff to a discard, with no error and no log line.
 
