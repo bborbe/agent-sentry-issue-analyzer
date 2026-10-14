@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.2
 
 - fix: `scripts/repo-clone.sh` refuses a repo reference whose owner or name segment is `.` or `..`, and verifies the resolved clone destination stays inside `REPO_CLONE_DIR` before any `rm -rf` or `chmod -R` acts on it. The reference charset `[A-Za-z0-9._-]` admits `.` and `..`, so `https://github.com/../..` passed validation and resolved the delete target one level above the clone dir — into the agent root, which holds `.claude/` and `scripts/` — while `https://github.com/x/..` resolved it to the clone dir itself. The clone URL is chosen by the model from Sentry alert content, so the path was steerable by alert-borne text. Containment resolves symlinks, so a symlinked component under the clone dir is caught too, and the guard runs before the first destructive step so a refusal leaves nothing written. Covered by `scripts/test-repo-clone-containment.sh`, now wired into `make test`.
 
