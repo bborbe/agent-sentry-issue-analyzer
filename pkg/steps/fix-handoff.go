@@ -13,6 +13,17 @@ import (
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/deepverdict"
 )
 
+// reassignDeclarationKey is the frontmatter key this step sets to declare that the
+// assignee change is a deliberate reassignment rather than an echo of the agent's
+// spawn-time snapshot. agent-task-controller's operator-owned-assignee guard
+// (pkg/result/result_writer.go) keeps the on-disk assignee over a differing incoming
+// one — because an agent normally authors that key from its spawn snapshot — and
+// honours a non-empty incoming assignee only when this key is *fresh* in the write.
+// The spelling is therefore a frozen cross-repo contract: renaming it here silently
+// reverts every handoff to a discard, with the task failing the executor's task_type
+// filter and nothing naming the cause.
+const reassignDeclarationKey = "assignee_reassigned_by"
+
 // fixHandoffStep wraps the deep execution step (which writes ## Verdict with
 // the deep schema) with the High/High fix handoff trigger. When the deep
 // verdict is `real bug` with BOTH understanding and fix_certainty at High, the
@@ -114,6 +125,11 @@ func (s *fixHandoffStep) Run(
 	md.Frontmatter["assignee"] = s.fixAssignee
 	md.Frontmatter["phase"] = "planning"
 	md.Frontmatter["task_type"] = s.fixTaskType
+	// Declare the reassignment, or the controller's operator-owned-assignee guard
+	// discards the assignee above and keeps the on-disk analyzer — the task then
+	// reaches the executor still addressed to the analyzer and fails its task_type
+	// filter. s.Name() records which step declared it.
+	md.Frontmatter[reassignDeclarationKey] = s.Name()
 	return &agentlib.Result{
 		Status:  agentlib.AgentStatusInProgress,
 		Message: "reassigned to " + s.fixAssignee + " for fix",

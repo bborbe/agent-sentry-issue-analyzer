@@ -69,6 +69,16 @@ var _ = Describe("CreateDeepAgentFromRunner fix handoff wiring", func() {
 		Expect(handedOff.Frontmatter["task_type"]).To(Equal("sentry-fix"))
 	})
 
+	It("declares the reassignment so the controller's assignee guard honours it", func() {
+		// Load-bearing, not decoration: without the declaration
+		// agent-task-controller's operator-owned-assignee guard keeps the on-disk
+		// analyzer and the task fails the executor's task_type filter. The key
+		// spelling is a frozen cross-repo contract — see reassignDeclarationKey.
+		Expect(handedOff.Frontmatter["assignee_reassigned_by"]).To(
+			Equal("sentry-deep-execution-fix-handoff"),
+		)
+	})
+
 	It("keeps assignee and task_type as distinct values", func() {
 		Expect(
 			handedOff.Frontmatter["assignee"],
