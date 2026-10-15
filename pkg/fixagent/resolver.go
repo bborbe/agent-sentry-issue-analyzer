@@ -58,7 +58,8 @@ func NewPromptRepoResolver(
 
 // Resolve implements RepoResolver. It renders the verdict's citation fields
 // as the task content, runs the resolution prompt, and parses the model's
-// fenced YAML block. An unmappable result (empty repo) is an error.
+// fenced YAML block, falling back to the streamed Partial text when the
+// final Result carries none. An unmappable result (empty repo) is an error.
 func (r *PromptRepoResolver) Resolve(
 	ctx context.Context,
 	v deepverdict.Verdict,
@@ -73,6 +74,14 @@ func (r *PromptRepoResolver) Resolve(
 		return Resolution{}, errors.Wrapf(ctx, err, "fix-agent: resolution claude run")
 	}
 	res, err := parseResolutionBlock(ctx, result.Result)
+	if err != nil && result.Partial != "" {
+		// The model can emit the block mid-run and then end on a follow-up
+		// turn (e.g. reacting to a background tool finishing), so the final
+		// Result carries no block while the streamed text does.
+		if partialRes, partialErr := parseResolutionBlock(ctx, result.Partial); partialErr == nil {
+			res, err = partialRes, nil
+		}
+	}
 	if err != nil {
 		return Resolution{}, errors.Wrapf(ctx, err, "fix-agent: parse resolution block")
 	}

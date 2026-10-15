@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the sentry-fix resolver falls back to the streamed `Partial` text when the final `Result` carries no fenced yaml block. The model can emit the resolution block mid-run and then end on a follow-up turn reacting to a background clone finishing, so `Result` held only "my final resolution above stands" and the run failed with `no fenced yaml block in resolution output`.
+
 ## v0.16.2
 
 - fix: `scripts/repo-clone.sh` refuses a repo reference whose owner or name segment is `.` or `..`, and verifies the resolved clone destination stays inside `REPO_CLONE_DIR` before any `rm -rf` or `chmod -R` acts on it. The reference charset `[A-Za-z0-9._-]` admits `.` and `..`, so `https://github.com/../..` passed validation and resolved the delete target one level above the clone dir — into the agent root, which holds `.claude/` and `scripts/` — while `https://github.com/x/..` resolved it to the clone dir itself. The clone URL is chosen by the model from Sentry alert content, so the path was steerable by alert-borne text. Containment resolves symlinks, so a symlinked component under the clone dir is caught too, and the guard runs before the first destructive step so a refusal leaves nothing written. Covered by `scripts/test-repo-clone-containment.sh`, now wired into `make test`.

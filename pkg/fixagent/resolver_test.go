@@ -113,6 +113,33 @@ var _ = Describe("PromptRepoResolver", func() {
 			Expect(err.Error()).To(ContainSubstring("parse resolution block"))
 		})
 
+		It("falls back to the streamed partial text when the final result has no block", func() {
+			runner.RunReturns(&claudelib.ClaudeResult{
+				Result:  "The background clone confirmed it. My final resolution above stands.",
+				Partial: "```yaml\nrepo: bborbe/trading\nrule: \"resolved from frame path mt5/connector/mt5linux.py\"\nfresh: true\nstale_reason: \"\"\n```\nThe background clone confirmed it. My final resolution above stands.",
+			}, nil)
+			res, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
+				FileLine:      "mt5/connector/mt5linux.py:42",
+				SentryIssueID: "OCTOPUS-PROD-1J",
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res.Repo).To(Equal("bborbe/trading"))
+			Expect(res.Fresh).To(BeTrue())
+		})
+
+		It("returns an error when neither result nor partial has a block", func() {
+			runner.RunReturns(
+				&claudelib.ClaudeResult{Result: "no block", Partial: "still no block"},
+				nil,
+			)
+			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
+				FileLine:      "mt5/connector/mt5linux.py:42",
+				SentryIssueID: "OCTOPUS-PROD-1J",
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no fenced yaml block"))
+		})
+
 		It("returns an error when the claude run fails", func() {
 			runner.RunReturns(nil, os.ErrPermission)
 			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
