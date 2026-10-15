@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.3
 
 - fix: the sentry-fix resolver falls back to the streamed `Partial` text when the final `Result` carries no fenced yaml block. The model can emit the resolution block mid-run and then end on a follow-up turn reacting to a background clone finishing, so `Result` held only "my final resolution above stands" and the run failed with `no fenced yaml block in resolution output`.
 
