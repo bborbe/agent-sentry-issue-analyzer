@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update Go to 1.27.2 and github.com/bborbe/agent to v0.101.0, github.com/bborbe/cqrs to v0.6.12, github.com/bborbe/errors to v1.6.3, github.com/bborbe/kafka to v1.27.1, github.com/bborbe/log to v1.7.4, github.com/bborbe/maintainer to v0.50.11, github.com/bborbe/sentry to v1.10.4, github.com/bborbe/service to v1.10.16, github.com/bborbe/time to v1.27.16, github.com/bborbe/vault-cli to v0.168.7, github.com/onsi/ginkgo/v2 to v2.33.1, github.com/onsi/gomega to v1.44.0, github.com/prometheus/client_golang to v1.25.0
+
 ## v0.16.2
 
 - fix: `scripts/repo-clone.sh` refuses a repo reference whose owner or name segment is `.` or `..`, and verifies the resolved clone destination stays inside `REPO_CLONE_DIR` before any `rm -rf` or `chmod -R` acts on it. The reference charset `[A-Za-z0-9._-]` admits `.` and `..`, so `https://github.com/../..` passed validation and resolved the delete target one level above the clone dir — into the agent root, which holds `.claude/` and `scripts/` — while `https://github.com/x/..` resolved it to the clone dir itself. The clone URL is chosen by the model from Sentry alert content, so the path was steerable by alert-borne text. Containment resolves symlinks, so a symlinked component under the clone dir is caught too, and the guard runs before the first destructive step so a refusal leaves nothing written. Covered by `scripts/test-repo-clone-containment.sh`, now wired into `make test`.
