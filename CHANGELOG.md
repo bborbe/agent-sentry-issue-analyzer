@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the repo resolver's ordered candidate list is now actually resolvable for a **frame-less** alert. v0.16.6 made that shape *reach* the list, but the list's success test — *"cloning each candidate until one contains the implicated frames"* — can never be satisfied when there are no frames at all, so the model correctly declined to walk it and the alert still ended `unanalyzable`. Measured 2026-10-16 on dev build `a2e0d24`, task `event-de2d57eece1c438dba9960664e66eaaf`: the analysis enumerated all four candidates verbatim and then wrote *"None were attempted because there is no first-party frame path to match"*. With no frames to match, the list is now resolved **positionally**: the first candidate for the alert's Sentry project is the owning repo, recorded as `candidate position 1 (<repo>)`, with no clone spent hunting for a frame match that cannot exist. The condition is recorded, and the alert ends `unanalyzable`, only when the project has no candidate row at all. Reconciled across all three `go:embed`-ed prompt blocks and `docs/repo-mapping.md`.
+
 ## v0.16.6
 
 - fix: a frame-less Sentry alert — one with no exception entry at all (stack trace unavailable) — now falls through to the repo resolver's ordered candidate list instead of being answered with *"clone nothing and do not escalate"*. The guard pre-empted the list at `planning.md:42` / `deep-planning.md:27` before the list at `:44` / `:29` was ever consulted, so the list's own target class was unreachable and every frame-less event from a mapped project returned a null verdict — measured 2026-10-16 on dev build `6717274` as `grep -c 'candidate position'` = 0. The condition is now recorded, and the alert ends `unanalyzable`, only when the alert's Sentry project has no candidate row or no candidate contains the implicated frames; the frame-carrying path is unchanged. `fix-planning.md` carried no such guard at all and gains one, so all three `go:embed`-ed prompt blocks agree; `docs/repo-mapping.md` is reconciled to match.
