@@ -30,7 +30,8 @@ From the stack trace identify the implicated repo + file (`file.go:line`). Clone
 
 1. `bborbe/trading` — private repo holding the Python MT5 connector under `mt5/connector/` (`runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py`) and the Go Capital.com broker services under `capitalcom/` (`marketdata/`, `gateway/`, `trade-executor/`, `position/`, `transaction/`, `account/`); cloned with the `GIT_CLONE_TOKEN` the runtime already mints
 2. `bborbe/kafka` — public Go repo holding the Sarama client and its consumer/producer configuration
-3. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
+3. `bborbe/agent-task-executor` — public Go repo holding the agent task executor, including the `configs.agent.benjamin-borbe.de` CRD setup in `pkg/k8s_connector.go` and its `k8s/` manifests
+4. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
 
 If the alert's Sentry project has no candidate list above, escalate naming the unmapped project. Never invent a repo name: clone only a repo that a frame path names or that this list names.
 

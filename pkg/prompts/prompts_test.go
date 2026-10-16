@@ -53,6 +53,7 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(content).To(ContainSubstring("bborbe/trading"))
 		Expect(content).To(ContainSubstring("mt5/connector"))
 		Expect(content).To(ContainSubstring("bborbe/kafka"))
+		Expect(content).To(ContainSubstring("bborbe/agent-task-executor"))
 		Expect(content).To(ContainSubstring("docs/repo-mapping.md"))
 		Expect(content).To(ContainSubstring("frame path"))
 		Expect(strings.Index(content, "frame path")).
@@ -363,6 +364,7 @@ var _ = Describe("BuildDeepPlanningInstructions", func() {
 			Expect(content).To(ContainSubstring("bborbe/trading"))
 			Expect(content).To(ContainSubstring("mt5/connector"))
 			Expect(content).To(ContainSubstring("bborbe/kafka"))
+			Expect(content).To(ContainSubstring("bborbe/agent-task-executor"))
 			Expect(content).To(ContainSubstring("docs/repo-mapping.md"))
 			Expect(content).To(ContainSubstring("frame path"))
 			Expect(strings.Index(content, "frame path")).
@@ -503,6 +505,7 @@ var _ = Describe("BuildFixPlanningInstructions", func() {
 		Expect(content).To(ContainSubstring("scripts/repo-clone.sh clone"))
 		Expect(content).To(ContainSubstring("bborbe/trading"))
 		Expect(content).To(ContainSubstring("bborbe/kafka"))
+		Expect(content).To(ContainSubstring("bborbe/agent-task-executor"))
 		Expect(content).To(ContainSubstring("bborbe/nuke"))
 		Expect(content).To(ContainSubstring("docs/repo-mapping.md"))
 		Expect(content).To(ContainSubstring("resolved from frame path"))
@@ -547,7 +550,7 @@ var _ = Describe("candidate-list invariant across the planning prompts", func() 
 		deepPlanning := candidateEntries(prompts.BuildDeepPlanningInstructions()[0].Content)
 		fixPlanning := candidateEntries(prompts.BuildFixPlanningInstructions()[0].Content)
 
-		Expect(planning).To(HaveLen(3))
+		Expect(planning).To(HaveLen(4))
 		Expect(deepPlanning).To(Equal(planning))
 		Expect(fixPlanning).To(Equal(planning))
 	})
