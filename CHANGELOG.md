@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.6
 
 - fix: a frame-less Sentry alert — one with no exception entry at all (stack trace unavailable) — now falls through to the repo resolver's ordered candidate list instead of being answered with *"clone nothing and do not escalate"*. The guard pre-empted the list at `planning.md:42` / `deep-planning.md:27` before the list at `:44` / `:29` was ever consulted, so the list's own target class was unreachable and every frame-less event from a mapped project returned a null verdict — measured 2026-10-16 on dev build `6717274` as `grep -c 'candidate position'` = 0. The condition is now recorded, and the alert ends `unanalyzable`, only when the alert's Sentry project has no candidate row or no candidate contains the implicated frames; the frame-carrying path is unchanged. `fix-planning.md` carried no such guard at all and gains one, so all three `go:embed`-ed prompt blocks agree; `docs/repo-mapping.md` is reconciled to match.
 
