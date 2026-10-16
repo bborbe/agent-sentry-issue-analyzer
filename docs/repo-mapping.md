@@ -16,7 +16,8 @@ There is deliberately no single canonical repo per Sentry project. A single proj
 |---|---|---|---|---|
 | `nuke-dev`, `nuke-prod` | 1 | `bborbe/trading` | Python MT5 connector under `mt5/connector/` — `runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py` — and the Go Capital.com broker services under `capitalcom/` (`marketdata/`, `gateway/`, `trade-executor/`, `position/`, `transaction/`, `account/`) | private (cloned with `GIT_CLONE_TOKEN`) |
 | `nuke-dev`, `nuke-prod` | 2 | `bborbe/kafka` | Go Sarama client, consumer/producer configuration | public |
-| `nuke-dev`, `nuke-prod` | 3 | `bborbe/nuke` | Helm charts, YAML, deployment config only — no application source. Last, and only for infrastructure-shaped frames | private |
+| `nuke-dev`, `nuke-prod` | 3 | `bborbe/agent-task-executor` | Go agent task executor — the `configs.agent.benjamin-borbe.de` CRD setup in `pkg/k8s_connector.go`, and its `k8s/` manifests | public |
+| `nuke-dev`, `nuke-prod` | 4 | `bborbe/nuke` | Helm charts, YAML, deployment config only — no application source. Last, and only for infrastructure-shaped frames | private |
 
 `bborbe/nuke` is retained rather than removed because some `nuke-*` alerts are genuine infrastructure problems for which it is the correct repo. Demoting it to last stops it shadowing the application repos, which was the actual defect.
 

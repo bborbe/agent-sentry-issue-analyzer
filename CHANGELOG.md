@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the repo resolver's ordered candidate list gains `bborbe/agent-task-executor`, so a frame path under that repo resolves instead of failing `resolution unmappable — matches no repo in candidate list`. The list is keyed by Sentry project slug, and this repo holds the `configs.agent.benjamin-borbe.de` CRD setup in `pkg/k8s_connector.go` that project `4505975198449664` (`nuke-dev`) escalates on — the fix lane's first task from that project died there on 2026-10-15. Added to all three prompt blocks and to `docs/repo-mapping.md`, ahead of `bborbe/nuke`, which stays last.
+
 ## v0.16.3
 
 - fix: the sentry-fix resolver falls back to the streamed `Partial` text when the final `Result` carries no fenced yaml block. The model can emit the resolution block mid-run and then end on a follow-up turn reacting to a background clone finishing, so `Result` held only "my final resolution above stands" and the run failed with `no fenced yaml block in resolution output`.

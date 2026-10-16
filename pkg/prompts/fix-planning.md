@@ -15,7 +15,8 @@ Resolve `file:line` → repository using EXACTLY the same resolution procedure t
 - **Fallback — ordered candidate list.** Only when the path maps to no repo, walk the per-Sentry-project candidate list in order. For `nuke-dev` / `nuke-prod`:
   1. `bborbe/trading` — private repo holding the Python MT5 connector under `mt5/connector/` (`runner.py`, `kafka.py`, `command.py`, `account_fetcher.py`, `mt5linux.py`) and the Go Capital.com broker services under `capitalcom/` (`marketdata/`, `gateway/`, `trade-executor/`, `position/`, `transaction/`, `account/`); cloned with the `GIT_CLONE_TOKEN` the runtime already mints
   2. `bborbe/kafka` — public Go repo holding the Sarama client and its consumer/producer configuration
-  3. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
+  3. `bborbe/agent-task-executor` — public Go repo holding the agent task executor, including the `configs.agent.benjamin-borbe.de` CRD setup in `pkg/k8s_connector.go` and its `k8s/` manifests
+  4. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
 - **Never invent a repo name.** Clone only a repo the path names or this list names. An unmappable path is reported unmappable, not guessed.
 
 ### Step 2: Confirm the citation at the current revision
