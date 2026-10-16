@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: a frame-less Sentry alert — one with no exception entry at all (stack trace unavailable) — now falls through to the repo resolver's ordered candidate list instead of being answered with *"clone nothing and do not escalate"*. The guard pre-empted the list at `planning.md:42` / `deep-planning.md:27` before the list at `:44` / `:29` was ever consulted, so the list's own target class was unreachable and every frame-less event from a mapped project returned a null verdict — measured 2026-10-16 on dev build `6717274` as `grep -c 'candidate position'` = 0. The condition is now recorded, and the alert ends `unanalyzable`, only when the alert's Sentry project has no candidate row or no candidate contains the implicated frames; the frame-carrying path is unchanged. `fix-planning.md` carried no such guard at all and gains one, so all three `go:embed`-ed prompt blocks agree; `docs/repo-mapping.md` is reconciled to match.
+
 ## v0.16.5
 
 - fix: the repo resolver's candidate list is now keyed by the **numeric** Sentry project id as well as the slug, so a frame-less event from a mapped project resolves instead of escalating `unmapped project` and self-closing as terminal `unanalyzable`. The alert payload carries `project: "4505975198449664"` / `"4505397462827008"`, never the slug `nuke-dev` / `nuke-prod` the list was written in, so the list could not match a key it was never keyed on — the mismatch dates from 2026-09-09 and covers the majority class (422 dev-id + 466 prod-id vault tasks). Both ids are named in the lead-in of all three prompt blocks and in the candidate table; the slug-only entry is the same defect one project further out.
