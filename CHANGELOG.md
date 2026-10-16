@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.7
 
 - fix: the repo resolver's ordered candidate list is now actually resolvable for a **frame-less** alert. v0.16.6 made that shape *reach* the list, but the list's success test — *"cloning each candidate until one contains the implicated frames"* — can never be satisfied when there are no frames at all, so the model correctly declined to walk it and the alert still ended `unanalyzable`. Measured 2026-10-16 on dev build `a2e0d24`, task `event-de2d57eece1c438dba9960664e66eaaf`: the analysis enumerated all four candidates verbatim and then wrote *"None were attempted because there is no first-party frame path to match"*. With no frames to match, the list is now resolved **positionally**: the first candidate for the alert's Sentry project is the owning repo, recorded as `candidate position 1 (<repo>)`, with no clone spent hunting for a frame match that cannot exist. The condition is recorded, and the alert ends `unanalyzable`, only when the project has no candidate row at all. Reconciled across all three `go:embed`-ed prompt blocks and `docs/repo-mapping.md`.
 
