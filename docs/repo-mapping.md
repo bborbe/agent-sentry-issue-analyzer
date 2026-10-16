@@ -6,7 +6,7 @@ Which source repo holds the code behind a Sentry alert. This document is the ope
 
 1. **Frame path first.** If any application stack frame carries a repo-relative path (`mt5/connector/mt5linux.py`, `pkg/kafka/consumer.go`), the repo is resolved from that frame path. This is the primary mechanism and nothing below overrides it.
 2. **Drop third-party frames.** Frames from a third-party library are absent from every `bborbe` repo by design. `rpyc` internals (`netref.py`, `protocol.py`, `channel.py`, `stream.py`, `classic.py`, `factory.py`) are the worked example — `mt5/connector/mt5linux.py` imports `rpyc`, so its frames show up in traces that are otherwise application code. They are excluded from resolution, never hunted for.
-3. **Candidate list as fallback.** Only when no application frame carries a repo path, the candidates below are cloned in order until one contains the implicated frames.
+3. **Candidate list as fallback.** Only when no application frame carries a repo path, the candidates below are cloned in order until one contains the implicated frames. **A frame-less alert is not a stop:** having no exception entry at all (stack trace unavailable) is not by itself a reason to give up — that shape falls through to this list too, rather than being answered with "clone nothing". The condition is recorded, and the alert ends `unanalyzable`, only when the alert's Sentry project has no candidate row or no candidate contains the implicated frames.
 
 There is deliberately no single canonical repo per Sentry project. A single project legitimately spans several repos, so a one-repo model cannot be correct for it.
 
