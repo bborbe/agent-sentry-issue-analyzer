@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update Go to 1.27.2 and github.com/bborbe/agent to v0.102.0, github.com/bborbe/cqrs to v0.6.12, github.com/bborbe/errors to v1.6.3, github.com/bborbe/kafka to v1.27.1, github.com/bborbe/log to v1.7.4, github.com/bborbe/maintainer to v0.50.11, github.com/bborbe/sentry to v1.10.4, github.com/bborbe/service to v1.10.16, github.com/bborbe/time to v1.27.16, github.com/bborbe/vault-cli to v0.169.4, github.com/onsi/ginkgo/v2 to v2.33.1, github.com/onsi/gomega to v1.44.0, github.com/prometheus/client_golang to v1.25.0
+
 ## v0.16.7
 
 - fix: the repo resolver's ordered candidate list is now actually resolvable for a **frame-less** alert. v0.16.6 made that shape *reach* the list, but the list's success test — *"cloning each candidate until one contains the implicated frames"* — can never be satisfied when there are no frames at all, so the model correctly declined to walk it and the alert still ended `unanalyzable`. Measured 2026-10-16 on dev build `a2e0d24`, task `event-de2d57eece1c438dba9960664e66eaaf`: the analysis enumerated all four candidates verbatim and then wrote *"None were attempted because there is no first-party frame path to match"*. With no frames to match, the list is now resolved **positionally**: the first candidate for the alert's Sentry project is the owning repo, recorded as `candidate position 1 (<repo>)`, with no clone spent hunting for a frame match that cannot exist. The condition is recorded, and the alert ends `unanalyzable`, only when the project has no candidate row at all. Reconciled across all three `go:embed`-ed prompt blocks and `docs/repo-mapping.md`.
