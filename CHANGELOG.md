@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.4
 
 - fix: the repo resolver's candidate list is now keyed by the **numeric** Sentry project id as well as the slug, so a frame-less event from a mapped project resolves instead of escalating `unmapped project` and self-closing as terminal `unanalyzable`. The alert payload carries `project: "4505975198449664"` / `"4505397462827008"`, never the slug `nuke-dev` / `nuke-prod` the list was written in, so the list could not match a key it was never keyed on — the mismatch dates from 2026-09-09 and covers the majority class (422 dev-id + 466 prod-id vault tasks). Both ids are named in the lead-in of all three prompt blocks and in the candidate table; the slug-only entry is the same defect one project further out.
 - fix: the repo resolver's ordered candidate list gains `bborbe/agent-task-executor`, so a frame path under that repo resolves instead of failing `resolution unmappable — matches no repo in candidate list`. The list is keyed by Sentry project slug, and this repo holds the `configs.agent.benjamin-borbe.de` CRD setup in `pkg/k8s_connector.go` that project `4505975198449664` (`nuke-dev`) escalates on — the fix lane's first task from that project died there on 2026-10-15. Added to all three prompt blocks and to `docs/repo-mapping.md`, ahead of `bborbe/nuke`, which stays last.
