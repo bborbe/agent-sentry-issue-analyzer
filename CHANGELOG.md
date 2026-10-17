@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.17.0
 
 - feat: add a Sentry identity resolver (`pkg/identity`) and `verdict.RewriteIdentityLine`. The resolver turns whatever identity spelling a verdict carries into the canonical short id Sentry itself returns, so a verdict's identity is decided by code rather than by the model; a derived-key alert (`event-…`, or a bare 32-char hex hash) denotes a Kafka-pipeline alert with no issue behind it and is returned unchanged with no request. `RewriteIdentityLine` replaces the identity *value* of an existing `## Verdict` block and nothing else — matching both the YAML and the fenced-JSON spelling, preserving `file:line` and every other field, and deliberately avoiding a full re-render, which would drop `file:line` from deep verdicts and break the fix handoff. **Not yet wired to a write path** — the two call sites land in the follow-up.
 
