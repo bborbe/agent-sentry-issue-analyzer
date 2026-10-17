@@ -23,7 +23,7 @@ Production only. The alert's repo may be a `seibert-group` or `bborbe` repo; you
 - `Project`, `Event` id, and the derived `short_id`
 - recurrence hints: a repeated `received_at` / event_id pattern across tasks implies an ongoing condition
 
-For derived-key tasks, NEVER emit a `## Failure` for a missing stack trace or an unmapped project — write the analysis noting the limitations (no trace, no repo to clone, enrichment pending), and let the execution phase assign the verdict per its rubric.
+For derived-key tasks, NEVER emit a `## Failure` for a missing stack trace or an unmapped project — write the analysis noting the limitations (no trace, enrichment pending), and let the execution phase assign the verdict per its rubric. **A missing trace is not a missing repo.** With no frames to match, resolve the project's ordered repo list **positionally** — Step 3 names the first repo for the alert's Sentry project as the owning repo — and record the unmapped condition only when the project has no entry in that list at all.
 
 ### Step 2: Fetch LIVE state for this alert
 
@@ -78,7 +78,7 @@ Your final response MUST contain your root-cause analysis as markdown — the fr
 - risk + effort estimate
 - Understanding certainty (High/Medium/Low) and Fix certainty (High/Medium/Low)
 
-For derived-key (no-ID) tasks: record the derived `short_id` as the identity, note that live-state enrichment is pending (once the event is accepted by the API and maps to a numeric ID, the enrichment path applies), and base the root-cause direction on the exception-derived title, outcome and project — no repo clone is attempted without a trace.
+For derived-key (no-ID) tasks: record the derived `short_id` as the identity, note that live-state enrichment is pending (once the event is accepted by the API and maps to a numeric ID, the enrichment path applies), and base the root-cause direction on the exception-derived title, outcome and project. A missing trace is not a missing repo — resolve the project's ordered repo list **positionally** as Step 3 requires and record `candidate position 1 (<repo>)`; the unmapped condition is recorded only when the project has no entry in that list at all.
 
 ## Rules
 
