@@ -12,6 +12,7 @@ import (
 	"github.com/bborbe/errors"
 	libtime "github.com/bborbe/time"
 
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/identity"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
@@ -43,6 +44,10 @@ type reassignExecutionStep struct {
 	// observable. Recorded after applyDisqualifiers, so the counted value is
 	// the one written to the task file's ## Verdict section.
 	verdictMetrics metrics.Metrics
+	// identityResolver maps the model-authored sentry_issue_id to the canonical
+	// short id Sentry returns for that issue, so the written identity does not
+	// depend on which source the model happened to read.
+	identityResolver identity.Resolver
 }
 
 // NewReassignExecutionStep wraps the triage execution step with the real-bug
@@ -53,13 +58,15 @@ func NewReassignExecutionStep(
 	deepTaskType string,
 	disqualifiers verdict.DisqualifierEvaluator,
 	verdictMetrics metrics.Metrics,
+	identityResolver identity.Resolver,
 ) agentlib.Step {
 	return &reassignExecutionStep{
-		execution:      execution,
-		deepAssignee:   deepAssignee,
-		deepTaskType:   deepTaskType,
-		disqualifiers:  disqualifiers,
-		verdictMetrics: verdictMetrics,
+		execution:        execution,
+		deepAssignee:     deepAssignee,
+		deepTaskType:     deepTaskType,
+		disqualifiers:    disqualifiers,
+		verdictMetrics:   verdictMetrics,
+		identityResolver: identityResolver,
 	}
 }
 
@@ -103,6 +110,23 @@ func (s *reassignExecutionStep) Run(
 	// Verified-absent resource stays a model judgment. Only run when a real
 	// verdict parsed — an absent verdict has no live-state fields to evaluate.
 	if v.Verdict != "" {
+		// Normalize the identity BEFORE the disqualifier override re-renders the
+		// section, so that re-render is fed the already-normalized verdict and
+		// cannot reintroduce the model's form. The line rewrite below covers the
+		// no-disqualifier case, where applyDisqualifiers returns early and the
+		// section is otherwise left exactly as the model wrote it. This runs for
+		// every verdict label, not only `real bug`: the identity flip is a
+		// form-based rule about the issue reference, not a verdict judgment. A
+		// resolution failure fails the run and writes nothing — the model's raw
+		// form is never substituted.
+		canonical, err := s.identityResolver.Resolve(ctx, v.SentryIssueID)
+		if err != nil {
+			return nil, errors.Wrapf(ctx, err, "reassign: resolve identity")
+		}
+		v.SentryIssueID = canonical
+		if section, ok := md.FindSection("## Verdict"); ok {
+			section.Body = verdict.RewriteIdentityLine(section.Body, canonical)
+		}
 		if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
 			return nil, errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
 		}

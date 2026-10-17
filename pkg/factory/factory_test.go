@@ -207,6 +207,7 @@ var _ = Describe("CreateAgent", func() {
 			nil,
 			testAssignee,
 			libtime.NewCurrentDateTime(),
+			"test-token",
 			&metricsmocks.Metrics{},
 		)
 		Expect(agent).NotTo(BeNil())

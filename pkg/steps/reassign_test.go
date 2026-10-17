@@ -55,6 +55,7 @@ var _ = Describe("ReassignExecutionStep", func() {
 			"sentry-deep-analyzer",
 			newEvaluator(),
 			&metricsmocks.Metrics{},
+			echoIdentityResolver(),
 		)
 	}
 

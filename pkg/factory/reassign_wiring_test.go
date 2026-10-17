@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/factory"
+	identitymocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/identity/mocks"
 	metricsmocks "github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics/mocks"
 )
 
@@ -43,12 +44,21 @@ var _ = Describe("CreateAgentFromRunner reassign wiring", func() {
 
 		deliverer = &agentmocks.AgentResultDeliverer{}
 
+		// The task in this spec already carries a canonical identity, so an
+		// echoing resolver keeps the assertions below about the reassigned
+		// frontmatter, not about the identity rewrite.
+		resolver := &identitymocks.Resolver{}
+		resolver.ResolveStub = func(_ context.Context, reference string) (string, error) {
+			return reference, nil
+		}
+
 		agent := factory.CreateAgentFromRunner(
 			runner,
 			nil,
 			testAssignee,
 			libtime.NewCurrentDateTime(),
 			&metricsmocks.Metrics{},
+			resolver,
 		)
 		_, err := agent.Run(
 			ctx,
