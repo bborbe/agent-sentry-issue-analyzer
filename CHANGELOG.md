@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update Go to 1.27.2 and github.com/bborbe/agent to v0.102.0, github.com/bborbe/cqrs to v0.6.12, github.com/bborbe/errors to v1.6.3, github.com/bborbe/kafka to v1.27.1, github.com/bborbe/log to v1.7.4, github.com/bborbe/maintainer to v0.50.11, github.com/bborbe/sentry to v1.10.4, github.com/bborbe/service to v1.10.16, github.com/bborbe/time to v1.27.16, github.com/bborbe/vault-cli to v0.170.0, github.com/onsi/ginkgo/v2 to v2.33.1, github.com/onsi/gomega to v1.44.0, github.com/prometheus/client_golang to v1.25.0
+
 ## v0.17.0
 
 - fix: a verdict's `sentry_issue_id` is now resolved in code to the short id Sentry returns for the issue, so the written identity no longer depends on which source the model happened to read. Both verdict-writing paths — the triage reassign step and the deep disqualifier guard — look the reference up through the shared `identity.Resolver` and rewrite the identity line in place, leaving every other line of the `## Verdict` section byte-identical so the deep verdict's `file:line`, `understanding` and `fix_certainty` survive for the High/High fix handoff. An in-place re-analysis therefore no longer flips the file between the short form and the numeric group id and thereby drops it out of the identity population the review lookups read. An alert with no Sentry issue behind it (a derived key — `event-` prefixed or a bare 32-character hex hash) keeps its key verbatim and issues no lookup. When the identity cannot be resolved the run fails loudly and nothing is written; the model's raw form is never substituted.
