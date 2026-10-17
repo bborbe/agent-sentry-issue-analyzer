@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: add a Sentry identity resolver (`pkg/identity`) and `verdict.RewriteIdentityLine`. The resolver turns whatever identity spelling a verdict carries into the canonical short id Sentry itself returns, so a verdict's identity is decided by code rather than by the model; a derived-key alert (`event-…`, or a bare 32-char hex hash) denotes a Kafka-pipeline alert with no issue behind it and is returned unchanged with no request. `RewriteIdentityLine` replaces the identity *value* of an existing `## Verdict` block and nothing else — matching both the YAML and the fenced-JSON spelling, preserving `file:line` and every other field, and deliberately avoiding a full re-render, which would drop `file:line` from deep verdicts and break the fix handoff. **Not yet wired to a write path** — the two call sites land in the follow-up.
+
 ## v0.16.8
 
 - fix: a **derived-key** Sentry alert now resolves the ordered candidate list positionally instead of being answered `unanalyzable`. v0.16.7 made a *frame-less* alert resolve positionally, but the derived-key branch — six blocks across `planning.md` (`:26`, `:81`), `deep-planning.md` (`:7`) and `execution.md` (`:22`, `:36`, `:38`) — still told the model there was *"no repo to clone"* / *"no repo clone is attempted without a trace"*, so that branch pre-empted the list exactly as the original guard had. Measured 2026-10-17 on dev build `8161cfc` (v0.16.7), task `event-de2d57eece1c438dba9960664e66eaaf`: the run returned `verdict: unanalyzable` with reason *"unmapped project 4505975198449664"* — a project whose numeric id the candidate list does carry — and `grep -c 'candidate position'` read 0. A missing trace is not a missing repo: with no frames to match, the project's ordered repo list is resolved positionally, and the unmapped condition is recorded only when the project has no entry in that list at all. `unanalyzable` is therefore now disallowed whenever the planning phase resolved a repo **at all** — from the frame path or positionally. `docs/repo-mapping.md` is reconciled to match.
