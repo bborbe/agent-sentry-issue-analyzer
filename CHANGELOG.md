@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update Go to 1.27.2 and github.com/bborbe/agent to v0.102.0, github.com/bborbe/cqrs to v0.6.12, github.com/bborbe/errors to v1.6.3, github.com/bborbe/kafka to v1.27.1, github.com/bborbe/log to v1.7.4, github.com/bborbe/maintainer to v0.50.11, github.com/bborbe/sentry to v1.10.4, github.com/bborbe/service to v1.10.16, github.com/bborbe/time to v1.27.16, github.com/bborbe/vault-cli to v0.169.4, github.com/onsi/ginkgo/v2 to v2.33.1, github.com/onsi/gomega to v1.44.0, github.com/prometheus/client_golang to v1.25.0
+
 ## v0.16.8
 
 - fix: a **derived-key** Sentry alert now resolves the ordered candidate list positionally instead of being answered `unanalyzable`. v0.16.7 made a *frame-less* alert resolve positionally, but the derived-key branch — six blocks across `planning.md` (`:26`, `:81`), `deep-planning.md` (`:7`) and `execution.md` (`:22`, `:36`, `:38`) — still told the model there was *"no repo to clone"* / *"no repo clone is attempted without a trace"*, so that branch pre-empted the list exactly as the original guard had. Measured 2026-10-17 on dev build `8161cfc` (v0.16.7), task `event-de2d57eece1c438dba9960664e66eaaf`: the run returned `verdict: unanalyzable` with reason *"unmapped project 4505975198449664"* — a project whose numeric id the candidate list does carry — and `grep -c 'candidate position'` read 0. A missing trace is not a missing repo: with no frames to match, the project's ordered repo list is resolved positionally, and the unmapped condition is recorded only when the project has no entry in that list at all. `unanalyzable` is therefore now disallowed whenever the planning phase resolved a repo **at all** — from the frame path or positionally. `docs/repo-mapping.md` is reconciled to match.
