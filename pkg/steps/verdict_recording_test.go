@@ -143,6 +143,7 @@ var _ = Describe("verdict recording", func() {
 				),
 				newEvaluator(),
 				recorder,
+				echoDeepIdentityResolver(),
 			)
 		}
 

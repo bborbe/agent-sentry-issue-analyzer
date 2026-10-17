@@ -54,7 +54,12 @@ var _ = Describe("DisqualifierGuardStep", func() {
 			prompts.BuildDeepExecutionInstructions(),
 			nil,
 		)
-		return steps.NewDisqualifierGuardStep(execution, newEvaluator(), &metricsmocks.Metrics{})
+		return steps.NewDisqualifierGuardStep(
+			execution,
+			newEvaluator(),
+			&metricsmocks.Metrics{},
+			echoDeepIdentityResolver(),
+		)
 	}
 
 	buildTask := func(body string) *agentlib.Markdown {
