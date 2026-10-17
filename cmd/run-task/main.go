@@ -133,6 +133,7 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		envparse.KeyValuePairs(a.EnvContextRaw),
 		a.Assignee,
 		libtime.NewCurrentDateTime(),
+		a.SentryAPIToken,
 		metrics.NewMetrics(prometheus.NewRegistry()),
 	)
 

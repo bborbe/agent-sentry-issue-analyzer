@@ -78,6 +78,7 @@ var _ = Describe("verdict recording", func() {
 				"sentry-deep-analyzer",
 				newEvaluator(),
 				recorder,
+				echoIdentityResolver(),
 			)
 		}
 
@@ -142,6 +143,7 @@ var _ = Describe("verdict recording", func() {
 				),
 				newEvaluator(),
 				recorder,
+				echoDeepIdentityResolver(),
 			)
 		}
 

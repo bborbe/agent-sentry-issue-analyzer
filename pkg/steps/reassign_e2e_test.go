@@ -40,6 +40,7 @@ var _ = Describe("ReassignExecutionStep via full agent", func() {
 				"sentry-deep-analyzer",
 				verdict.NewDisqualifierEvaluator(libtime.NewCurrentDateTime()),
 				&metricsmocks.Metrics{},
+				echoIdentityResolver(),
 			)
 			agent := agentlib.NewAgent(agentlib.NewPhase("execution", execution))
 

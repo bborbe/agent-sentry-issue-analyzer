@@ -55,7 +55,12 @@ var _ = Describe("FixHandoffStep", func() {
 			prompts.BuildDeepExecutionInstructions(),
 			nil,
 		)
-		guarded := steps.NewDisqualifierGuardStep(execution, evaluator, &metricsmocks.Metrics{})
+		guarded := steps.NewDisqualifierGuardStep(
+			execution,
+			evaluator,
+			&metricsmocks.Metrics{},
+			echoDeepIdentityResolver(),
+		)
 		return steps.NewFixHandoffStep(guarded, "sentry-fix-agent", "sentry-fix")
 	}
 

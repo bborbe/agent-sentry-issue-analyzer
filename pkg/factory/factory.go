@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-github/v88/github"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/fixagent"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/identity"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/metrics"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/prompts"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/steps"
@@ -156,6 +157,7 @@ func CreateAgent(
 	envContext map[string]string,
 	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
+	sentryAPIToken string,
 	verdictMetrics metrics.Metrics,
 ) *agentlib.Agent {
 	return CreateAgentFromRunner(
@@ -164,6 +166,7 @@ func CreateAgent(
 		assignee,
 		currentDateTime,
 		verdictMetrics,
+		identity.NewSentryIdentityResolver(http.DefaultClient, "", "", sentryAPIToken),
 	)
 }
 
@@ -181,6 +184,7 @@ func CreateAgentFromRunner(
 	assignee string,
 	currentDateTime libtime.CurrentDateTimeGetter,
 	verdictMetrics metrics.Metrics,
+	identityResolver identity.Resolver,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
 	execution := steps.NewReassignExecutionStep(
@@ -189,6 +193,7 @@ func CreateAgentFromRunner(
 		string(taskTypeSentryDeepAnalyzer),
 		verdict.NewDisqualifierEvaluator(currentDateTime),
 		verdictMetrics,
+		identityResolver,
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
@@ -216,6 +221,7 @@ func CreateDeepAgentFromRunner(
 	envContext map[string]string,
 	currentDateTime libtime.CurrentDateTimeGetter,
 	verdictMetrics metrics.Metrics,
+	identityResolver identity.Resolver,
 ) *agentlib.Agent {
 	planning := steps.NewDeepPlanningStep(
 		runner,
@@ -231,6 +237,7 @@ func CreateDeepAgentFromRunner(
 			),
 			verdict.NewDisqualifierEvaluator(currentDateTime),
 			verdictMetrics,
+			identityResolver,
 		),
 		assigneeSentryFixAgent,
 		string(taskTypeSentryFix),
@@ -310,8 +317,12 @@ func CreateAgentProvider(
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(
 		runner, envContext, assignee, currentDateTime, verdictMetrics,
+		identity.NewSentryIdentityResolver(http.DefaultClient, "", "", sentryAPIToken),
 	)
-	deepAgent := CreateDeepAgentFromRunner(runner, envContext, currentDateTime, verdictMetrics)
+	deepAgent := CreateDeepAgentFromRunner(
+		runner, envContext, currentDateTime, verdictMetrics,
+		identity.NewSentryIdentityResolver(http.DefaultClient, "", "", sentryAPIToken),
+	)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
 	fixAgent := CreateFixAgentFromRunner(
 		runner,
