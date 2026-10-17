@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	"github.com/golang/glog"
 )
 
 // DefaultSentryBaseURL is the API base for the org this agent reads. The
@@ -120,6 +121,10 @@ func (r *sentryIdentityResolver) Resolve(ctx context.Context, reference string) 
 			resp.StatusCode,
 		)
 	}
+	// The boundary call is part of the runtime audit trail: without a line here a
+	// failed or slow Sentry lookup is invisible without redeploying. The token is
+	// deliberately absent — reference is an issue id, never the credential.
+	glog.V(2).Infof("identity: fetched issue %s status=%d", reference, resp.StatusCode)
 	var issue sentryIssue
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
 		return "", errors.Wrapf(ctx, err, "identity: decode issue %s", reference)
