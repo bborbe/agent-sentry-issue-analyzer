@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.16.8
 
 - fix: a **derived-key** Sentry alert now resolves the ordered candidate list positionally instead of being answered `unanalyzable`. v0.16.7 made a *frame-less* alert resolve positionally, but the derived-key branch — six blocks across `planning.md` (`:26`, `:81`), `deep-planning.md` (`:7`) and `execution.md` (`:22`, `:36`, `:38`) — still told the model there was *"no repo to clone"* / *"no repo clone is attempted without a trace"*, so that branch pre-empted the list exactly as the original guard had. Measured 2026-10-17 on dev build `8161cfc` (v0.16.7), task `event-de2d57eece1c438dba9960664e66eaaf`: the run returned `verdict: unanalyzable` with reason *"unmapped project 4505975198449664"* — a project whose numeric id the candidate list does carry — and `grep -c 'candidate position'` read 0. A missing trace is not a missing repo: with no frames to match, the project's ordered repo list is resolved positionally, and the unmapped condition is recorded only when the project has no entry in that list at all. `unanalyzable` is therefore now disallowed whenever the planning phase resolved a repo **at all** — from the frame path or positionally. `docs/repo-mapping.md` is reconciled to match.
 
