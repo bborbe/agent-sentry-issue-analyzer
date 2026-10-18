@@ -25,9 +25,10 @@ High/High `real bug` deep verdict into a filed `kind: bug` spec: resolve the
 repo behind the verdict's `file:line` (prompt-backed), confirm the citation at
 the current revision, build the spec from the verdict's own words, and file it
 through the GitHub Contents API on a `sentry-fix/<issue-slug>` branch. Stale
-citations file nothing (recorded `status: stale` in `## Fix Result`),
-out-of-scope repos fail loudly, and emission is idempotent per Sentry issue
-id. `REPO_ALLOWLIST` (comma-separated owner/name, e.g. `bborbe/trading`)
+citations file nothing (recorded `status: stale` in `## Fix Result`), an
+unmappable resolution is recorded `status: skipped` instead of failing the
+Job, out-of-scope repos fail loudly, and emission is idempotent per Sentry
+issue id. `REPO_ALLOWLIST` (comma-separated owner/name, e.g. `bborbe/trading`)
 bounds which repos it may write into; empty means unbound (the App
 installation scope remains the hard wall).
 

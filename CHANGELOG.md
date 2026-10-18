@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## v0.17.4
 
+- fix: the fix agent now carries the analyzer's already-resolved repo (`implicated_repo`, `owner/name`) from the task's `## Analysis` section into its own resolution, and records a still-unmappable resolution as a `status: skipped` outcome instead of failing the Job. A repo-relative citation such as `pkg/deepverdict/deepverdict.go:109` matched no candidate row, so the resolver returned an empty repo and every retry failed identically; the carried-forward hint lets the resolver place it, and a genuinely unmappable path is now a deterministic skip (`fixagent.ErrUnmappable`).
+
 - chore: update github.com/bborbe/agent to v0.103.1, github.com/bborbe/kafka to v1.28.1
 
 ## v0.17.3

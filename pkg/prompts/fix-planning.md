@@ -4,6 +4,8 @@ You are the resolution phase of the Sentry fix agent. Given the deep verdict's `
 
 The deep verdict for ONE Sentry issue is below (from the task's `## Verdict` section). Use `file:line` (repo-relative path + line) as the citation to resolve and verify.
 
+- `implicated_repo` (optional): the repository the analyzer already resolved in the task's `## Analysis` section, as `owner/name`. It is the analyzer's own frame-path resolution carried forward, not a higher-priority rule. When present, start Step 1 from it, record the output `rule` as `resolved from frame path <path>` (`fixagent.VerifyResolutionMechanism` branches on that prefix, so a `candidate position` label would bypass the frame-path check), and confirm the verdict's `file:line` at HEAD in Step 2. Fall through to the frame-path and candidate procedures when the field is absent, or when the value does not name a resolvable repository (a bare repo-relative path prefix such as `pkg/deepverdict`). Do not gate the field's use on a `file:line` substring — the field names a repository, not a file path.
+
 ## Steps
 
 ### Step 1: Resolve the repository from the file:line

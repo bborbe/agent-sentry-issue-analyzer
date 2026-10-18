@@ -411,7 +411,95 @@ var _ = Describe("FixStep", func() {
 		Expect(section.Body).To(ContainSubstring("not found"))
 	})
 
-	It("fails loudly when the resolution is unmappable", func() {
+	It("carries the analyzer's implicated repo into the resolver", func() {
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/agent-sentry-issue-analyzer",
+			Rule:  "resolved from frame path pkg/deepverdict/deepverdict.go",
+			Fresh: true,
+		}, nil)
+		writer.WriteReturns(nil)
+
+		body := "## Analysis\n\n" +
+			"**Implicated repo + file:** `bborbe/agent-sentry-issue-analyzer/pkg/deepverdict/deepverdict.go:109`\n\n" +
+			realBugVerdict
+
+		result, err := buildStep().Run(ctx, buildTask(body))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(resolver.ResolveCallCount()).To(Equal(1))
+		_, _, implicatedRepo := resolver.ResolveArgsForCall(0)
+		Expect(implicatedRepo).To(Equal("bborbe/agent-sentry-issue-analyzer"))
+	})
+
+	It("passes a two-segment implicated repo through unchanged", func() {
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/trading",
+			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
+			Fresh: true,
+		}, nil)
+		writer.WriteReturns(nil)
+
+		body := "## Analysis\n\n" +
+			"**Implicated repo + file:** `bborbe/trading`\n\n" +
+			realBugVerdict
+
+		_, err := buildStep().Run(ctx, buildTask(body))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resolver.ResolveCallCount()).To(Equal(1))
+		_, _, implicatedRepo := resolver.ResolveArgsForCall(0)
+		Expect(implicatedRepo).To(Equal("bborbe/trading"))
+	})
+
+	DescribeTable("passes no hint when the analysis names no repo",
+		func(analysis string) {
+			resolver.ResolveReturns(fixagent.Resolution{
+				Repo:  "bborbe/trading",
+				Rule:  "resolved from frame path mt5/connector/mt5linux.py",
+				Fresh: true,
+			}, nil)
+			writer.WriteReturns(nil)
+
+			_, err := buildStep().Run(ctx, buildTask(analysis+realBugVerdict))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resolver.ResolveCallCount()).To(Equal(1))
+			_, _, implicatedRepo := resolver.ResolveArgsForCall(0)
+			Expect(implicatedRepo).To(Equal(""))
+		},
+		Entry("no ## Analysis section", ""),
+		Entry("no implicated repo line", "## Analysis\n\nno repo named here\n\n"),
+		Entry(
+			"no complete backtick pair",
+			"## Analysis\n\n**Implicated repo + file:** netref.py:12\n\n",
+		),
+		Entry(
+			"a bare repo-relative path",
+			"## Analysis\n\n**Implicated repo + file:** `netref.py:12`\n\n",
+		),
+	)
+
+	It("records a skip rather than failing when the resolution is unmappable", func() {
+		resolver.ResolveReturns(
+			fixagent.Resolution{},
+			errors.Wrapf(ctx, fixagent.ErrUnmappable, "unmappable"),
+		)
+
+		step := buildStep()
+		md := buildTask(realBugVerdict)
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).NotTo(BeNil())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("done"))
+		Expect(writer.WriteCallCount()).To(Equal(0))
+
+		section, ok := md.FindSection("## Fix Result")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("status: skipped"))
+		Expect(section.Body).To(ContainSubstring("unmappable"))
+	})
+
+	It("fails loudly when the resolver errors", func() {
 		resolver.ResolveReturns(
 			fixagent.Resolution{},
 			errors.New(ctx, "fix-agent: resolution unmappable: netref.py"),

@@ -7,9 +7,11 @@ package fixagent_test
 import (
 	"context"
 	"os"
+	"strings"
 
 	claudelib "github.com/bborbe/agent/claude"
 	claudemocks "github.com/bborbe/agent/mocks"
+	"github.com/bborbe/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -41,13 +43,13 @@ var _ = Describe("PromptRepoResolver", func() {
 		// the rule that produced it, so a resolver that resolves nothing cannot
 		// satisfy the table.
 		DescribeTable("resolves the verdict's file:line via the model's fenced YAML block",
-			func(fileLine, modelOutput string, expected fixagent.Resolution) {
+			func(fileLine, modelOutput, implicatedRepo string, expected fixagent.Resolution) {
 				runner.RunReturns(&claudelib.ClaudeResult{Result: modelOutput}, nil)
 
 				res, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
 					FileLine:      fileLine,
 					SentryIssueID: "OCTOPUS-PROD-1J",
-				})
+				}, implicatedRepo)
 
 				// The resolution is prompt-backed: the fix-planning instruction
 				// is rendered and the citation is carried into the task content.
@@ -68,6 +70,7 @@ var _ = Describe("PromptRepoResolver", func() {
 				"resolves the trading frame path",
 				"mt5/connector/mt5linux.py:42",
 				"```yaml\nrepo: bborbe/trading\nrule: \"resolved from frame path mt5/connector/mt5linux.py\"\nfresh: true\nstale_reason: \"\"\n```",
+				"",
 				fixagent.Resolution{
 					Repo:  "bborbe/trading",
 					Rule:  "resolved from frame path mt5/connector/mt5linux.py",
@@ -78,6 +81,7 @@ var _ = Describe("PromptRepoResolver", func() {
 				"resolves the kafka frame path",
 				"pkg/kafka/consumer.go:120",
 				"```yaml\nrepo: bborbe/kafka\nrule: \"resolved from frame path pkg/kafka/consumer.go\"\nfresh: true\nstale_reason: \"\"\n```",
+				"",
 				fixagent.Resolution{
 					Repo:  "bborbe/kafka",
 					Rule:  "resolved from frame path pkg/kafka/consumer.go",
@@ -88,6 +92,7 @@ var _ = Describe("PromptRepoResolver", func() {
 				"reports a stale citation with the stale path named",
 				"mt5/connector/mt5linux.py:42",
 				"```yaml\nrepo: bborbe/trading\nrule: \"resolved from frame path mt5/connector/mt5linux.py\"\nfresh: false\nstale_reason: \"mt5/connector/mt5linux.py no longer exists at HEAD of bborbe/trading\"\n```",
+				"",
 				fixagent.Resolution{
 					Repo:        "bborbe/trading",
 					Rule:        "resolved from frame path mt5/connector/mt5linux.py",
@@ -99,16 +104,73 @@ var _ = Describe("PromptRepoResolver", func() {
 				"reports an unmappable third-party frame",
 				"netref.py:12",
 				"```yaml\nrepo: \"\"\nrule: \"unmappable\"\nfresh: false\nstale_reason: \"\"\n```",
+				"",
 				fixagent.Resolution{},
 			),
+			Entry(
+				"resolves a repo-relative citation from the analyzer's implicated_repo",
+				"pkg/deepverdict/deepverdict.go:109",
+				"```yaml\nrepo: bborbe/agent-sentry-issue-analyzer\nrule: \"resolved from frame path pkg/deepverdict/deepverdict.go\"\nfresh: true\nstale_reason: \"\"\n```",
+				"bborbe/agent-sentry-issue-analyzer",
+				fixagent.Resolution{
+					Repo:  "bborbe/agent-sentry-issue-analyzer",
+					Rule:  "resolved from frame path pkg/deepverdict/deepverdict.go",
+					Fresh: true,
+				},
+			),
 		)
+
+		It("carries a non-empty implicated_repo into the rendered task content", func() {
+			runner.RunReturns(&claudelib.ClaudeResult{
+				Result: "```yaml\nrepo: bborbe/agent-sentry-issue-analyzer\nrule: \"resolved from frame path pkg/deepverdict/deepverdict.go\"\nfresh: true\nstale_reason: \"\"\n```",
+			}, nil)
+			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
+				FileLine:      "pkg/deepverdict/deepverdict.go:109",
+				SentryIssueID: "OCTOPUS-PROD-1J",
+			}, "bborbe/agent-sentry-issue-analyzer")
+			Expect(err).NotTo(HaveOccurred())
+			_, prompt := runner.RunArgsForCall(0)
+			Expect(
+				prompt,
+			).To(ContainSubstring("implicated_repo: bborbe/agent-sentry-issue-analyzer"))
+		})
+
+		It("omits implicated_repo from the task content when no hint is supplied", func() {
+			runner.RunReturns(&claudelib.ClaudeResult{
+				Result: "```yaml\nrepo: bborbe/trading\nrule: \"resolved from frame path mt5/connector/mt5linux.py\"\nfresh: true\nstale_reason: \"\"\n```",
+			}, nil)
+			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
+				FileLine:      "mt5/connector/mt5linux.py:42",
+				SentryIssueID: "OCTOPUS-PROD-1J",
+			}, "")
+			Expect(err).NotTo(HaveOccurred())
+			_, prompt := runner.RunArgsForCall(0)
+			// The instruction half names the literal key, so assert on the task
+			// half only.
+			taskStart := strings.LastIndex(prompt, "## Task")
+			Expect(taskStart).To(BeNumerically(">=", 0))
+			Expect(prompt[taskStart:]).NotTo(ContainSubstring("implicated_repo"))
+		})
+
+		It("wraps ErrUnmappable when the model resolves no repo", func() {
+			runner.RunReturns(&claudelib.ClaudeResult{
+				Result: "```yaml\nrepo: \"\"\nrule: \"unmappable\"\nfresh: false\nstale_reason: \"\"\n```",
+			}, nil)
+			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
+				FileLine:      "netref.py:12",
+				SentryIssueID: "OCTOPUS-PROD-1J",
+			}, "")
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, fixagent.ErrUnmappable)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("unmappable"))
+		})
 
 		It("returns an error when the model output has no fenced yaml block", func() {
 			runner.RunReturns(&claudelib.ClaudeResult{Result: "no yaml block here"}, nil)
 			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
 				FileLine:      "mt5/connector/mt5linux.py:42",
 				SentryIssueID: "OCTOPUS-PROD-1J",
-			})
+			}, "")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("parse resolution block"))
 		})
@@ -121,7 +183,7 @@ var _ = Describe("PromptRepoResolver", func() {
 			res, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
 				FileLine:      "mt5/connector/mt5linux.py:42",
 				SentryIssueID: "OCTOPUS-PROD-1J",
-			})
+			}, "")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.Repo).To(Equal("bborbe/trading"))
 			Expect(res.Fresh).To(BeTrue())
@@ -135,7 +197,7 @@ var _ = Describe("PromptRepoResolver", func() {
 			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
 				FileLine:      "mt5/connector/mt5linux.py:42",
 				SentryIssueID: "OCTOPUS-PROD-1J",
-			})
+			}, "")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no fenced yaml block"))
 		})
@@ -145,7 +207,7 @@ var _ = Describe("PromptRepoResolver", func() {
 			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
 				FileLine:      "mt5/connector/mt5linux.py:42",
 				SentryIssueID: "OCTOPUS-PROD-1J",
-			})
+			}, "")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("resolution claude run"))
 		})
@@ -158,7 +220,7 @@ var _ = Describe("PromptRepoResolver", func() {
 			_, err := buildResolver().Resolve(ctx, deepverdict.Verdict{
 				FileLine:      "mt5/connector/mt5linux.py:42",
 				SentryIssueID: "OCTOPUS-PROD-1J",
-			})
+			}, "")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("unclosed yaml fence"))
 		})
