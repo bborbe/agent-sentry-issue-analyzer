@@ -119,7 +119,7 @@ func (s *fixStep) Run(
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 
-	resolution, err := s.resolver.Resolve(ctx, v, implicatedRepoHint(md))
+	resolution, err := s.resolver.Resolve(ctx, v, implicatedRepoHint(ctx, md))
 	if err != nil {
 		// An unmappable resolution is deterministic for a given citation:
 		// retrying can only fail identically, so record it and finish rather
@@ -230,12 +230,17 @@ func (s *fixStep) verifyMechanism(
 // `owner/name/path` and `dir/dir/file`: the two are indistinguishable from
 // segments alone, and a wrong guess turns a working citation into a permanent
 // skip.
-func implicatedRepoHint(md *agentlib.Markdown) string {
+func implicatedRepoHint(ctx context.Context, md *agentlib.Markdown) string {
 	section, ok := md.FindSection("## Analysis")
 	if !ok {
 		return ""
 	}
-	for _, line := range strings.Split(section.Body, "\n") {
+	for line := range strings.SplitSeq(section.Body, "\n") {
+		select {
+		case <-ctx.Done():
+			return ""
+		default:
+		}
 		if !strings.Contains(strings.ToLower(line), "implicated repo") {
 			continue
 		}
