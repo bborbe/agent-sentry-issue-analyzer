@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.17.5
 
 - fix: the deep verdict parser now repairs an unquoted colon in a prose value instead of failing the whole block. `deepverdict.Parse` called `yaml.Unmarshal` directly, so a model-written `root_cause: … foo: bar …` was illegal YAML and took the block down — step `sentry-deep-execution-fix-handoff` failed with `parse verdict block: yaml: line 5: mapping values are not allowed in this context`, the Job burned a retry and fired a pod-failed alert, and with retries exhausted the deep verdict never reached the fix step. The repair `pkg/verdict` already applied is now `verdict.QuoteProseValues`, parameterised by the schema's prose and boundary field sets so both parsers share one implementation, and `deepverdict.Parse` retries once through it before reporting the block's original error. The boundary match is by longest known key rather than by character class, so `file:line` — the key the downstream fix spec cannot work without — is recognised whole instead of being truncated at its first colon and folded into the preceding `recommended_fix`.
 
