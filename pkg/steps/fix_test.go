@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
@@ -53,17 +54,28 @@ type fakeGitHub struct {
 func newFakeGitHub() (*fakeGitHub, http.Handler) {
 	f := &fakeGitHub{created: map[string]bool{}}
 	return f, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			if f.created[r.URL.Path] {
+		p := r.URL.Path
+		switch {
+		// The writer creates the per-issue branch before filing.
+		case r.Method == http.MethodPost && strings.HasSuffix(p, "/git/refs"):
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"ref":"refs/heads/sentry-fix/x","object":{"sha":"abc123"}}`))
+		case r.Method == http.MethodGet && strings.Contains(p, "/git/ref/heads/"):
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"ref":"refs/heads/master","object":{"sha":"abc123"}}`))
+		case r.Method == http.MethodGet && strings.Count(p, "/") == 3:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"default_branch":"master"}`))
+		case r.Method == http.MethodGet:
+			if f.created[p] {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("{}"))
 				return
 			}
 			w.WriteHeader(http.StatusNotFound)
-		case http.MethodPut:
+		case r.Method == http.MethodPut:
 			f.putCount++
-			f.created[r.URL.Path] = true
+			f.created[p] = true
 			w.WriteHeader(http.StatusCreated)
 			w.Write([]byte("{}"))
 		default:

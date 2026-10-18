@@ -63,6 +63,13 @@ func (w *GitHubSpecWriter) Write(ctx context.Context, spec Spec) error {
 		return errors.Errorf(ctx, "fix-agent: invalid repo %q: expected owner/name", spec.Repo)
 	}
 	branch := "sentry-fix/" + specSlug(spec.IssueID)
+	// CreateFile refuses a branch it cannot see, and nothing upstream creates
+	// this one: the branch name is derived here, so the writer owns it. Without
+	// this every filing fails `404 Branch sentry-fix/<id> not found` — measured
+	// on prod 2026-10-18, which meant no spec had ever been filed.
+	if err := w.ensureBranch(ctx, owner, name, branch); err != nil {
+		return errors.Wrapf(ctx, err, "fix-agent: create branch %s in %s", branch, spec.Repo)
+	}
 	_, _, _, err := w.client.Repositories.GetContents(
 		ctx,
 		owner,
@@ -91,6 +98,51 @@ func (w *GitHubSpecWriter) Write(ctx context.Context, spec Spec) error {
 		},
 	); err != nil {
 		return errors.Wrapf(ctx, err, "fix-agent: file spec in %s", spec.Repo)
+	}
+	return nil
+}
+
+// ensureBranch creates branch at the default branch's current head when it does
+// not exist yet. An existing branch is left untouched, and a 422 from a
+// concurrent create (the ref already exists) is treated as success: the caller
+// only needs the ref to exist, not to have been the one that created it.
+func (w *GitHubSpecWriter) ensureBranch(
+	ctx context.Context,
+	owner, name, branch string,
+) error {
+	_, _, err := w.client.Git.GetRef(ctx, owner, name, "heads/"+branch)
+	if err == nil {
+		return nil
+	}
+	var readErr *github.ErrorResponse
+	if !errors.As(err, &readErr) || readErr.Response == nil ||
+		readErr.Response.StatusCode != http.StatusNotFound {
+		return errors.Wrapf(ctx, err, "read branch %s", branch)
+	}
+	repo, _, err := w.client.Repositories.Get(ctx, owner, name)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "read repo %s/%s", owner, name)
+	}
+	head, _, err := w.client.Git.GetRef(
+		ctx,
+		owner,
+		name,
+		"heads/"+repo.GetDefaultBranch(),
+	)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "read default branch of %s/%s", owner, name)
+	}
+	_, _, err = w.client.Git.CreateRef(ctx, owner, name, github.CreateRef{
+		Ref: "refs/heads/" + branch,
+		SHA: head.GetObject().GetSHA(),
+	})
+	if err != nil {
+		var createErr *github.ErrorResponse
+		if errors.As(err, &createErr) && createErr.Response != nil &&
+			createErr.Response.StatusCode == http.StatusUnprocessableEntity {
+			return nil
+		}
+		return errors.Wrapf(ctx, err, "create branch %s", branch)
 	}
 	return nil
 }

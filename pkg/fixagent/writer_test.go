@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/google/go-github/v88/github"
 	. "github.com/onsi/ginkgo/v2"
@@ -44,18 +45,40 @@ func newClient(tb newClientT, handler http.Handler) *github.Client {
 // getStatus overrides the not-yet-filed GET status so the idempotency-check
 // failure path (a non-404, e.g. rate-limited) can be exercised.
 type fakeGitHubAPI struct {
-	created   map[string]bool
-	putCount  int
-	putStatus int
-	getStatus int
+	created       map[string]bool
+	putCount      int
+	putStatus     int
+	getStatus     int
+	branchCreates int
+	branchExists  bool
 }
 
 func newFakeGitHub(putStatus int) (*fakeGitHubAPI, http.Handler) {
 	f := &fakeGitHubAPI{created: map[string]bool{}, putStatus: putStatus}
 	return f, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			if f.created[r.URL.Path] {
+		p := r.URL.Path
+		switch {
+		// POST /repos/{owner}/{repo}/git/refs — branch creation.
+		case r.Method == http.MethodPost && strings.HasSuffix(p, "/git/refs"):
+			f.branchCreates++
+			f.branchExists = true
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"ref":"refs/heads/sentry-fix/x","object":{"sha":"abc123"}}`))
+		// GET /repos/{owner}/{repo}/git/ref/heads/{branch} — the default
+		// branch always exists; the per-issue branch only once created.
+		case r.Method == http.MethodGet && strings.Contains(p, "/git/ref/heads/"):
+			if strings.HasSuffix(p, "/heads/master") || f.branchExists {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"ref":"refs/heads/master","object":{"sha":"abc123"}}`))
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		// GET /repos/{owner}/{repo} — repository metadata (default branch).
+		case r.Method == http.MethodGet && strings.Count(p, "/") == 3:
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"default_branch":"master"}`))
+		case r.Method == http.MethodGet:
+			if f.created[p] {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("{}"))
 				return
@@ -65,9 +88,9 @@ func newFakeGitHub(putStatus int) (*fakeGitHubAPI, http.Handler) {
 				return
 			}
 			w.WriteHeader(http.StatusNotFound)
-		case http.MethodPut:
+		case r.Method == http.MethodPut:
 			f.putCount++
-			f.created[r.URL.Path] = true
+			f.created[p] = true
 			w.WriteHeader(f.putStatus)
 			w.Write([]byte("{}"))
 		default:
@@ -99,6 +122,28 @@ var _ = Describe("GitHubSpecWriter", func() {
 		Expect(writer.Write(ctx, newSpec())).To(Succeed())
 		Expect(f.putCount).To(Equal(1))
 		Expect(f.created).To(HaveKey("/repos/bborbe/trading/contents/specs/bug-octopus-prod-1j.md"))
+	})
+
+	// The branch a spec is filed on is derived in the writer and created by
+	// nothing else. Without this, every filing 404s `Branch sentry-fix/<id> not
+	// found` — measured on prod 2026-10-18.
+	It("creates the per-issue branch before filing", func() {
+		f, handler := newFakeGitHub(http.StatusCreated)
+		writer := fixagent.NewGitHubSpecWriter(newClient(GinkgoT(), handler), nil)
+
+		Expect(writer.Write(ctx, newSpec())).To(Succeed())
+		Expect(f.branchCreates).To(Equal(1))
+		Expect(f.putCount).To(Equal(1))
+	})
+
+	It("reuses an existing per-issue branch instead of recreating it", func() {
+		f, handler := newFakeGitHub(http.StatusCreated)
+		f.branchExists = true
+		writer := fixagent.NewGitHubSpecWriter(newClient(GinkgoT(), handler), nil)
+
+		Expect(writer.Write(ctx, newSpec())).To(Succeed())
+		Expect(f.branchCreates).To(Equal(0))
+		Expect(f.putCount).To(Equal(1))
 	})
 
 	// Security: the traversal fixture — a crafted path escaping the repo root
