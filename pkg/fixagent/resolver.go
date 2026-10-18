@@ -47,12 +47,20 @@ type RepoResolver interface {
 	// Resolve resolves the verdict's file:line to a repository. implicatedRepo
 	// is the repository the analyzer already resolved in the task's
 	// `## Analysis` section as `owner/name`, or "" when the body names none. It
-	// is the analyzer's own frame-path resolution carried forward, not a
-	// substitute for one: the resolver never parses the task body.
+	// is the analyzer's own resolution carried forward, not a substitute for
+	// one: the resolver never parses the task body.
+	//
+	// hasFirstPartyFrame is the trace evidence the `rule` label is grounded in.
+	// A `resolved from frame path` rule asserts the citation came from a
+	// first-party stack frame, and only the trace can establish that; the
+	// resolver is told the fact rather than inferring it from the citation's
+	// shape. It never changes which repository is resolved — only how the
+	// mechanism is labelled.
 	Resolve(
 		ctx context.Context,
 		v deepverdict.Verdict,
 		implicatedRepo string,
+		hasFirstPartyFrame bool,
 	) (Resolution, error)
 }
 
@@ -80,10 +88,12 @@ func (r *PromptRepoResolver) Resolve(
 	ctx context.Context,
 	v deepverdict.Verdict,
 	implicatedRepo string,
+	hasFirstPartyFrame bool,
 ) (Resolution, error) {
 	taskContent := fmt.Sprintf(
-		"sentry_issue_id: %s\nfile:line: %s\nroot_cause: %s\nrecommended_fix: %s\n",
-		v.SentryIssueID, v.FileLine, v.RootCause, v.RecommendedFix,
+		"sentry_issue_id: %s\nfile:line: %s\nroot_cause: %s\nrecommended_fix: %s\n"+
+			"has_first_party_frame: %t\n",
+		v.SentryIssueID, v.FileLine, v.RootCause, v.RecommendedFix, hasFirstPartyFrame,
 	)
 	// Only append the field when it carries a value: an empty
 	// `implicated_repo:` line would read to the model as "the repo is known to

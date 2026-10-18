@@ -188,6 +188,25 @@ var _ = Describe("FixStep", func() {
 		Expect(section.Body).To(ContainSubstring("mt5/connector/mt5linux.py:42"))
 	})
 
+	// Prevention, not just enforcement: the trace fact is handed to the resolver
+	// so a frame-less alert can never be labelled with a frame-path rule in the
+	// first place. The gate below stays as the backstop.
+	It("tells the resolver whether the trace carries a first-party frame", func() {
+		trace.HasFirstPartyFrameReturns(false, nil)
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/agent-task-executor",
+			Rule:  "candidate position 1 (bborbe/agent-task-executor)",
+			Fresh: true,
+		}, nil)
+		writer.WriteReturns(nil)
+
+		_, err := buildStep().Run(ctx, buildTask(realBugVerdict))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resolver.ResolveCallCount()).To(Equal(1))
+		_, _, _, hasFirstPartyFrame := resolver.ResolveArgsForCall(0)
+		Expect(hasFirstPartyFrame).To(BeFalse())
+	})
+
 	// The enforcement this task exists to add: a rule claiming a frame path on an
 	// issue whose trace carries no first-party frame is a false claim, and a spec
 	// built on it carries that falsehood into a human-read document.
@@ -427,7 +446,7 @@ var _ = Describe("FixStep", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
 		Expect(resolver.ResolveCallCount()).To(Equal(1))
-		_, _, implicatedRepo := resolver.ResolveArgsForCall(0)
+		_, _, implicatedRepo, _ := resolver.ResolveArgsForCall(0)
 		Expect(implicatedRepo).To(Equal("bborbe/agent-sentry-issue-analyzer"))
 	})
 
@@ -446,7 +465,7 @@ var _ = Describe("FixStep", func() {
 		_, err := buildStep().Run(ctx, buildTask(body))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resolver.ResolveCallCount()).To(Equal(1))
-		_, _, implicatedRepo := resolver.ResolveArgsForCall(0)
+		_, _, implicatedRepo, _ := resolver.ResolveArgsForCall(0)
 		Expect(implicatedRepo).To(Equal("bborbe/trading"))
 	})
 
@@ -462,7 +481,7 @@ var _ = Describe("FixStep", func() {
 			_, err := buildStep().Run(ctx, buildTask(analysis+realBugVerdict))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolver.ResolveCallCount()).To(Equal(1))
-			_, _, implicatedRepo := resolver.ResolveArgsForCall(0)
+			_, _, implicatedRepo, _ := resolver.ResolveArgsForCall(0)
 			Expect(implicatedRepo).To(Equal(""))
 		},
 		Entry("no ## Analysis section", ""),
