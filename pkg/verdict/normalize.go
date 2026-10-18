@@ -6,6 +6,7 @@ package verdict
 
 import (
 	"context"
+	"slices"
 	"strings"
 )
 
@@ -39,19 +40,33 @@ var verdictFields = []string{
 	"recommended_fix",
 }
 
-// quoteProseValues rewrites each prose field's value as a double-quoted scalar,
+// QuoteProseValues rewrites each prose field's value as a double-quoted scalar,
 // folding the continuation lines that follow it. It is the tolerant half of
-// Parse: a verdict block whose prose carries an unquoted `: ` is illegal YAML —
-// the parser reads the text after the colon as a nested mapping key and rejects
-// the entire block, discarding an otherwise valid verdict (11 prod Jobs on
-// 2026-09-13 died this way on `tls: failed to send closeNotify`).
+// parsing: a verdict block whose prose carries an unquoted `: ` is illegal
+// YAML — the parser reads the text after the colon as a nested mapping key and
+// rejects the entire block, discarding an otherwise valid verdict (11 prod Jobs
+// on 2026-09-13 died this way on `tls: failed to send closeNotify`).
+//
+// prose is the set of keys whose value is unbounded model prose; boundary is
+// every top-level key the schema defines, used to decide where a value ends.
+// Both are parameters because this repo parses two schemas — the triage verdict
+// in this package and the deep verdict in pkg/deepverdict — and one shared
+// implementation is what keeps the repair from drifting out of one of them.
 //
 // Quoting the whole value rather than escaping the one offending colon is what
 // makes the repair general: the value becomes a quoted scalar, so any prose at
 // all parses — further colons, quotes, brackets, leading dashes. It is applied
 // only after the block has already failed to parse, so a well-formed block is
 // never rewritten.
-func quoteProseValues(ctx context.Context, block string) (string, error) {
+func QuoteProseValues(
+	ctx context.Context,
+	block string,
+	prose []string,
+	boundary []string,
+) (string, error) {
+	keys := make([]string, 0, len(prose)+len(boundary))
+	keys = append(keys, prose...)
+	keys = append(keys, boundary...)
 	lines := strings.Split(block, "\n")
 	out := make([]string, 0, len(lines))
 	for i := 0; i < len(lines); i++ {
@@ -60,15 +75,15 @@ func quoteProseValues(ctx context.Context, block string) (string, error) {
 			return "", ctx.Err()
 		default:
 		}
-		key, value, ok := splitTopLevelKey(lines[i])
-		if !ok || !contains(proseFields, key) {
+		key, value, ok := splitKey(lines[i], keys)
+		if !ok || !slices.Contains(prose, key) {
 			out = append(out, lines[i])
 			continue
 		}
 		parts := []string{value}
 		for i+1 < len(lines) {
-			if next, _, isKey := splitTopLevelKey(lines[i+1]); isKey &&
-				contains(verdictFields, next) {
+			if next, _, isKey := splitKey(lines[i+1], keys); isKey &&
+				slices.Contains(boundary, next) {
 				break
 			}
 			if strings.TrimSpace(lines[i+1]) == "" {
@@ -82,34 +97,33 @@ func quoteProseValues(ctx context.Context, block string) (string, error) {
 	return strings.Join(out, "\n"), nil
 }
 
-// splitTopLevelKey splits a `key: value` line that starts a top-level mapping
-// entry. Indented lines never match, so a continuation line and a list item
-// under some other key are both left alone. The key charset is [A-Za-z0-9_]:
-// anything else (a JSON block's `{"sentry_issue_id":`) is not a schema key and
-// must not be treated as one.
-func splitTopLevelKey(line string) (key, value string, ok bool) {
+// quoteProseValues repairs a block carrying the triage verdict schema.
+func quoteProseValues(ctx context.Context, block string) (string, error) {
+	return QuoteProseValues(ctx, block, proseFields, verdictFields)
+}
+
+// splitKey splits a `key: value` line whose key is one of keys. Matching is by
+// longest known key rather than by character class, so a schema key that
+// contains a colon — `file:line` in the deep schema — is recognised whole
+// instead of being truncated at its first colon, which would leave it outside
+// both field sets and let a preceding prose value swallow it. Indented lines
+// never match, so a continuation line and a list item under some other key are
+// both left alone, and a line that starts no known key (a JSON block's
+// `{"sentry_issue_id":`) is not a schema entry and is left untouched.
+func splitKey(line string, keys []string) (key, value string, ok bool) {
 	if line == "" || line[0] == ' ' || line[0] == '\t' {
 		return "", "", false
 	}
-	idx := strings.Index(line, ":")
-	if idx <= 0 {
-		return "", "", false
-	}
-	key = line[:idx]
-	for _, r := range key {
-		if !isKeyRune(r) {
-			return "", "", false
+	best := ""
+	for _, k := range keys {
+		if len(k) > len(best) && strings.HasPrefix(line, k+":") {
+			best = k
 		}
 	}
-	return key, strings.TrimSpace(line[idx+1:]), true
-}
-
-// isKeyRune reports whether r can appear in a verdict schema key.
-func isKeyRune(r rune) bool {
-	return r == '_' ||
-		(r >= 'a' && r <= 'z') ||
-		(r >= 'A' && r <= 'Z') ||
-		(r >= '0' && r <= '9')
+	if best == "" {
+		return "", "", false
+	}
+	return best, strings.TrimSpace(line[len(best)+1:]), true
 }
 
 // quoteScalar renders value as a double-quoted YAML scalar. An already quoted
@@ -127,14 +141,4 @@ func quoteScalar(value string) string {
 	value = strings.ReplaceAll(value, `\`, `\\`)
 	value = strings.ReplaceAll(value, `"`, `\"`)
 	return `"` + value + `"`
-}
-
-// contains reports whether values holds want.
-func contains(values []string, want string) bool {
-	for _, v := range values {
-		if v == want {
-			return true
-		}
-	}
-	return false
 }
