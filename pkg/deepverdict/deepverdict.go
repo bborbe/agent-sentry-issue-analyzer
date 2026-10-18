@@ -19,6 +19,8 @@ import (
 
 	"github.com/bborbe/errors"
 	"gopkg.in/yaml.v3"
+
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdict"
 )
 
 // EventCount is a live-event count that may be explicitly not-evaluable.
@@ -80,6 +82,52 @@ var validCertainty = map[string]bool{
 	"Low":    true,
 }
 
+// deepProseFields are the deep schema keys whose value is unbounded model
+// prose. understanding and fix_certainty hold the U/F rubric tokens, so they
+// cannot carry arbitrary text; the remaining keys are enumerated, numeric or
+// timestamp values copied from live state.
+var deepProseFields = []string{"root_cause", "recommended_fix"}
+
+// deepVerdictFields is every top-level key the deep schema defines, in the
+// order the execution prompt emits them. A prose value ends at the next line
+// that starts one of these. The full set is required, not just deepProseFields:
+// a wrapped prose line that happens to begin `file: pkg/x.go` must be folded
+// into the value, while a real field boundary must end it. file:line is here
+// for the same reason and for one more — the fix spec downstream cannot work
+// without it, so it must never be swallowed into the value above it.
+// first_seen, last_seen and sentry_status are emitted by the prompt but not
+// decoded into the struct; they are boundary keys all the same.
+var deepVerdictFields = []string{
+	"sentry_issue_id",
+	"verdict",
+	"understanding",
+	"fix_certainty",
+	"root_cause",
+	"recommended_fix",
+	"file:line",
+	"disqualifiers_fired",
+	"live_event_count",
+	"first_seen",
+	"last_seen",
+	"sentry_status",
+}
+
+// parseRepaired retries block with its prose values quoted. It returns the
+// retry's own error, and an unchanged block is not retried at all: a repair
+// that rewrote nothing cannot turn a failure into a success, and retrying it
+// would only hide which error the block actually produced.
+func parseRepaired(ctx context.Context, block string) (Verdict, error) {
+	var v Verdict
+	repaired, err := verdict.QuoteProseValues(ctx, block, deepProseFields, deepVerdictFields)
+	if err != nil {
+		return v, err
+	}
+	if repaired == block {
+		return v, errors.New(ctx, "prose repair made no change")
+	}
+	return v, yaml.Unmarshal([]byte(repaired), &v)
+}
+
 // Parse extracts the verdict YAML block from the ## Verdict section of the
 // given markdown content. Returns the parsed verdict, or zero Verdict + nil
 // when no verdict block is present.
@@ -106,8 +154,12 @@ func Parse(ctx context.Context, content string) (Verdict, error) {
 		}
 		var parsed Verdict
 		if err := yaml.Unmarshal([]byte(block), &parsed); err != nil {
-			errs = append(errs, errors.Wrapf(ctx, err, "parse verdict block").Error())
-			continue
+			repaired, retryErr := parseRepaired(ctx, block)
+			if retryErr != nil {
+				errs = append(errs, errors.Wrapf(ctx, err, "parse verdict block").Error())
+				continue
+			}
+			parsed = repaired
 		}
 		if parsed.Verdict == "" {
 			continue

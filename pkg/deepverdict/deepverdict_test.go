@@ -77,6 +77,39 @@ live_event_count: 142
 		_, err := deepverdict.Parse(ctx, content)
 		Expect(err).To(HaveOccurred())
 	})
+
+	It("repairs an unquoted colon in a prose value", func() {
+		content := "## Verdict\n\n" + "```yaml\n" + `sentry_issue_id: OCTOPUS-PROD-2
+verdict: real bug
+understanding: High
+fix_certainty: High
+root_cause: handler returns foo: bar when the guard is missing
+recommended_fix: add the missing guard
+file:line: pkg/handler/handler.go:142
+disqualifiers_fired: []
+live_event_count: 3
+` + "```\n"
+		v, err := deepverdict.Parse(ctx, content)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.RootCause).To(Equal("handler returns foo: bar when the guard is missing"))
+	})
+
+	It("keeps file:line out of the prose value above it", func() {
+		content := "## Verdict\n\n" + "```yaml\n" + `sentry_issue_id: OCTOPUS-PROD-3
+verdict: real bug
+understanding: High
+fix_certainty: High
+root_cause: the guard is missing: the handler dereferences a nil pointer
+recommended_fix: add the guard
+file:line: pkg/handler/handler.go:142
+disqualifiers_fired: []
+live_event_count: 3
+` + "```\n"
+		v, err := deepverdict.Parse(ctx, content)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.FileLine).To(Equal("pkg/handler/handler.go:142"))
+		Expect(v.RecommendedFix).NotTo(ContainSubstring("handler.go"))
+	})
 })
 
 var _ = Describe("Validate", func() {
