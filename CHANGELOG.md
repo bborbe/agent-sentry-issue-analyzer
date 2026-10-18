@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.17.2
 
 - fix: a `404` from the Sentry trace lookup no longer fails the sentry-fix Job. Measured 2026-10-18 on nukeprod `prod`, ten `sentry-fix-agent-*` Jobs over two task ids (`5dab9980`, `cce2a68b`): every pod exited `Error/1` after the model had already produced its resolution, with `fix-agent: read trace: sentry trace: fetch issue <id>: unexpected status 404` as the last line, the Job hit `BackoffLimitExceeded`, and the executor reported the generic `pod_crash_no_stdout`. The id in those verdicts is a **derived key** (a bare 32-char hex hash) that Sentry never serves as an issue id, so the lookup could only ever 404 — a deterministic outcome that retrying cannot change. Two changes. The reader now returns the sentinel `fixagent.ErrIssueNotFound` for a 404, and the fix step records it as a `status: skipped` no-op in `## Fix Result` instead of returning an error; a transport failure or any other non-200 still fails loudly so a genuinely transient read is retried. And the trace lookup now prefers the task frontmatter's `short_id` when the verdict's identity is a derived key — the derived key names no Sentry issue, while `short_id` carries the real id once the collector or analyzer resolved it (`b334dfcd…` → `7196177490`, short id `NUKE-PROD-9B`), so a fixable alert is no longer skipped for want of a lookable id.
 
