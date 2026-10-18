@@ -190,7 +190,10 @@ func applyAnalyzabilityGuard(
 		return errors.Wrapf(ctx, err, "analyzability guard: render verdict")
 	}
 	if section, ok := md.FindSection("## Verdict"); ok {
-		section.Body = rendered
+		// Restore anything the triage schema does not model — the deep verdict's
+		// `file:line` above all — or the re-render silently drops the pointer the
+		// High/High fix handoff resolves.
+		section.Body = verdict.RestoreUnmodeledLines(section.Body, rendered)
 	}
 	return nil
 }

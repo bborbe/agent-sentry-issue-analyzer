@@ -102,4 +102,25 @@ var _ = Describe("Analyzability", func() {
 			Expect(v.Confidence).To(BeEmpty())
 		})
 	})
+
+	Describe("RestoreUnmodeledLines", func() {
+		It("carries a deep verdict's file:line through a re-render", func() {
+			original := "```yaml\nsentry_issue_id: NUKE-PROD-AJ\nverdict: unanalyzable\nfile:line: pkg/kafka/kafka_consumer-offset.go:496\nroot_cause: closed channel\n```"
+			rendered := "```yaml\nsentry_issue_id: NUKE-PROD-AJ\nverdict: real bug\nroot_cause: closed channel\n```"
+
+			got := verdict.RestoreUnmodeledLines(original, rendered)
+
+			Expect(got).To(ContainSubstring("file:line: pkg/kafka/kafka_consumer-offset.go:496"))
+			// The re-rendered value wins; the original entry is not duplicated.
+			Expect(got).To(ContainSubstring("verdict: real bug"))
+			Expect(got).NotTo(ContainSubstring("verdict: unanalyzable"))
+			// Restored inside the fence, not after it.
+			Expect(got).To(MatchRegexp(`file:line:.*\n` + "```"))
+		})
+
+		It("returns the rendered block unchanged when nothing is unmodeled", func() {
+			rendered := "```yaml\nsentry_issue_id: X\nverdict: real bug\n```"
+			Expect(verdict.RestoreUnmodeledLines(rendered, rendered)).To(Equal(rendered))
+		})
+	})
 })

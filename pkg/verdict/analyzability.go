@@ -130,3 +130,88 @@ func hasPhraseBoundary(rest string) bool {
 	// The em dash is multi-byte, so it cannot be a byte case above.
 	return strings.HasPrefix(rest, "—")
 }
+
+// RestoreUnmodeledLines appends to rendered every top-level `key:` entry that
+// original carries and rendered does not, preserving the entry's own value
+// lines. It returns rendered unchanged when original carries nothing extra.
+//
+// A re-render marshals the triage schema, which has no `file:line` field — the
+// deep verdict's one machine-actionable pointer, and what the High/High fix
+// handoff resolves. Rendering a deep block therefore silently drops it. This
+// restores every unmodeled entry instead, so the guard can rewrite a verdict on
+// either write path without destroying a field it does not understand.
+func RestoreUnmodeledLines(original, rendered string) string {
+	extra := unmodeledEntries(original, rendered)
+	if len(extra) == 0 {
+		return rendered
+	}
+	lines := strings.Split(rendered, "\n")
+	// Insert before the closing fence so the entries stay inside the block the
+	// parser reads; append at the end when there is no fence.
+	insertAt := len(lines)
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.HasPrefix(strings.TrimSpace(lines[i]), "```") {
+			insertAt = i
+			break
+		}
+	}
+	out := make([]string, 0, len(lines)+len(extra))
+	out = append(out, lines[:insertAt]...)
+	out = append(out, extra...)
+	out = append(out, lines[insertAt:]...)
+	return strings.Join(out, "\n")
+}
+
+// unmodeledEntries returns the top-level entries of original whose key does not
+// appear as a top-level entry in rendered.
+func unmodeledEntries(original, rendered string) []string {
+	present := map[string]bool{}
+	for _, line := range strings.Split(rendered, "\n") {
+		if key, ok := topLevelKey(line); ok {
+			present[key] = true
+		}
+	}
+	var extra []string
+	var current []string
+	flush := func() {
+		if len(current) == 0 {
+			return
+		}
+		if key, ok := topLevelKey(current[0]); ok && !present[key] {
+			extra = append(extra, current...)
+		}
+		current = nil
+	}
+	for _, line := range strings.Split(original, "\n") {
+		if _, ok := topLevelKey(line); ok {
+			flush()
+		}
+		if len(current) > 0 || strings.TrimSpace(line) != "" {
+			current = append(current, line)
+		}
+	}
+	flush()
+	return extra
+}
+
+// topLevelKey reports whether line is a top-level `key:` entry (column 0, a
+// bare identifier key) and returns the key. `file:line` yields "file", which is
+// consistent on both sides of the comparison — the entry is what gets carried.
+func topLevelKey(line string) (string, bool) {
+	if line == "" || line[0] == ' ' || line[0] == '\t' || line[0] == '#' ||
+		strings.HasPrefix(line, "```") {
+		return "", false
+	}
+	idx := strings.Index(line, ":")
+	if idx <= 0 {
+		return "", false
+	}
+	key := line[:idx]
+	for _, r := range key {
+		isAlnum := (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+		if !isAlnum && r != '_' && r != '-' {
+			return "", false
+		}
+	}
+	return key, true
+}
