@@ -178,6 +178,31 @@ var _ = Describe("ReassignExecutionStep", func() {
 		},
 	)
 
+	// Regression for the verdict-quality review (2026-10-18, row 4
+	// NUKE-PROD-AJ): the model wrote `unanalyzable` while the same block named
+	// a full root_cause and recommended_fix. `unanalyzable` retires the issue
+	// from the fix queue, so a self-describing error was never fixed. The guard
+	// reclassifies it to `real bug`, which reassigns to the deep analyzer.
+	It("reclassifies an unanalyzable verdict that names its own root cause", func() {
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "```yaml\nsentry_issue_id: NUKE-PROD-AJ\nverdict: unanalyzable\nreason: All 4 frames are in_app=unknown; no first-party frame present\nlive_event_count: 225\nfirst_seen: 2026-05-16T00:00:00Z\nlast_seen: 2026-10-17T00:00:00Z\nsentry_status: unresolved\nfix_certainty: high\nroot_cause: bborbe/kafka kafka_consumer-offset.go:496\nrecommended_fix: guard the offset loop against a closed channel\n```",
+		}, nil)
+
+		step := buildStep()
+		md := buildTask("")
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusInProgress))
+		Expect(md.Frontmatter["assignee"]).To(Equal("sentry-deep-analyzer"))
+
+		section, ok := md.FindSection("## Verdict")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("verdict: real bug"))
+		Expect(section.Body).NotTo(ContainSubstring("verdict: unanalyzable"))
+		Expect(section.Body).To(ContainSubstring("analyzability guard"))
+	})
+
 	It("keeps noise when no disqualifier fires", func() {
 		runner.RunReturns(&claudelib.ClaudeResult{
 			Result: "```yaml\nsentry_issue_id: NUKE-DEV-94\nverdict: noise\nreason: pod shutdown race\nlive_event_count: 84\nfirst_seen: 2025-10-15T10:42:13Z\nlast_seen: 2026-09-05T12:14:43Z\nsentry_status: unresolved\n```",

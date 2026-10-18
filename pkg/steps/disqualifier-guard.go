@@ -109,6 +109,9 @@ func (s *disqualifierGuardStep) Run(
 	if section, ok := md.FindSection("## Verdict"); ok {
 		section.Body = verdict.RewriteIdentityLine(section.Body, canonical)
 	}
+	if err := applyAnalyzabilityGuard(ctx, md, &v); err != nil {
+		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply analyzability guard")
+	}
 	if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply disqualifiers")
 	}

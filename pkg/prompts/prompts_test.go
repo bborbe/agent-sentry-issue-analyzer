@@ -273,6 +273,12 @@ var _ = Describe("BuildExecutionInstructions (triage)", func() {
 		Expect(content).To(ContainSubstring("NOT evidence of third-party"))
 	})
 
+	It("execution prompt forbids unanalyzable when the block names its own root cause", func() {
+		content := prompts.BuildExecutionInstructions()[0].Content
+		Expect(content).To(ContainSubstring("may never contradict its own analysis"))
+		Expect(content).To(ContainSubstring("names a cause or a fix"))
+	})
+
 	It("execution prompt forbids writing a task file", func() {
 		content := prompts.BuildExecutionInstructions()[0].Content
 		guard := "Do NOT try to write a task file (there is no file path in this environment)"
