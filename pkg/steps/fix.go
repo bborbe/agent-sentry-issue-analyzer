@@ -14,6 +14,7 @@ import (
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/deepverdict"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/fixagent"
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/identity"
 )
 
 // fixStep is the sentry-fix agent's single planning step: it turns a High/High
@@ -133,22 +134,9 @@ func (s *fixStep) Run(
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 
-	// A rule claiming a frame path is checked against the trace itself: on an
-	// issue with no first-party frame that claim is false, and a spec built on it
-	// carries the falsehood into a human-read document. Recorded as a no-op
-	// rather than returned as an error — the claim is deterministic, so an error
-	// would make the controller retry a run that can only fail identically.
-	hasFirstPartyFrame, err := s.trace.HasFirstPartyFrame(ctx, v.SentryIssueID)
-	if err != nil {
-		return nil, errors.Wrapf(ctx, err, "fix-agent: read trace")
-	}
-	if err := fixagent.VerifyResolutionMechanism(ctx, resolution, hasFirstPartyFrame); err != nil {
-		s.recordResult(ctx, md,
-			"sentry_issue_id: "+v.SentryIssueID,
-			"status: skipped",
-			"message: "+err.Error(),
-		)
-		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+	if done, err := s.verifyMechanism(ctx, md, v.SentryIssueID, resolution); err != nil ||
+		done != nil {
+		return done, err
 	}
 
 	spec, err := fixagent.BuildSpec(ctx, v, resolution)
@@ -171,6 +159,76 @@ func (s *fixStep) Run(
 		"message: filed kind: bug spec for Sentry issue "+v.SentryIssueID,
 	)
 	return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+}
+
+// verifyMechanism checks the resolution's claimed mechanism against the issue's
+// trace. It returns a non-nil Result when the run is finished with a recorded
+// no-op, nil when the caller should continue, and an error only for a failure
+// the controller may legitimately retry.
+//
+// A rule claiming a frame path is checked against the trace itself: on an issue
+// with no first-party frame that claim is false, and a spec built on it carries
+// the falsehood into a human-read document. Recorded as a no-op rather than
+// returned as an error — the claim is deterministic, so an error would make the
+// controller retry a run that can only fail identically.
+//
+// An issue Sentry does not know (a 404) is deterministic for the same reason
+// and is recorded the same way. A derived-key alert carries a key Sentry never
+// serves as an issue id, so it lands here when the task knows no real id; the
+// run used to return that as an error, fail the Job, exhaust its backoff limit,
+// and be reported by the executor as the generic `pod_crash_no_stdout`.
+func (s *fixStep) verifyMechanism(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	issueID string,
+	resolution fixagent.Resolution,
+) (*agentlib.Result, error) {
+	hasFirstPartyFrame, err := s.trace.HasFirstPartyFrame(
+		ctx,
+		traceIssueID(md, issueID),
+	)
+	if err != nil {
+		if errors.Is(err, fixagent.ErrIssueNotFound) {
+			s.recordResult(ctx, md,
+				"sentry_issue_id: "+issueID,
+				"status: skipped",
+				"message: "+err.Error(),
+			)
+			return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+		}
+		return nil, errors.Wrapf(ctx, err, "fix-agent: read trace")
+	}
+	if err := fixagent.VerifyResolutionMechanism(ctx, resolution, hasFirstPartyFrame); err != nil {
+		s.recordResult(ctx, md,
+			"sentry_issue_id: "+issueID,
+			"status: skipped",
+			"message: "+err.Error(),
+		)
+		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+	}
+	return nil, nil
+}
+
+// traceIssueID picks the id the trace lookup should use. A verdict whose
+// identity is a derived key names no Sentry issue, but the task's own
+// frontmatter carries the real id once the collector or analyzer resolved it —
+// measured 2026-10-18: verdict `b334dfcdc68af0c19f7ee5bdf78c3953`, task
+// `short_id: 7196177490` (short id NUKE-PROD-9B, 2,255 events). Looking the
+// derived key up instead could only 404, which is what turned a fixable alert
+// into a failed Job. Anything other than a derived verdict id is used as-is.
+func traceIssueID(md *agentlib.Markdown, verdictID string) string {
+	if !identity.IsDerivedKey(verdictID) {
+		return verdictID
+	}
+	// short_id is rendered through %v because the frontmatter is a generic map:
+	// a numeric id written unquoted parses as an int, a quoted one as a string.
+	if raw, ok := md.Frontmatter["short_id"]; ok && raw != nil {
+		short := strings.TrimSpace(fmt.Sprintf("%v", raw))
+		if short != "" && !identity.IsDerivedKey(short) {
+			return short
+		}
+	}
+	return verdictID
 }
 
 // missingVerdictFields names the required real-bug verdict fields that are

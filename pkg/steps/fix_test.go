@@ -249,6 +249,168 @@ var _ = Describe("FixStep", func() {
 		Expect(section.Body).To(ContainSubstring("status: filed"))
 	})
 
+	// The observed crash (2026-10-18, nukeprod): a derived-key alert's verdict
+	// carries the key in `sentry_issue_id`, Sentry answers 404 for it, and the
+	// run failed the Job — exhausting the backoff limit and being reported as
+	// the generic pod_crash_no_stdout. The key is still sent (it is not this
+	// step's job to assume no issue exists behind it), but the 404 is a
+	// recorded no-op, never an error.
+	It("records a skip rather than failing when a derived-key issue is not found", func() {
+		derivedKeyVerdict := "## Verdict\n\n```yaml\n" +
+			"sentry_issue_id: 24cf245f1caa36432b08885c84ded59f\n" +
+			"verdict: real bug\n" +
+			"understanding: High\n" +
+			"fix_certainty: High\n" +
+			"root_cause: nil check missing\n" +
+			"recommended_fix: add a nil guard\n" +
+			"file:line: kafka_consumer-offset.go:476\n" +
+			"```\n"
+
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/kafka",
+			Rule:  "resolved from frame path bborbe/kafka/kafka_consumer-offset.go",
+			Fresh: true,
+		}, nil)
+		trace.HasFirstPartyFrameReturns(
+			false,
+			errors.Wrapf(
+				ctx,
+				fixagent.ErrIssueNotFound,
+				"sentry trace: fetch issue 24cf245f1caa36432b08885c84ded59f: not found",
+			),
+		)
+
+		step := buildStep()
+		md := buildTask(derivedKeyVerdict)
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+
+		// The read was attempted for the id the verdict carries.
+		Expect(trace.HasFirstPartyFrameCallCount()).To(Equal(1))
+		_, issueID := trace.HasFirstPartyFrameArgsForCall(0)
+		Expect(issueID).To(Equal("24cf245f1caa36432b08885c84ded59f"))
+		Expect(writer.WriteCallCount()).To(Equal(0))
+
+		section, ok := md.FindSection("## Fix Result")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("status: skipped"))
+		Expect(section.Body).To(ContainSubstring("not found"))
+	})
+
+	// A derived verdict key names no Sentry issue, but the task frontmatter
+	// carries the real id once the collector or analyzer resolved it. Looking
+	// the derived key up could only 404 — measured 2026-10-18: verdict
+	// b334dfcd…, task `short_id: 7196177490` (NUKE-PROD-9B, 2,255 events).
+	It(
+		"reads the trace by the task's real short id when the verdict carries a derived key",
+		func() {
+			derivedKeyVerdict := "## Verdict\n\n```yaml\n" +
+				"sentry_issue_id: b334dfcdc68af0c19f7ee5bdf78c3953\n" +
+				"verdict: real bug\n" +
+				"understanding: High\n" +
+				"fix_certainty: High\n" +
+				"root_cause: nil check missing\n" +
+				"recommended_fix: add a nil guard\n" +
+				"file:line: kafka_consumer-offset.go:476\n" +
+				"```\n"
+
+			resolver.ResolveReturns(fixagent.Resolution{
+				Repo:  "bborbe/kafka",
+				Rule:  "resolved from frame path bborbe/kafka/kafka_consumer-offset.go",
+				Fresh: true,
+			}, nil)
+			writer.WriteReturns(nil)
+			trace.HasFirstPartyFrameReturns(true, nil)
+
+			md, err := agentlib.ParseMarkdown(
+				ctx,
+				"---\nstatus: in_progress\nphase: planning\nassignee: sentry-fix-agent\n"+
+					"task_type: sentry-fix\nshort_id: \"7196177490\"\n---\n\n"+derivedKeyVerdict,
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			result, err := buildStep().Run(ctx, md)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+
+			Expect(trace.HasFirstPartyFrameCallCount()).To(Equal(1))
+			_, issueID := trace.HasFirstPartyFrameArgsForCall(0)
+			Expect(issueID).To(Equal("7196177490"))
+			Expect(writer.WriteCallCount()).To(Equal(1))
+		},
+	)
+
+	// short_id written unquoted parses as an int in the generic frontmatter map,
+	// so the lookup must not depend on the string type.
+	It("reads the trace by an unquoted numeric short id too", func() {
+		derivedKeyVerdict := "## Verdict\n\n```yaml\n" +
+			"sentry_issue_id: b334dfcdc68af0c19f7ee5bdf78c3953\n" +
+			"verdict: real bug\n" +
+			"understanding: High\n" +
+			"fix_certainty: High\n" +
+			"root_cause: nil check missing\n" +
+			"recommended_fix: add a nil guard\n" +
+			"file:line: kafka_consumer-offset.go:476\n" +
+			"```\n"
+
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/kafka",
+			Rule:  "resolved from frame path bborbe/kafka/kafka_consumer-offset.go",
+			Fresh: true,
+		}, nil)
+		writer.WriteReturns(nil)
+		trace.HasFirstPartyFrameReturns(true, nil)
+
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\nphase: planning\nassignee: sentry-fix-agent\n"+
+				"task_type: sentry-fix\nshort_id: 7196177490\n---\n\n"+derivedKeyVerdict,
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		result, err := buildStep().Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+
+		Expect(trace.HasFirstPartyFrameCallCount()).To(Equal(1))
+		_, issueID := trace.HasFirstPartyFrameArgsForCall(0)
+		Expect(issueID).To(Equal("7196177490"))
+		Expect(writer.WriteCallCount()).To(Equal(1))
+	})
+
+	// A real issue that Sentry no longer knows is deterministic too: record it
+	// rather than fail the Job, which would retry an outcome that cannot change.
+	It("records a skip rather than failing when the issue is not found", func() {
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/trading",
+			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
+			Fresh: true,
+		}, nil)
+		trace.HasFirstPartyFrameReturns(
+			false,
+			errors.Wrapf(
+				ctx,
+				fixagent.ErrIssueNotFound,
+				"sentry trace: fetch issue OCTOPUS-PROD-1J: not found",
+			),
+		)
+
+		step := buildStep()
+		md := buildTask(realBugVerdict)
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(writer.WriteCallCount()).To(Equal(0))
+
+		section, ok := md.FindSection("## Fix Result")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("status: skipped"))
+		Expect(section.Body).To(ContainSubstring("not found"))
+	})
+
 	It("fails loudly when the resolution is unmappable", func() {
 		resolver.ResolveReturns(
 			fixagent.Resolution{},

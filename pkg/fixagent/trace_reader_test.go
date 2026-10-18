@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/bborbe/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -100,6 +101,30 @@ var _ = Describe("SentryTraceReader", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("403"))
 		Expect(has).To(BeFalse())
+	})
+
+	// A 404 is a statement about the issue, not about this attempt: the issue
+	// does not exist. It carries a sentinel so the fix step records a no-op
+	// instead of failing a Job that can only fail identically on every retry.
+	It("reports ErrIssueNotFound when the API answers 404", func() {
+		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		})
+
+		has, err := reader.HasFirstPartyFrame(ctx, "b334dfcdc68af0c19f7ee5bdf78c3953")
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, fixagent.ErrIssueNotFound)).To(BeTrue())
+		Expect(has).To(BeFalse())
+	})
+
+	It("does not report ErrIssueNotFound for a non-404 failure", func() {
+		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+		_, err := reader.HasFirstPartyFrame(ctx, "NUKE-PROD-BX")
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, fixagent.ErrIssueNotFound)).To(BeFalse())
 	})
 
 	It("errors rather than reporting no frame when the body is unparseable", func() {

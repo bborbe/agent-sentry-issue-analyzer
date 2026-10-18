@@ -7,11 +7,20 @@ package fixagent
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"net/http"
 	"net/url"
 
 	"github.com/bborbe/errors"
 )
+
+// ErrIssueNotFound reports that the Sentry API has no issue under the requested
+// id (HTTP 404). Unlike a 5xx or a transport failure this is deterministic: the
+// issue was deleted, or the id is one Sentry never serves as an issue id (a
+// derived key from the Kafka pipeline). Retrying can only fail identically, so
+// a caller records a no-op instead of returning an error the controller would
+// retry.
+var ErrIssueNotFound = stderrors.New("sentry trace: issue not found")
 
 // DefaultSentryBaseURL is the API base for the org this agent reads. The
 // deployed Config CRs set no org override, so the code default applies.
@@ -109,6 +118,18 @@ func (r *SentryTraceReader) HasFirstPartyFrame(
 		return false, errors.Wrapf(ctx, err, "sentry trace: fetch issue %s", sentryIssueID)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	// A 404 is the one non-200 that is a statement about the issue rather than
+	// about this attempt: the issue does not exist. It carries its own sentinel
+	// so a caller can record a deterministic no-op, while every other non-200
+	// stays an error that the controller may legitimately retry.
+	if resp.StatusCode == http.StatusNotFound {
+		return false, errors.Wrapf(
+			ctx,
+			ErrIssueNotFound,
+			"sentry trace: fetch issue %s: not found",
+			sentryIssueID,
+		)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return false, errors.Errorf(
 			ctx,
