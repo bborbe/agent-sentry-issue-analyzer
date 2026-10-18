@@ -2,9 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## v0.17.0
+## Unreleased
 
 - fix: a verdict's `sentry_issue_id` is now resolved in code to the short id Sentry returns for the issue, so the written identity no longer depends on which source the model happened to read. Both verdict-writing paths — the triage reassign step and the deep disqualifier guard — look the reference up through the shared `identity.Resolver` and rewrite the identity line in place, leaving every other line of the `## Verdict` section byte-identical so the deep verdict's `file:line`, `understanding` and `fix_certainty` survive for the High/High fix handoff. An in-place re-analysis therefore no longer flips the file between the short form and the numeric group id and thereby drops it out of the identity population the review lookups read. An alert with no Sentry issue behind it (a derived key — `event-` prefixed or a bare 32-character hex hash) keeps its key verbatim and issues no lookup. When the identity cannot be resolved the run fails loudly and nothing is written; the model's raw form is never substituted.
+
+## v0.17.0
 
 - feat: add a Sentry identity resolver (`pkg/identity`) and `verdict.RewriteIdentityLine`. The resolver turns whatever identity spelling a verdict carries into the canonical short id Sentry itself returns, so a verdict's identity is decided by code rather than by the model; a derived-key alert (`event-…`, or a bare 32-char hex hash) denotes a Kafka-pipeline alert with no issue behind it and is returned unchanged with no request. `RewriteIdentityLine` replaces the identity *value* of an existing `## Verdict` block and nothing else — matching both the YAML and the fenced-JSON spelling, preserving `file:line` and every other field, and deliberately avoiding a full re-render, which would drop `file:line` from deep verdicts and break the fix handoff. **Not yet wired to a write path** — the two call sites land in the follow-up.
 
