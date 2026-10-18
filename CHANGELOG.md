@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.17.4
 
 - chore: update github.com/bborbe/agent to v0.103.1, github.com/bborbe/kafka to v1.28.1
 
