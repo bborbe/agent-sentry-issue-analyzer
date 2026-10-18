@@ -110,30 +110,9 @@ func (s *reassignExecutionStep) Run(
 	// Verified-absent resource stays a model judgment. Only run when a real
 	// verdict parsed — an absent verdict has no live-state fields to evaluate.
 	if v.Verdict != "" {
-		// Normalize the identity BEFORE the disqualifier override re-renders the
-		// section, so that re-render is fed the already-normalized verdict and
-		// cannot reintroduce the model's form. The line rewrite below covers the
-		// no-disqualifier case, where applyDisqualifiers returns early and the
-		// section is otherwise left exactly as the model wrote it. This runs for
-		// every verdict label, not only `real bug`: the identity flip is a
-		// form-based rule about the issue reference, not a verdict judgment. A
-		// resolution failure fails the run and writes nothing — the model's raw
-		// form is never substituted.
-		canonical, err := s.identityResolver.Resolve(ctx, v.SentryIssueID)
-		if err != nil {
-			return nil, errors.Wrapf(ctx, err, "reassign: resolve identity")
+		if err := s.finalizeVerdict(ctx, md, &v); err != nil {
+			return nil, err
 		}
-		v.SentryIssueID = canonical
-		if section, ok := md.FindSection("## Verdict"); ok {
-			section.Body = verdict.RewriteIdentityLine(section.Body, canonical)
-		}
-		if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
-			return nil, errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
-		}
-		// Count the finalized verdict — after applyDisqualifiers, so the value
-		// matches what the task file's ## Verdict section carries, override
-		// included. An absent verdict is not counted at all.
-		s.verdictMetrics.RecordVerdict(v.Verdict)
 	}
 
 	if v.Verdict != "real bug" {
@@ -150,6 +129,73 @@ func (s *reassignExecutionStep) Run(
 		Status:  agentlib.AgentStatusInProgress,
 		Message: "reassigned to " + s.deepAssignee + " for deep analysis",
 	}, nil
+}
+
+// finalizeVerdict normalizes the identity, applies the analyzability and
+// disqualifier guards in that order, and records the finalized verdict. Split
+// out of Run so the sequence is one call rather than a nested block.
+func (s *reassignExecutionStep) finalizeVerdict(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	v *verdict.Verdict,
+) error {
+	// Normalize the identity BEFORE the disqualifier override re-renders the
+	// section, so that re-render is fed the already-normalized verdict and
+	// cannot reintroduce the model's form. The line rewrite below covers the
+	// no-disqualifier case, where applyDisqualifiers returns early and the
+	// section is otherwise left exactly as the model wrote it. This runs for
+	// every verdict label, not only `real bug`: the identity flip is a
+	// form-based rule about the issue reference, not a verdict judgment. A
+	// resolution failure fails the run and writes nothing — the model's raw
+	// form is never substituted.
+	canonical, err := s.identityResolver.Resolve(ctx, v.SentryIssueID)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "reassign: resolve identity")
+	}
+	v.SentryIssueID = canonical
+	if section, ok := md.FindSection("## Verdict"); ok {
+		section.Body = verdict.RewriteIdentityLine(section.Body, canonical)
+	}
+	if err := applyAnalyzabilityGuard(ctx, md, v); err != nil {
+		return errors.Wrapf(ctx, err, "reassign: apply analyzability guard")
+	}
+	if err := applyDisqualifiers(ctx, md, v, s.disqualifiers); err != nil {
+		return errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
+	}
+	// Count the finalized verdict — after applyDisqualifiers, so the value
+	// matches what the task file's ## Verdict section carries, override
+	// included. An absent verdict is not counted at all.
+	s.verdictMetrics.RecordVerdict(v.Verdict)
+	return nil
+}
+
+// applyAnalyzabilityGuard rewrites a verdict that contradicts its own analysis
+// — `unanalyzable` while the same block names a root_cause or a
+// recommended_fix — and re-renders the ## Verdict section when it does.
+//
+// It runs before applyDisqualifiers on both verdict-writing paths and is
+// independent of live state: a block that names its own cause and fix is
+// analysable whatever the dates say, so this cannot sit behind the
+// disqualifiers' first_seen/last_seen guard.
+func applyAnalyzabilityGuard(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	v *verdict.Verdict,
+) error {
+	if !verdict.ApplyAnalyzabilityGuard(v) {
+		return nil
+	}
+	rendered, err := verdict.Render(ctx, *v)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "analyzability guard: render verdict")
+	}
+	if section, ok := md.FindSection("## Verdict"); ok {
+		// Restore anything the triage schema does not model — the deep verdict's
+		// `file:line` above all — or the re-render silently drops the pointer the
+		// High/High fix handoff resolves.
+		section.Body = verdict.RestoreUnmodeledLines(section.Body, rendered)
+	}
+	return nil
 }
 
 // applyDisqualifiers evaluates the computed disqualifiers against the
