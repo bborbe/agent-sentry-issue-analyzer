@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the fix agent can file a spec at all. `GitHubSpecWriter` derived the destination branch `sentry-fix/<issue-id>` and then called `CreateFile` with it, but nothing ever created that branch — so every filing failed `404 Branch sentry-fix/<id> not found` and no spec had ever been filed. Measured on prod 2026-10-18, two consecutive runs of the same task (`sentry-fix-agent-3b3ce9fd-20261018204314`, `…204418`): each produced a correct resolution block and then failed at the write with the 404. The writer now creates the branch from the default branch's head before filing, reuses it when it already exists, and treats a concurrent-create `422` as success. Dev's separate failure (`403 Resource not accessible by integration`, App `4931539`) is a permission issue in that environment, not this code path.
+
 ## v0.17.6
 
 - fix: the fix agent can no longer write a `resolved from frame path` rule for an alert whose trace carries no first-party frame. The fix-planning prompt told the model to record `resolved from frame path <path>` whenever the analyzer's `implicated_repo` hint was present — regardless of how that repo had been resolved — and its worked example showed the same form. A frame-less alert therefore produced a false claim: measured 2026-10-18T18:33Z on prod Job `sentry-fix-agent-3b3ce9fd-20261018183343` (build `v0.17.3-3-g6d86fca`), issue `bab89662fe73a8bf4a0014d6f78791b3`, where the analyzer had resolved `candidate position 1 (bborbe/agent-task-executor)` and the fix agent wrote `resolved from frame path pkg/k8s_connector.go`, so `VerifyResolutionMechanism` skipped the run and no spec was filed. The trace is now read before the resolution and `has_first_party_frame` is carried into the resolver's task content; the prompt states the condition explicitly (`resolved from frame path <path>` ONLY when it is `true`, otherwise `candidate position N (<repo>)`) and the worked example shows the candidate form. `VerifyResolutionMechanism` is unchanged and remains the backstop.
