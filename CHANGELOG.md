@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.17.1
 
 - fix: a verdict's `sentry_issue_id` is now resolved in code to the short id Sentry returns for the issue, so the written identity no longer depends on which source the model happened to read. Both verdict-writing paths — the triage reassign step and the deep disqualifier guard — look the reference up through the shared `identity.Resolver` and rewrite the identity line in place, leaving every other line of the `## Verdict` section byte-identical so the deep verdict's `file:line`, `understanding` and `fix_certainty` survive for the High/High fix handoff. An in-place re-analysis therefore no longer flips the file between the short form and the numeric group id and thereby drops it out of the identity population the review lookups read. An alert with no Sentry issue behind it (a derived key — `event-` prefixed or a bare 32-character hex hash) keeps its key verbatim and issues no lookup. When the identity cannot be resolved the run fails loudly and nothing is written; the model's raw form is never substituted.
 
