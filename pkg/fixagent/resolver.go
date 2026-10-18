@@ -12,6 +12,7 @@ package fixagent
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strings"
 
@@ -21,6 +22,11 @@ import (
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/deepverdict"
 )
+
+// ErrUnmappable reports that a resolution named no repository. It is
+// deterministic for a given citation, so a caller records a skip instead of
+// returning an error the controller would retry identically forever.
+var ErrUnmappable = stderrors.New("fix-agent: resolution unmappable")
 
 // Resolution is the outcome of resolving a deep verdict's file:line to a
 // repository. Fresh is false when the cited path no longer exists at the
@@ -38,7 +44,16 @@ type Resolution struct {
 // the source. Production is prompt-backed (PromptRepoResolver runs the same
 // resolution block the deep analyzer uses); tests stub it per fixture.
 type RepoResolver interface {
-	Resolve(ctx context.Context, v deepverdict.Verdict) (Resolution, error)
+	// Resolve resolves the verdict's file:line to a repository. implicatedRepo
+	// is the repository the analyzer already resolved in the task's
+	// `## Analysis` section as `owner/name`, or "" when the body names none. It
+	// is the analyzer's own frame-path resolution carried forward, not a
+	// substitute for one: the resolver never parses the task body.
+	Resolve(
+		ctx context.Context,
+		v deepverdict.Verdict,
+		implicatedRepo string,
+	) (Resolution, error)
 }
 
 // PromptRepoResolver resolves the repository by running the resolution prompt
@@ -59,15 +74,23 @@ func NewPromptRepoResolver(
 // Resolve implements RepoResolver. It renders the verdict's citation fields
 // as the task content, runs the resolution prompt, and parses the model's
 // fenced YAML block, falling back to the streamed Partial text when the
-// final Result carries none. An unmappable result (empty repo) is an error.
+// final Result carries none. An unmappable result (empty repo) wraps
+// ErrUnmappable, so callers reach for errors.Is.
 func (r *PromptRepoResolver) Resolve(
 	ctx context.Context,
 	v deepverdict.Verdict,
+	implicatedRepo string,
 ) (Resolution, error) {
 	taskContent := fmt.Sprintf(
 		"sentry_issue_id: %s\nfile:line: %s\nroot_cause: %s\nrecommended_fix: %s\n",
 		v.SentryIssueID, v.FileLine, v.RootCause, v.RecommendedFix,
 	)
+	// Only append the field when it carries a value: an empty
+	// `implicated_repo:` line would read to the model as "the repo is known to
+	// be nothing", which is not what an absent hint means.
+	if implicatedRepo != "" {
+		taskContent += "implicated_repo: " + implicatedRepo + "\n"
+	}
 	prompt := claudelib.BuildPrompt(r.instructions.String(), nil, taskContent)
 	result, err := r.runner.Run(ctx, prompt)
 	if err != nil {
@@ -86,7 +109,7 @@ func (r *PromptRepoResolver) Resolve(
 		return Resolution{}, errors.Wrapf(ctx, err, "fix-agent: parse resolution block")
 	}
 	if res.Repo == "" {
-		return Resolution{}, errors.Errorf(ctx, "fix-agent: resolution unmappable: %s", res.Rule)
+		return Resolution{}, errors.Wrapf(ctx, ErrUnmappable, "%s", res.Rule)
 	}
 	return res, nil
 }

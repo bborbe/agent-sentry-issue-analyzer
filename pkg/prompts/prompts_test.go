@@ -105,6 +105,11 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(instrs[0].Content).To(ContainSubstring("## Analysis"))
 	})
 
+	It("planning prompt emits the implicated repo + file line the fix extractor parses", func() {
+		Expect(prompts.BuildPlanningInstructions()[0].Content).
+			To(ContainSubstring("**Implicated repo + file:**"))
+	})
+
 	It("planning prompt instructs reading the implicated source code read-only", func() {
 		instrs := prompts.BuildPlanningInstructions()
 		Expect(instrs[0].Content).To(ContainSubstring("READ-ONLY source access"))
@@ -141,7 +146,7 @@ var _ = Describe("BuildPlanningInstructions (triage)", func() {
 		Expect(strings.Index(content, "### Step 4: Write the analysis")).
 			To(BeNumerically("<", strings.Index(content, guard)))
 		Expect(strings.Index(content, guard)).
-			To(BeNumerically("<", strings.Index(content, "- implicated repo +")))
+			To(BeNumerically("<", strings.Index(content, "**Implicated repo + file:**")))
 	})
 })
 
@@ -505,6 +510,11 @@ var _ = Describe("BuildFixPlanningInstructions", func() {
 			Expect(content).To(ContainSubstring("## Reproduction"))
 		},
 	)
+
+	It("fix planning prompt documents the carried-forward implicated_repo input", func() {
+		Expect(prompts.BuildFixPlanningInstructions()[0].Content).
+			To(ContainSubstring("implicated_repo"))
+	})
 
 	It("fix planning prompt carries the deep analyzer's resolution procedure", func() {
 		content := prompts.BuildFixPlanningInstructions()[0].Content

@@ -27,10 +27,10 @@ import (
 //
 // Resolution and writing are injected so production (prompt-backed resolver +
 // GitHub API writer) is stub-able in tests. The task body is only mutated (via
-// ## Fix Result) on non-error outcomes: an unmappable resolution, an
-// out-of-scope repo, or an API failure returns a Go error so the Job fails and
-// the controller retries, with the error message carrying the repo name / HTTP
-// status.
+// ## Fix Result) on non-error outcomes: an out-of-scope repo or an API failure
+// returns a Go error so the Job fails and the controller retries, with the
+// error message carrying the repo name / HTTP status. An unmappable
+// resolution is deterministic and is recorded as a skip instead.
 //
 // The in-place ## Fix Result mutation in Run is safe only under the executor's
 // single-threaded delivery per task: the StepRunner delivers once per step on
@@ -119,8 +119,19 @@ func (s *fixStep) Run(
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 
-	resolution, err := s.resolver.Resolve(ctx, v)
+	resolution, err := s.resolver.Resolve(ctx, v, implicatedRepoHint(md))
 	if err != nil {
+		// An unmappable resolution is deterministic for a given citation:
+		// retrying can only fail identically, so record it and finish rather
+		// than fail the Job. Every other error stays retryable.
+		if errors.Is(err, fixagent.ErrUnmappable) {
+			s.recordResult(ctx, md,
+				"sentry_issue_id: "+v.SentryIssueID,
+				"status: skipped",
+				"message: "+err.Error(),
+			)
+			return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+		}
 		return nil, errors.Wrapf(ctx, err, "fix-agent: resolve repo")
 	}
 
@@ -207,6 +218,54 @@ func (s *fixStep) verifyMechanism(
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 	return nil, nil
+}
+
+// implicatedRepoHint extracts the repository the analyzer already resolved
+// from the task's ## Analysis section. It is a hint extractor only: it neither
+// validates the value nor decides scope — the writer's REPO_ALLOWLIST owns
+// both. A value that is a bare repo-relative path yields a non-repo hint
+// (`pkg/deepverdict` for `pkg/deepverdict/deepverdict.go:109`), which the
+// resolver's model rejects and falls through on, so the outcome is the same as
+// an absent hint. Deliberately no shape heuristic guesses between
+// `owner/name/path` and `dir/dir/file`: the two are indistinguishable from
+// segments alone, and a wrong guess turns a working citation into a permanent
+// skip.
+func implicatedRepoHint(md *agentlib.Markdown) string {
+	section, ok := md.FindSection("## Analysis")
+	if !ok {
+		return ""
+	}
+	for _, line := range strings.Split(section.Body, "\n") {
+		if !strings.Contains(strings.ToLower(line), "implicated repo") {
+			continue
+		}
+		value := firstBacktickValue(line)
+		if value == "" {
+			return ""
+		}
+		return firstTwoSegments(value)
+	}
+	return ""
+}
+
+// firstBacktickValue returns the text between the first complete backtick pair
+// on line, or "" when the line has no pair.
+func firstBacktickValue(line string) string {
+	parts := strings.Split(line, "`")
+	if len(parts) < 3 {
+		return ""
+	}
+	return parts[1]
+}
+
+// firstTwoSegments returns the first two `/`-separated segments of value, or ""
+// when fewer than two non-empty segments are present.
+func firstTwoSegments(value string) string {
+	segments := strings.Split(value, "/")
+	if len(segments) < 2 || segments[0] == "" || segments[1] == "" {
+		return ""
+	}
+	return segments[0] + "/" + segments[1]
 }
 
 // traceIssueID picks the id the trace lookup should use. A verdict whose

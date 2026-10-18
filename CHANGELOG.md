@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the fix agent now carries the analyzer's already-resolved repo (`implicated_repo`, `owner/name`) from the task's `## Analysis` section into its own resolution, and records a still-unmappable resolution as a `status: skipped` outcome instead of failing the Job. A repo-relative citation such as `pkg/deepverdict/deepverdict.go:109` matched no candidate row, so the resolver returned an empty repo and every retry failed identically; the carried-forward hint lets the resolver place it, and a genuinely unmappable path is now a deterministic skip (`fixagent.ErrUnmappable`).
+
 ## v0.17.3
 
 - chore: update Go to 1.27.2 and github.com/bborbe/agent to v0.103.0, github.com/bborbe/cqrs to v0.6.12, github.com/bborbe/errors to v1.6.3, github.com/bborbe/kafka to v1.28.0, github.com/bborbe/log to v1.7.4, github.com/bborbe/maintainer to v0.50.11, github.com/bborbe/sentry to v1.10.4, github.com/bborbe/service to v1.11.0, github.com/bborbe/time to v1.27.16, github.com/bborbe/vault-cli to v0.170.1, github.com/onsi/ginkgo/v2 to v2.33.1, github.com/onsi/gomega to v1.44.0, github.com/prometheus/client_golang to v1.25.0
