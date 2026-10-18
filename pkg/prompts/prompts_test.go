@@ -542,6 +542,16 @@ var _ = Describe("BuildFixPlanningInstructions", func() {
 		},
 	)
 
+	It("fix planning prompt grounds the rule label in the trace evidence", func() {
+		content := prompts.BuildFixPlanningInstructions()[0].Content
+		Expect(content).To(ContainSubstring("has_first_party_frame"))
+		Expect(content).To(ContainSubstring("ONLY when `has_first_party_frame` is `true`"))
+		// The worked example is the form the model copies, so it must show the
+		// candidate-list label rather than a frame-path claim a frame-less alert
+		// cannot support.
+		Expect(content).To(ContainSubstring(`rule: "candidate position 1 (bborbe/trading)"`))
+	})
+
 	It("fix planning prompt orders the infrastructure repo after the application repos", func() {
 		content := prompts.BuildFixPlanningInstructions()[0].Content
 		Expect(strings.Index(content, "bborbe/nuke")).

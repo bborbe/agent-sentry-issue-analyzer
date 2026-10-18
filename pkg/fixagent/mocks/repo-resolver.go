@@ -10,14 +10,10 @@ import (
 )
 
 type RepoResolver struct {
-	ResolveStub        func(context.Context, deepverdict.Verdict, string) (fixagent.Resolution, error)
+	ResolveStub        func(context.Context, deepverdict.Verdict, string, bool) (fixagent.Resolution, error)
 	resolveMutex       sync.RWMutex
-	resolveArgsForCall []struct {
-		arg1 context.Context
-		arg2 deepverdict.Verdict
-		arg3 string
-	}
-	resolveReturns struct {
+	resolveArgsForCall []RepoResolverResolveArgs
+	resolveReturns     struct {
 		result1 fixagent.Resolution
 		result2 error
 	}
@@ -26,23 +22,28 @@ type RepoResolver struct {
 		result2 error
 	}
 	invocations      map[string][][]interface{}
+	callOrder        []string
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *RepoResolver) Resolve(arg1 context.Context, arg2 deepverdict.Verdict, arg3 string) (fixagent.Resolution, error) {
+// RepoResolverResolveArgs holds the arguments of one call to Resolve.
+type RepoResolverResolveArgs struct {
+	Arg1 context.Context
+	Arg2 deepverdict.Verdict
+	Arg3 string
+	Arg4 bool
+}
+
+func (fake *RepoResolver) Resolve(arg1 context.Context, arg2 deepverdict.Verdict, arg3 string, arg4 bool) (fixagent.Resolution, error) {
 	fake.resolveMutex.Lock()
 	ret, specificReturn := fake.resolveReturnsOnCall[len(fake.resolveArgsForCall)]
-	fake.resolveArgsForCall = append(fake.resolveArgsForCall, struct {
-		arg1 context.Context
-		arg2 deepverdict.Verdict
-		arg3 string
-	}{arg1, arg2, arg3})
+	fake.resolveArgsForCall = append(fake.resolveArgsForCall, RepoResolverResolveArgs{arg1, arg2, arg3, arg4})
 	stub := fake.ResolveStub
 	fakeReturns := fake.resolveReturns
-	fake.recordInvocation("Resolve", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("Resolve", []interface{}{arg1, arg2, arg3, arg4})
 	fake.resolveMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2, arg3, arg4)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -56,17 +57,25 @@ func (fake *RepoResolver) ResolveCallCount() int {
 	return len(fake.resolveArgsForCall)
 }
 
-func (fake *RepoResolver) ResolveCalls(stub func(context.Context, deepverdict.Verdict, string) (fixagent.Resolution, error)) {
+func (fake *RepoResolver) ResolveCalls(stub func(context.Context, deepverdict.Verdict, string, bool) (fixagent.Resolution, error)) {
 	fake.resolveMutex.Lock()
 	defer fake.resolveMutex.Unlock()
 	fake.ResolveStub = stub
 }
 
-func (fake *RepoResolver) ResolveArgsForCall(i int) (context.Context, deepverdict.Verdict, string) {
+func (fake *RepoResolver) ResolveArgsForCall(i int) (context.Context, deepverdict.Verdict, string, bool) {
 	fake.resolveMutex.RLock()
 	defer fake.resolveMutex.RUnlock()
 	argsForCall := fake.resolveArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.Arg1, argsForCall.Arg2, argsForCall.Arg3, argsForCall.Arg4
+}
+
+func (fake *RepoResolver) ResolveArgs() []RepoResolverResolveArgs {
+	fake.resolveMutex.RLock()
+	defer fake.resolveMutex.RUnlock()
+	args := make([]RepoResolverResolveArgs, len(fake.resolveArgsForCall))
+	copy(args, fake.resolveArgsForCall)
+	return args
 }
 
 func (fake *RepoResolver) ResolveReturns(result1 fixagent.Resolution, result2 error) {
@@ -105,9 +114,18 @@ func (fake *RepoResolver) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
+func (fake *RepoResolver) CallOrder() []string {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	order := make([]string, len(fake.callOrder))
+	copy(order, fake.callOrder)
+	return order
+}
+
 func (fake *RepoResolver) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
+	fake.callOrder = append(fake.callOrder, key)
 	if fake.invocations == nil {
 		fake.invocations = map[string][][]interface{}{}
 	}

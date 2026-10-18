@@ -119,20 +119,14 @@ func (s *fixStep) Run(
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 
-	resolution, err := s.resolver.Resolve(ctx, v, implicatedRepoHint(ctx, md))
-	if err != nil {
-		// An unmappable resolution is deterministic for a given citation:
-		// retrying can only fail identically, so record it and finish rather
-		// than fail the Job. Every other error stays retryable.
-		if errors.Is(err, fixagent.ErrUnmappable) {
-			s.recordResult(ctx, md,
-				"sentry_issue_id: "+v.SentryIssueID,
-				"status: skipped",
-				"message: "+err.Error(),
-			)
-			return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
-		}
-		return nil, errors.Wrapf(ctx, err, "fix-agent: resolve repo")
+	hasFirstPartyFrame, done, err := s.readTraceEvidence(ctx, md, v.SentryIssueID)
+	if err != nil || done != nil {
+		return done, err
+	}
+
+	resolution, done, err := s.resolveRepo(ctx, md, v, hasFirstPartyFrame)
+	if err != nil || done != nil {
+		return done, err
 	}
 
 	// A stale citation files nothing and records why — AC-2 / FM-1.
@@ -145,9 +139,8 @@ func (s *fixStep) Run(
 		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 
-	if done, err := s.verifyMechanism(ctx, md, v.SentryIssueID, resolution); err != nil ||
-		done != nil {
-		return done, err
+	if done := s.verifyMechanism(ctx, md, v.SentryIssueID, resolution, hasFirstPartyFrame); done != nil {
+		return done, nil
 	}
 
 	spec, err := fixagent.BuildSpec(ctx, v, resolution)
@@ -172,32 +165,26 @@ func (s *fixStep) Run(
 	return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 }
 
-// verifyMechanism checks the resolution's claimed mechanism against the issue's
-// trace. It returns a non-nil Result when the run is finished with a recorded
-// no-op, nil when the caller should continue, and an error only for a failure
-// the controller may legitimately retry.
+// readTraceEvidence reports whether the issue's latest event carries a
+// first-party stack frame. The trace is read BEFORE the resolution because it
+// is the evidence the resolution's `rule` label is grounded in: a
+// `resolved from frame path` rule asserts the citation came from such a frame,
+// and only the trace can establish that. Reading it here lets the resolver be
+// told the fact instead of inventing one from the citation's shape — the defect
+// this step exists to prevent (a frame-less alert yielding a frame-path rule).
 //
-// A rule claiming a frame path is checked against the trace itself: on an issue
-// with no first-party frame that claim is false, and a spec built on it carries
-// the falsehood into a human-read document. Recorded as a no-op rather than
-// returned as an error — the claim is deterministic, so an error would make the
-// controller retry a run that can only fail identically.
-//
-// An issue Sentry does not know (a 404) is deterministic for the same reason
-// and is recorded the same way. A derived-key alert carries a key Sentry never
-// serves as an issue id, so it lands here when the task knows no real id; the
-// run used to return that as an error, fail the Job, exhaust its backoff limit,
-// and be reported by the executor as the generic `pod_crash_no_stdout`.
-func (s *fixStep) verifyMechanism(
+// An issue Sentry does not know (a 404) is deterministic: retrying can only
+// fail identically, so it returns a recorded no-op Result the caller returns
+// unchanged. A derived-key alert carries a key Sentry never serves as an issue
+// id, so it lands here when the task knows no real id; the run used to return
+// that as an error, fail the Job, exhaust its backoff limit, and be reported by
+// the executor as `pod_crash_no_stdout`. Every other failure stays retryable.
+func (s *fixStep) readTraceEvidence(
 	ctx context.Context,
 	md *agentlib.Markdown,
 	issueID string,
-	resolution fixagent.Resolution,
-) (*agentlib.Result, error) {
-	hasFirstPartyFrame, err := s.trace.HasFirstPartyFrame(
-		ctx,
-		traceIssueID(md, issueID),
-	)
+) (bool, *agentlib.Result, error) {
+	hasFirstPartyFrame, err := s.trace.HasFirstPartyFrame(ctx, traceIssueID(md, issueID))
 	if err != nil {
 		if errors.Is(err, fixagent.ErrIssueNotFound) {
 			s.recordResult(ctx, md,
@@ -205,19 +192,76 @@ func (s *fixStep) verifyMechanism(
 				"status: skipped",
 				"message: "+err.Error(),
 			)
-			return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+			return false, &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 		}
-		return nil, errors.Wrapf(ctx, err, "fix-agent: read trace")
+		return false, nil, errors.Wrapf(ctx, err, "fix-agent: read trace")
 	}
+	return hasFirstPartyFrame, nil, nil
+}
+
+// resolveRepo resolves the verdict's file:line to a repository, handing the
+// resolver the trace evidence the rule label is grounded in. An unmappable
+// resolution is deterministic for a given citation — retrying can only fail
+// identically — so it returns a recorded no-op Result the caller returns
+// unchanged. Every other error stays retryable.
+func (s *fixStep) resolveRepo(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	v deepverdict.Verdict,
+	hasFirstPartyFrame bool,
+) (fixagent.Resolution, *agentlib.Result, error) {
+	resolution, err := s.resolver.Resolve(
+		ctx,
+		v,
+		implicatedRepoHint(ctx, md),
+		hasFirstPartyFrame,
+	)
+	if err != nil {
+		if errors.Is(err, fixagent.ErrUnmappable) {
+			s.recordResult(ctx, md,
+				"sentry_issue_id: "+v.SentryIssueID,
+				"status: skipped",
+				"message: "+err.Error(),
+			)
+			return fixagent.Resolution{}, &agentlib.Result{
+				Status:    agentlib.AgentStatusDone,
+				NextPhase: "done",
+			}, nil
+		}
+		return fixagent.Resolution{}, nil, errors.Wrapf(ctx, err, "fix-agent: resolve repo")
+	}
+	return resolution, nil, nil
+}
+
+// verifyMechanism checks the resolution's claimed mechanism against the trace
+// evidence the step already read. It returns a non-nil Result when the run is
+// finished with a recorded no-op, nil when the caller should continue.
+//
+// A rule claiming a frame path is checked against the trace itself: on an issue
+// with no first-party frame that claim is false, and a spec built on it carries
+// the falsehood into a human-read document. Recorded as a no-op rather than
+// returned as an error — the claim is deterministic, so an error would make the
+// controller retry a run that can only fail identically.
+//
+// The gate is the backstop, not the prevention. The resolver is handed
+// hasFirstPartyFrame so the unsupported claim is not written in the first
+// place; this check catches it if the model writes one anyway.
+func (s *fixStep) verifyMechanism(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	issueID string,
+	resolution fixagent.Resolution,
+	hasFirstPartyFrame bool,
+) *agentlib.Result {
 	if err := fixagent.VerifyResolutionMechanism(ctx, resolution, hasFirstPartyFrame); err != nil {
 		s.recordResult(ctx, md,
 			"sentry_issue_id: "+issueID,
 			"status: skipped",
 			"message: "+err.Error(),
 		)
-		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}
 	}
-	return nil, nil
+	return nil
 }
 
 // implicatedRepoHint extracts the repository the analyzer already resolved
