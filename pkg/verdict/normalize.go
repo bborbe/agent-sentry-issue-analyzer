@@ -82,6 +82,11 @@ func QuoteProseValues(
 		}
 		parts := []string{value}
 		for i+1 < len(lines) {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			default:
+			}
 			if next, _, isKey := splitKey(lines[i+1], keys); isKey &&
 				slices.Contains(boundary, next) {
 				break
