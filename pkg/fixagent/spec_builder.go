@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/deepverdict"
 )
@@ -17,7 +18,7 @@ import (
 // Spec is a fully built kind: bug spec ready to be filed into a repository.
 type Spec struct {
 	Repo    string // owner/name, e.g. "bborbe/trading"
-	Path    string // repo-relative destination, e.g. "specs/bug-octopus-prod-1j.md"
+	Path    string // repo-relative destination, e.g. "specs/in-progress/bug-octopus-prod-1j.md"
 	Content string // full markdown spec (frontmatter + body)
 	IssueID string // Sentry issue id — the idempotency key
 }
@@ -43,10 +44,16 @@ func specSlug(issueID string) string {
 }
 
 // BuildSpec assembles the kind: bug spec from the verdict's own words and
-// the resolution. The frontmatter (kind, status) is written here, never
-// copied from the verdict — a verdict cannot forge kind or status. The
+// the resolution. The frontmatter (kind, status, approved) is written here,
+// never copied from the verdict — a verdict cannot forge kind or status. The
+// approval timestamp comes from the injected clock, never a zero value. The
 // root_cause and recommended_fix appear VERBATIM, not summarised.
-func BuildSpec(ctx context.Context, v deepverdict.Verdict, resolution Resolution) (Spec, error) {
+func BuildSpec(
+	ctx context.Context,
+	v deepverdict.Verdict,
+	resolution Resolution,
+	currentDateTime libtime.CurrentDateTimeGetter,
+) (Spec, error) {
 	switch {
 	case v.SentryIssueID == "":
 		return Spec{}, errors.New(ctx, "fix-agent: missing verdict field sentry_issue_id")
@@ -62,15 +69,16 @@ func BuildSpec(ctx context.Context, v deepverdict.Verdict, resolution Resolution
 		return Spec{}, errors.New(ctx, "fix-agent: missing resolution field rule")
 	}
 	slug := specSlug(v.SentryIssueID)
-	path := "specs/bug-" + slug + ".md"
+	path := "specs/in-progress/bug-" + slug + ".md"
 	content := fmt.Sprintf(
-		"---\nstatus: draft\nkind: bug\n---\n\n"+
+		"---\nstatus: approved\napproved: %s\nkind: bug\n---\n\n"+
 			"## Summary\n\n"+
-			"Sentry issue `%s` is a real bug in `%s` at `%s`, filed automatically by the sentry-fix-agent from the deep verdict.\n\n"+
+			"Sentry issue `%s` is a real bug in `%s` at `%s`, filed automatically by the sentry-fix-agent from the High/High real bug deep verdict — that verdict is the approval gate, so this spec is approved rather than drafted.\n\n"+
 			"## Problem\n\n%s\n\n"+
 			"## Reproduction\n\n"+
 			"The implicated source location from the deep verdict is `%s` in `%s` (resolution rule: `%s`), Sentry issue `%s`.\n\n"+
 			"## Recommended Fix\n\n%s\n",
+		currentDateTime.Now().String(),
 		v.SentryIssueID, resolution.Repo, v.FileLine, v.RootCause,
 		v.FileLine, resolution.Repo, resolution.Rule, v.SentryIssueID, v.RecommendedFix,
 	)

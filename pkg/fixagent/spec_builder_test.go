@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	speclib "github.com/bborbe/dark-factory/pkg/spec"
 	libtime "github.com/bborbe/time"
@@ -21,15 +22,21 @@ import (
 
 var _ = Describe("BuildSpec", func() {
 	var (
-		ctx context.Context
+		ctx        context.Context
+		fixedNow   time.Time
+		fixedClock libtime.CurrentDateTimeGetter
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+		fixedNow = time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+		fixedClock = libtime.CurrentDateTimeGetterFunc(func() libtime.DateTime {
+			return libtime.DateTime(fixedNow)
+		})
 	})
 
 	build := func(v deepverdict.Verdict, resolution fixagent.Resolution) (fixagent.Spec, error) {
-		return fixagent.BuildSpec(ctx, v, resolution)
+		return fixagent.BuildSpec(ctx, v, resolution, fixedClock)
 	}
 
 	realBugVerdict := func() deepverdict.Verdict {
@@ -60,13 +67,16 @@ var _ = Describe("BuildSpec", func() {
 
 		It("assembles the spec identity (AC-3)", func() {
 			Expect(spec.Repo).To(Equal("bborbe/trading"))
-			Expect(spec.Path).To(Equal("specs/bug-octopus-prod-1j.md"))
+			Expect(spec.Path).To(Equal("specs/in-progress/bug-octopus-prod-1j.md"))
 			Expect(spec.IssueID).To(Equal("OCTOPUS-PROD-1J"))
 		})
 
-		It("carries the kind: bug frontmatter and a Reproduction section", func() {
+		It("carries approved kind: bug frontmatter and a Reproduction section", func() {
+			Expect(spec.Content).To(ContainSubstring("status: approved"))
+			Expect(spec.Content).To(ContainSubstring("approved: 2026-09-06T12:00:00Z"))
 			Expect(spec.Content).To(ContainSubstring("kind: bug"))
-			Expect(spec.Content).To(ContainSubstring("status: draft"))
+			Expect(spec.Content).NotTo(ContainSubstring("status: draft"))
+			Expect(spec.Content).NotTo(ContainSubstring("completed:"))
 			Expect(spec.Content).To(ContainSubstring("## Reproduction"))
 			Expect(spec.Content).To(ContainSubstring("mt5/connector/mt5linux.py:42"))
 		})
@@ -86,7 +96,8 @@ var _ = Describe("BuildSpec", func() {
 
 			sf, err := speclib.Load(ctx, path, libtime.NewCurrentDateTime())
 			Expect(err).NotTo(HaveOccurred())
-			Expect(sf.Frontmatter.Status).To(Equal("draft"))
+			Expect(sf.Frontmatter.Status).To(Equal("approved"))
+			Expect(sf.Frontmatter.Approved).To(Equal("2026-09-06T12:00:00Z"))
 			Expect(sf.Body).NotTo(BeEmpty())
 		})
 	})
@@ -99,7 +110,7 @@ var _ = Describe("BuildSpec", func() {
 		Expect(spec.Path).NotTo(ContainSubstring(".."))
 		// No '/' other than the specs/ prefix (defense in depth — the writer's
 		// traversal check is the other layer).
-		Expect(strings.TrimPrefix(spec.Path, "specs/")).NotTo(ContainSubstring("/"))
+		Expect(strings.TrimPrefix(spec.Path, "specs/in-progress/")).NotTo(ContainSubstring("/"))
 	})
 
 	DescribeTable("rejects a missing field with an error naming it",

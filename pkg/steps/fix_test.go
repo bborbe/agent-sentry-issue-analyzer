@@ -6,12 +6,15 @@ package steps_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 	"github.com/google/go-github/v88/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,11 +47,13 @@ func newClient(tb newClientT, handler http.Handler) *github.Client {
 	return client
 }
 
-// fakeGitHub is the httptest GitHub Contents API: GET returns 404 until a path
-// has been PUT (then 200), and PUT records the write.
+// fakeGitHub is the httptest GitHub API the real writer drives: Contents API
+// (GET 404 until PUT), branch refs, repository metadata, and pull requests.
 type fakeGitHub struct {
-	created  map[string]bool
-	putCount int
+	created   map[string]bool
+	putCount  int
+	prCreates int
+	pulls     []*github.PullRequest
 }
 
 func newFakeGitHub() (*fakeGitHub, http.Handler) {
@@ -63,6 +68,17 @@ func newFakeGitHub() (*fakeGitHub, http.Handler) {
 		case r.Method == http.MethodGet && strings.Contains(p, "/git/ref/heads/"):
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"ref":"refs/heads/master","object":{"sha":"abc123"}}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(p, "/pulls"):
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(f.pulls)
+		case r.Method == http.MethodPost && strings.HasSuffix(p, "/pulls"):
+			f.prCreates++
+			pull := &github.PullRequest{
+				HTMLURL: github.Ptr("https://github.com/bborbe/trading/pull/1"),
+			}
+			f.pulls = append(f.pulls, pull)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(pull)
 		case r.Method == http.MethodGet && strings.Count(p, "/") == 3:
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"default_branch":"master"}`))
@@ -86,14 +102,19 @@ func newFakeGitHub() (*fakeGitHub, http.Handler) {
 
 var _ = Describe("FixStep", func() {
 	var (
-		ctx      context.Context
-		resolver *fixagentmocks.RepoResolver
-		writer   *fixagentmocks.SpecWriter
-		trace    *fixagentmocks.TraceReader
+		ctx        context.Context
+		resolver   *fixagentmocks.RepoResolver
+		writer     *fixagentmocks.SpecWriter
+		trace      *fixagentmocks.TraceReader
+		fixedClock libtime.CurrentDateTimeGetter
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+		fixedNow := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+		fixedClock = libtime.CurrentDateTimeGetterFunc(func() libtime.DateTime {
+			return libtime.DateTime(fixedNow)
+		})
 		resolver = &fixagentmocks.RepoResolver{}
 		writer = &fixagentmocks.SpecWriter{}
 		// Default world: the issue's trace carries a first-party frame, so a
@@ -143,7 +164,7 @@ var _ = Describe("FixStep", func() {
 	}
 
 	buildStep := func() agentlib.Step {
-		return steps.NewFixStep(resolver, writer, trace)
+		return steps.NewFixStep(resolver, writer, trace, fixedClock)
 	}
 
 	It("Name returns the sentry-fix step name", func() {
@@ -156,7 +177,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 
 		step := buildStep()
 		md := buildTask(realBugVerdict)
@@ -169,13 +190,16 @@ var _ = Describe("FixStep", func() {
 		Expect(writer.WriteCallCount()).To(Equal(1))
 		_, spec := writer.WriteArgsForCall(0)
 		Expect(spec.Repo).To(Equal("bborbe/trading"))
-		Expect(spec.Path).To(Equal("specs/bug-octopus-prod-1j.md"))
+		Expect(spec.Path).To(Equal("specs/in-progress/bug-octopus-prod-1j.md"))
 
 		section, ok := md.FindSection("## Fix Result")
 		Expect(ok).To(BeTrue())
 		Expect(section.Body).To(ContainSubstring("sentry_issue_id: OCTOPUS-PROD-1J"))
 		Expect(section.Body).To(ContainSubstring("status: filed"))
-		Expect(section.Body).To(ContainSubstring("specs/bug-octopus-prod-1j.md"))
+		Expect(section.Body).To(ContainSubstring("specs/in-progress/bug-octopus-prod-1j.md"))
+		Expect(
+			section.Body,
+		).To(ContainSubstring("pr_url: https://github.com/bborbe/trading/pull/1"))
 	})
 
 	It("files nothing and records the stale path when the citation is stale (AC-2)", func() {
@@ -210,7 +234,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "candidate position 1 (bborbe/agent-task-executor)",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 
 		_, err := buildStep().Run(ctx, buildTask(realBugVerdict))
 		Expect(err).NotTo(HaveOccurred())
@@ -263,7 +287,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 		trace.HasFirstPartyFrameReturns(true, nil)
 
 		step := buildStep()
@@ -352,7 +376,7 @@ var _ = Describe("FixStep", func() {
 				Rule:  "resolved from frame path bborbe/kafka/kafka_consumer-offset.go",
 				Fresh: true,
 			}, nil)
-			writer.WriteReturns(nil)
+			writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 			trace.HasFirstPartyFrameReturns(true, nil)
 
 			md, err := agentlib.ParseMarkdown(
@@ -391,7 +415,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path bborbe/kafka/kafka_consumer-offset.go",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 		trace.HasFirstPartyFrameReturns(true, nil)
 
 		md, err := agentlib.ParseMarkdown(
@@ -448,7 +472,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path pkg/deepverdict/deepverdict.go",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 
 		body := "## Analysis\n\n" +
 			"**Implicated repo + file:** `bborbe/agent-sentry-issue-analyzer/pkg/deepverdict/deepverdict.go:109`\n\n" +
@@ -468,7 +492,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 
 		body := "## Analysis\n\n" +
 			"**Implicated repo + file:** `bborbe/trading`\n\n" +
@@ -488,7 +512,7 @@ var _ = Describe("FixStep", func() {
 				Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 				Fresh: true,
 			}, nil)
-			writer.WriteReturns(nil)
+			writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 
 			_, err := buildStep().Run(ctx, buildTask(analysis+realBugVerdict))
 			Expect(err).NotTo(HaveOccurred())
@@ -553,6 +577,7 @@ var _ = Describe("FixStep", func() {
 			Fresh: true,
 		}, nil)
 		writer.WriteReturns(
+			"",
 			errors.New(ctx, "fix-agent: file spec in bborbe/trading: github api status 404"),
 		)
 
@@ -603,7 +628,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		writer.WriteReturns(nil)
+		writer.WriteReturns("https://github.com/bborbe/trading/pull/1", nil)
 
 		step := buildStep()
 		md := buildTask(realBugVerdict)
@@ -635,7 +660,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		step := steps.NewFixStep(resolver, realWriter, trace)
+		step := steps.NewFixStep(resolver, realWriter, trace, fixedClock)
 
 		first := buildTask(realBugVerdict)
 		result1, err := step.Run(ctx, first)
@@ -648,5 +673,6 @@ var _ = Describe("FixStep", func() {
 		Expect(result2.Status).To(Equal(agentlib.AgentStatusDone))
 
 		Expect(f.putCount).To(Equal(1))
+		Expect(f.prCreates).To(Equal(1))
 	})
 })

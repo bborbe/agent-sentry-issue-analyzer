@@ -279,11 +279,15 @@ func CreateFixAgentFromRunner(
 	githubClient *github.Client,
 	repoAllowlist []string,
 	trace fixagent.TraceReader,
+	currentDateTime libtime.CurrentDateTimeGetter,
 ) *agentlib.Agent {
 	resolver := fixagent.NewPromptRepoResolver(runner, prompts.BuildFixPlanningInstructions())
 	writer := fixagent.NewGitHubSpecWriter(githubClient, repoAllowlist)
 	return agentlib.NewAgent(
-		agentlib.NewPhase("planning", steps.NewFixStep(resolver, writer, trace)),
+		agentlib.NewPhase(
+			"planning",
+			steps.NewFixStep(resolver, writer, trace, currentDateTime),
+		),
 	)
 }
 
@@ -329,6 +333,7 @@ func CreateAgentProvider(
 		githubClient,
 		repoAllowlist,
 		fixagent.NewSentryTraceReader(http.DefaultClient, "", "", sentryAPIToken),
+		currentDateTime,
 	)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
 	return agentlib.NewAgentProvider(serviceName, map[agentlib.TaskType]*agentlib.Agent{

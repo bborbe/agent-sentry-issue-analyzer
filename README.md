@@ -23,14 +23,19 @@ Built on `bborbe/agent-claude` template — AI-heavy reference. Two active phase
 The pipeline's third task type (`assignee: sentry-fix-agent`). It turns a
 High/High `real bug` deep verdict into a filed `kind: bug` spec: resolve the
 repo behind the verdict's `file:line` (prompt-backed), confirm the citation at
-the current revision, build the spec from the verdict's own words, and file it
-through the GitHub Contents API on a `sentry-fix/<issue-slug>` branch. Stale
-citations file nothing (recorded `status: stale` in `## Fix Result`), an
+the current revision, build the spec from the verdict's own words, and write it
+as an approved `kind: bug` spec at `specs/in-progress/bug-<issue-slug>.md`
+through the GitHub Contents API. The writer opens a draft pull request
+from the `sentry-fix/<issue-slug>` branch to the repository's default branch.
+Stale citations file nothing (recorded `status: stale` in `## Fix Result`), an
 unmappable resolution is recorded `status: skipped` instead of failing the
 Job, out-of-scope repos fail loudly, and emission is idempotent per Sentry
-issue id. `REPO_ALLOWLIST` (comma-separated owner/name, e.g. `bborbe/trading`)
-bounds which repos it may write into; empty means unbound (the App
-installation scope remains the hard wall).
+issue id: one spec, one branch, one PR. `REPO_ALLOWLIST` (comma-separated
+owner/name, e.g. `bborbe/trading`) bounds which repos it may write into; empty
+means unbound (the App installation scope remains the hard wall).
+
+See [docs/fix-lane.md](docs/fix-lane.md) for the watcher's four-condition
+contract and the lane end to end.
 
 ## Build + Deploy
 

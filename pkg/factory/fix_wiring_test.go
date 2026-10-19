@@ -6,6 +6,7 @@ package factory_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 	agentmocks "github.com/bborbe/agent/mocks"
+	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/google/go-github/v88/github"
 	. "github.com/onsi/ginkgo/v2"
@@ -55,6 +57,7 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 			client,
 			[]string{"bborbe/trading"},
 			trace,
+			libtime.NewCurrentDateTime(),
 		)
 		_, err := agent.Run(
 			ctx,
@@ -79,7 +82,7 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 		Expect(server.putCount).To(Equal(1))
 		Expect(
 			server.created,
-		).To(HaveKey("/repos/bborbe/trading/contents/specs/bug-octopus-prod-1j.md"))
+		).To(HaveKey("/repos/bborbe/trading/contents/specs/in-progress/bug-octopus-prod-1j.md"))
 	})
 
 	It("records ## Fix Result with status filed in the delivered output", func() {
@@ -89,6 +92,9 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 		Expect(ok).To(BeTrue())
 		Expect(section.Body).To(ContainSubstring("status: filed"))
 		Expect(section.Body).To(ContainSubstring("repo: bborbe/trading"))
+		Expect(
+			section.Body,
+		).To(ContainSubstring("pr_url: https://github.com/bborbe/trading/pull/1"))
 	})
 })
 
@@ -119,9 +125,11 @@ func newClient(tb newClientT, handler http.Handler) *github.Client {
 // and PUT records the write — exercising the actual HTTP boundary of the
 // fix-agent writer through the factory wiring.
 type fakeFixGithubAPI struct {
-	client   *github.Client
-	created  map[string]bool
-	putCount int
+	client    *github.Client
+	created   map[string]bool
+	putCount  int
+	prCreates int
+	pulls     []*github.PullRequest
 }
 
 func newFakeFixGithubAPI(tb newClientT) *fakeFixGithubAPI {
@@ -136,6 +144,17 @@ func newFakeFixGithubAPI(tb newClientT) *fakeFixGithubAPI {
 		case r.Method == http.MethodGet && strings.Contains(p, "/git/ref/heads/"):
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"ref":"refs/heads/master","object":{"sha":"abc123"}}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(p, "/pulls"):
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(f.pulls)
+		case r.Method == http.MethodPost && strings.HasSuffix(p, "/pulls"):
+			f.prCreates++
+			pull := &github.PullRequest{
+				HTMLURL: github.Ptr("https://github.com/bborbe/trading/pull/1"),
+			}
+			f.pulls = append(f.pulls, pull)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(pull)
 		case r.Method == http.MethodGet && strings.Count(p, "/") == 3:
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"default_branch":"master"}`))

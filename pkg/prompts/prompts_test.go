@@ -507,6 +507,9 @@ var _ = Describe("BuildFixPlanningInstructions", func() {
 		func() {
 			content := prompts.BuildFixPlanningInstructions()[0].Content
 			Expect(content).To(ContainSubstring("kind: bug"))
+			Expect(content).To(ContainSubstring("status: approved"))
+			Expect(content).To(ContainSubstring("specs/in-progress/"))
+			Expect(content).NotTo(ContainSubstring("status: draft"))
 			Expect(content).To(ContainSubstring("## Reproduction"))
 		},
 	)
