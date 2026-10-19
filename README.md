@@ -25,7 +25,7 @@ High/High `real bug` deep verdict into a filed `kind: bug` spec: resolve the
 repo behind the verdict's `file:line` (prompt-backed), confirm the citation at
 the current revision, build the spec from the verdict's own words, and write it
 as an approved `kind: bug` spec at `specs/in-progress/bug-<issue-slug>.md`
-through the GitHub Contents API. The writer opens an open draft pull request
+through the GitHub Contents API. The writer opens a draft pull request
 from the `sentry-fix/<issue-slug>` branch to the repository's default branch.
 Stale citations file nothing (recorded `status: stale` in `## Fix Result`), an
 unmappable resolution is recorded `status: skipped` instead of failing the
