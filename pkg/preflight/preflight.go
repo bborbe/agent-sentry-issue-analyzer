@@ -29,6 +29,13 @@ const sentryReadToolPrefix = "Bash(scripts/sentry-read.sh"
 // granted only under its script constraint — no bare Bash, no bare git.
 const repoCloneToolPrefix = "Bash(scripts/repo-clone.sh"
 
+// jiraReadToolPrefix is the constrained Bash tool the execution prompt invokes
+// to answer the Jira half of the `already-tracked` verdict: "is there an OPEN
+// Jira issue matching this alert?". Before it existed the rubric named "open
+// Jira ticket" as an already-tracked input with no mechanism behind it, so the
+// verdict rested on an unbacked LLM judgment.
+const jiraReadToolPrefix = "Bash(scripts/jira-read.sh"
+
 // collectorScriptToolPrefix is the constrained Bash tool the collector-step prompt
 // invokes to fetch the day's active unresolved Sentry alerts and publish the
 // per-alert tasks. It is granted only under its script constraint.
@@ -168,5 +175,59 @@ func ValidateRepoCloneTools(ctx context.Context, allowed claudelib.AllowedTools)
 	return errors.Errorf(
 		ctx,
 		"repo-clone preflight failed: missing Bash(scripts/repo-clone.sh:*) tool. Grant it in the agent Config CRD ALLOWED_TOOLS.",
+	)
+}
+
+// ValidateJiraTools returns an error if the BRO Jira read the `already-tracked`
+// verdict depends on is not wired: the `Bash(scripts/jira-read.sh:*` tool must
+// be present in ALLOWED_TOOLS, and JIRA_CLOUD_ID + JIRA_EMAIL + JIRA_API_TOKEN
+// must all be set. A missing piece is a hard failure rather than a silent
+// degradation — without the read the verdict falls back to exactly the unbacked
+// judgment this path exists to eliminate, and the run would look green while
+// resting on a guess.
+//
+// The token is required, not optional: an unset token cannot be distinguished
+// at verdict time from "the search found nothing", so the failure has to land
+// at startup where it names the missing piece.
+func ValidateJiraTools(
+	ctx context.Context,
+	allowed claudelib.AllowedTools,
+	cloudID string,
+	email string,
+	apiToken string,
+) error {
+	var missing []string
+	hasTool := false
+	for _, t := range allowed {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if strings.HasPrefix(t, jiraReadToolPrefix) {
+			hasTool = true
+			break
+		}
+	}
+	if !hasTool {
+		missing = append(missing, "Bash(scripts/jira-read.sh:*)")
+	}
+	if cloudID == "" {
+		missing = append(missing, "JIRA_CLOUD_ID")
+	}
+	if email == "" {
+		missing = append(missing, "JIRA_EMAIL")
+	}
+	if apiToken == "" {
+		missing = append(missing, "JIRA_API_TOKEN")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+	return errors.Errorf(
+		ctx,
+		"jira preflight failed: missing required piece(s) for the BRO Jira read: %s. Grant the Bash(scripts/jira-read.sh:*) tool in the agent Config CRD ALLOWED_TOOLS and set JIRA_CLOUD_ID + JIRA_EMAIL + JIRA_API_TOKEN (teamvault-sourced).",
+		strings.Join(missing, ", "),
 	)
 }

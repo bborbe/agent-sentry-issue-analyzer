@@ -71,6 +71,16 @@ type application struct {
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
+	// Atlassian credentials for the BRO Jira read (scripts/jira-read.sh), which
+	// answers the Jira half of the `already-tracked` verdict. Sourced like
+	// SENTRY_API_TOKEN: teamvault-rendered into the pod env and granted through
+	// the agent Config CRD. JiraCloudID is the API-gateway path segment — a
+	// scoped token sent to the site URL answers 401, so the gateway is the only
+	// supported shape.
+	JiraCloudID  string `required:"false" arg:"jira-cloud-id"  env:"JIRA_CLOUD_ID"  usage:"Atlassian cloud id for the API gateway"`
+	JiraEmail    string `required:"false" arg:"jira-email"     env:"JIRA_EMAIL"     usage:"Jira account email for Basic auth"`
+	JiraAPIToken string `required:"false" arg:"jira-api-token" env:"JIRA_API_TOKEN" usage:"Jira API token (teamvault-sourced)" display:"length"`
+
 	// Assignee is this agent's own identity — the exact value agent-task-executor
 	// matches against the Config CR's spec.assignee. Required, deliberately with
 	// no default: the lane's env: block in nuke agent/values-{dev,prod}.yaml is
@@ -235,6 +245,18 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	if a.SentryAPIToken != "" {
 		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
 	}
+	// The Jira read (scripts/jira-read.sh) needs all three in the subprocess
+	// env for the same reason: buildSubprocessEnv strips non-allowlisted vars,
+	// so the pod secret alone does not reach the Bash tool.
+	if a.JiraCloudID != "" {
+		claudeEnv["JIRA_CLOUD_ID"] = a.JiraCloudID
+	}
+	if a.JiraEmail != "" {
+		claudeEnv["JIRA_EMAIL"] = a.JiraEmail
+	}
+	if a.JiraAPIToken != "" {
+		claudeEnv["JIRA_API_TOKEN"] = a.JiraAPIToken
+	}
 	// The collector step's Bash tool contract (scripts/sentry-create-tasks.sh)
 	// needs the Kafka brokers + per-alert task knobs in the subprocess env —
 	// the pod secret alone is not enough (buildSubprocessEnv strips
@@ -344,6 +366,19 @@ func (a *application) validatePreflight(
 	}
 	if err := preflight.ValidateRepoCloneTools(ctx, allowedTools); err != nil {
 		return errors.Wrap(ctx, err, "repo-clone preflight")
+	}
+	// The `already-tracked` verdict asks whether an open Jira ticket already
+	// covers the alert. Without the read that half of the verdict is an
+	// unbacked judgment, so a missing grant/token fails here rather than
+	// silently degrading the verdict.
+	if err := preflight.ValidateJiraTools(
+		ctx,
+		allowedTools,
+		a.JiraCloudID,
+		a.JiraEmail,
+		a.JiraAPIToken,
+	); err != nil {
+		return errors.Wrap(ctx, err, "jira preflight")
 	}
 	return nil
 }

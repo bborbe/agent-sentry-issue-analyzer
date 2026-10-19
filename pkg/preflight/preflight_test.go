@@ -100,3 +100,57 @@ var _ = Describe("ValidateRepoCloneTools", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
+
+var _ = Describe("ValidateJiraTools", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("passes when the script tool is allowed and all three values are set", func() {
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/jira-read.sh:*)",
+			"Read",
+		}, "cloud-123", "agent@example.com", "tok")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("fails when the script tool is not granted", func() {
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/sentry-read.sh:*)",
+			"Read",
+		}, "cloud-123", "agent@example.com", "tok")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("jira preflight failed"))
+		Expect(err.Error()).To(ContainSubstring("scripts/jira-read.sh"))
+	})
+
+	It("fails and names every missing env value", func() {
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/jira-read.sh:*)",
+		}, "", "", "")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("JIRA_CLOUD_ID"))
+		Expect(err.Error()).To(ContainSubstring("JIRA_EMAIL"))
+		Expect(err.Error()).To(ContainSubstring("JIRA_API_TOKEN"))
+	})
+
+	It("fails when only the token is missing", func() {
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/jira-read.sh:*)",
+		}, "cloud-123", "agent@example.com", "")
+		Expect(err).To(HaveOccurred())
+		// Assert on the missing list, not the advice sentence: the remedy text
+		// names all three vars unconditionally, so a bare ContainsSubstring
+		// would pass even if the list were empty.
+		Expect(err.Error()).To(ContainSubstring("BRO Jira read: JIRA_API_TOKEN."))
+	})
+
+	It("passes with a stricter jira script scope", func() {
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/jira-read.sh search:*)",
+		}, "cloud-123", "agent@example.com", "tok")
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
