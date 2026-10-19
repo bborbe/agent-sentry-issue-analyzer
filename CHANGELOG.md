@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.19.1
 
 - fix: the Jira preflight is now opt-in per deployment. `ValidateJiraTools` runs only when the deployment has signalled intent — the `Bash(scripts/jira-read.sh:*)` tool is granted, or any one of `JIRA_CLOUD_ID` / `JIRA_EMAIL` / `JIRA_API_TOKEN` is set — so a lane that analyzes alerts with no BRO ticket behind it (the nuke lane, which files into the personal vault) starts without a credential it never uses. Once intent is signalled the full set is still required: a partial configuration is a misconfiguration rather than an unused capability, and it fails at startup naming the missing piece.
 
