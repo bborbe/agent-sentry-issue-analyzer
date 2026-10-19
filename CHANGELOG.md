@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.19.0
 
 - feat: the execution prompt can now answer the Jira half of the `already-tracked` verdict. A new `scripts/jira-read.sh` performs one read-only JQL search through the Atlassian API gateway (`/ex/jira/<cloudId>/rest/api/3/search/jql` — a scoped token sent to the site URL answers 401), printing `returned=<n>` plus one `<KEY>\t<statusCategory>\t<status>\t<summary>` line per matching issue; `pkg/preflight` now refuses to start a run whose `ALLOWED_TOOLS` lacks `Bash(scripts/jira-read.sh:*)` or whose `JIRA_CLOUD_ID` / `JIRA_EMAIL` / `JIRA_API_TOKEN` are unset, because an unbacked "open Jira ticket" is exactly the judgment the verdict must stop resting on. The execution prompt names the script, requires the matching KEY in `reason:`, and forbids inferring the verdict from a Jira key already present in the alert payload.
 
