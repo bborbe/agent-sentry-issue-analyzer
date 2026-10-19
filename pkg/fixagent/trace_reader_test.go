@@ -40,13 +40,17 @@ var _ = Describe("SentryTraceReader", func() {
 		ctx = context.Background()
 	})
 
-	It("reports a first-party frame when an in_app frame carries a path", func() {
+	// The live API serializes frame flags in camelCase (inApp, absPath). This
+	// body is the shape the reader actually receives, so it fails on the
+	// snake_case-only tags: they never match `inApp`, every frame decodes as
+	// third-party, and the reader reports no first-party frame.
+	It("reports a first-party frame when the API's camelCase frame carries a path", func() {
 		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
 			Expect(r.Header.Get("Authorization")).To(Equal("Bearer test-token"))
 			Expect(r.URL.Path).To(Equal("/organizations/bborbe/issues/NUKE-PROD-BX/events/latest/"))
 			w.Write([]byte(eventWith(
-				`{"in_app":false,"filename":"vendor/sarama/client.go"},` +
-					`{"in_app":true,"filename":"capitalcom/marketdata/fetcher/pkg/market-data-reader.go"}`,
+				`{"inApp":false,"filename":"vendor/sarama/client.go"},` +
+					`{"inApp":true,"filename":"capitalcom/marketdata/fetcher/pkg/market-data-reader.go"}`,
 			)))
 		})
 
@@ -55,11 +59,26 @@ var _ = Describe("SentryTraceReader", func() {
 		Expect(has).To(BeTrue())
 	})
 
-	It("reports no first-party frame when every frame is third-party", func() {
+	// The SDK protocol spelling is what this suite's older fixtures use, so it
+	// must keep decoding rather than being traded for the live one.
+	It("also decodes the protocol's snake_case frame spelling", func() {
 		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(eventWith(
 				`{"in_app":false,"filename":"vendor/sarama/client.go"},` +
-					`{"in_app":false,"abs_path":"/usr/lib/python3/http/client.py"}`,
+					`{"in_app":true,"abs_path":"/src/app/main.py"}`,
+			)))
+		})
+
+		has, err := reader.HasFirstPartyFrame(ctx, "NUKE-PROD-BX")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(has).To(BeTrue())
+	})
+
+	It("reports no first-party frame when every camelCase frame is third-party", func() {
+		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(eventWith(
+				`{"inApp":false,"filename":"vendor/sarama/client.go"},` +
+					`{"inApp":false,"absPath":"/usr/lib/python3/http/client.py"}`,
 			)))
 		})
 
@@ -72,7 +91,7 @@ var _ = Describe("SentryTraceReader", func() {
 		// The claim under test names a *path*; an in_app frame without one
 		// cannot back it.
 		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(eventWith(`{"in_app":true}`)))
+			w.Write([]byte(eventWith(`{"inApp":true}`)))
 		})
 
 		has, err := reader.HasFirstPartyFrame(ctx, "NUKE-PROD-BX")
@@ -156,7 +175,7 @@ var _ = Describe("SentryTraceReader", func() {
 					return
 				}
 				w.Write([]byte(eventWith(
-					`{"in_app":true,"filename":"capitalcom/marketdata/fetcher/pkg/market-data-reader.go"}`,
+					`{"inApp":true,"filename":"capitalcom/marketdata/fetcher/pkg/market-data-reader.go"}`,
 				)))
 			})
 
@@ -173,7 +192,7 @@ var _ = Describe("SentryTraceReader", func() {
 		var gotPath string
 		beforeEachServer(func(w http.ResponseWriter, r *http.Request) {
 			gotPath = r.URL.EscapedPath()
-			w.Write([]byte(eventWith(`{"in_app":true,"filename":"pkg/reader.go"}`)))
+			w.Write([]byte(eventWith(`{"inApp":true,"filename":"pkg/reader.go"}`)))
 		})
 
 		_, err := reader.HasFirstPartyFrame(ctx, "../../projects/other")
@@ -189,7 +208,7 @@ var _ = Describe("SentryTraceReader", func() {
 			Expect(
 				r.URL.Path,
 			).To(HavePrefix("/organizations/" + fixagent.DefaultSentryOrg + "/issues/"))
-			w.Write([]byte(eventWith(`{"in_app":true,"filename":"pkg/reader.go"}`)))
+			w.Write([]byte(eventWith(`{"inApp":true,"filename":"pkg/reader.go"}`)))
 		}))
 		DeferCleanup(server.Close)
 		reader = fixagent.NewSentryTraceReader(server.Client(), server.URL, "", "test-token")
