@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 	"github.com/google/go-github/v88/github"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -86,14 +88,19 @@ func newFakeGitHub() (*fakeGitHub, http.Handler) {
 
 var _ = Describe("FixStep", func() {
 	var (
-		ctx      context.Context
-		resolver *fixagentmocks.RepoResolver
-		writer   *fixagentmocks.SpecWriter
-		trace    *fixagentmocks.TraceReader
+		ctx        context.Context
+		resolver   *fixagentmocks.RepoResolver
+		writer     *fixagentmocks.SpecWriter
+		trace      *fixagentmocks.TraceReader
+		fixedClock libtime.CurrentDateTimeGetter
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+		fixedNow := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+		fixedClock = libtime.CurrentDateTimeGetterFunc(func() libtime.DateTime {
+			return libtime.DateTime(fixedNow)
+		})
 		resolver = &fixagentmocks.RepoResolver{}
 		writer = &fixagentmocks.SpecWriter{}
 		// Default world: the issue's trace carries a first-party frame, so a
@@ -143,7 +150,7 @@ var _ = Describe("FixStep", func() {
 	}
 
 	buildStep := func() agentlib.Step {
-		return steps.NewFixStep(resolver, writer, trace)
+		return steps.NewFixStep(resolver, writer, trace, fixedClock)
 	}
 
 	It("Name returns the sentry-fix step name", func() {
@@ -169,13 +176,13 @@ var _ = Describe("FixStep", func() {
 		Expect(writer.WriteCallCount()).To(Equal(1))
 		_, spec := writer.WriteArgsForCall(0)
 		Expect(spec.Repo).To(Equal("bborbe/trading"))
-		Expect(spec.Path).To(Equal("specs/bug-octopus-prod-1j.md"))
+		Expect(spec.Path).To(Equal("specs/in-progress/bug-octopus-prod-1j.md"))
 
 		section, ok := md.FindSection("## Fix Result")
 		Expect(ok).To(BeTrue())
 		Expect(section.Body).To(ContainSubstring("sentry_issue_id: OCTOPUS-PROD-1J"))
 		Expect(section.Body).To(ContainSubstring("status: filed"))
-		Expect(section.Body).To(ContainSubstring("specs/bug-octopus-prod-1j.md"))
+		Expect(section.Body).To(ContainSubstring("specs/in-progress/bug-octopus-prod-1j.md"))
 	})
 
 	It("files nothing and records the stale path when the citation is stale (AC-2)", func() {
@@ -635,7 +642,7 @@ var _ = Describe("FixStep", func() {
 			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
 			Fresh: true,
 		}, nil)
-		step := steps.NewFixStep(resolver, realWriter, trace)
+		step := steps.NewFixStep(resolver, realWriter, trace, fixedClock)
 
 		first := buildTask(realBugVerdict)
 		result1, err := step.Run(ctx, first)

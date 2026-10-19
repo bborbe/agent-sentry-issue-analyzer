@@ -13,6 +13,7 @@ import (
 	agentlib "github.com/bborbe/agent"
 	claudelib "github.com/bborbe/agent/claude"
 	agentmocks "github.com/bborbe/agent/mocks"
+	libtime "github.com/bborbe/time"
 	"github.com/bborbe/vault-cli/pkg/domain"
 	"github.com/google/go-github/v88/github"
 	. "github.com/onsi/ginkgo/v2"
@@ -55,6 +56,7 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 			client,
 			[]string{"bborbe/trading"},
 			trace,
+			libtime.NewCurrentDateTime(),
 		)
 		_, err := agent.Run(
 			ctx,
@@ -79,7 +81,7 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 		Expect(server.putCount).To(Equal(1))
 		Expect(
 			server.created,
-		).To(HaveKey("/repos/bborbe/trading/contents/specs/bug-octopus-prod-1j.md"))
+		).To(HaveKey("/repos/bborbe/trading/contents/specs/in-progress/bug-octopus-prod-1j.md"))
 	})
 
 	It("records ## Fix Result with status filed in the delivered output", func() {

@@ -11,6 +11,7 @@ import (
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
+	libtime "github.com/bborbe/time"
 
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/deepverdict"
 	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/fixagent"
@@ -46,6 +47,9 @@ type fixStep struct {
 	// stack frame — the evidence a `resolved from frame path` claim is checked
 	// against, since the claim itself is only the model's prose about the trace.
 	trace fixagent.TraceReader
+	// currentDateTime supplies the spec's approval timestamp, so the emitted
+	// frontmatter records the run's own clock rather than a hardcoded date.
+	currentDateTime libtime.CurrentDateTimeGetter
 }
 
 // NewFixStep wraps the fix-agent orchestration as an agentlib.Step. Run
@@ -54,13 +58,20 @@ type fixStep struct {
 // against the trace, builds the spec, and files it through the injectable
 // writer. Resolution, tracing and writing are injected so production
 // (prompt-backed resolver + Sentry trace reader + GitHub API writer) is
-// stub-able in tests.
+// stub-able in tests. The injected clock supplies the spec's approval
+// timestamp.
 func NewFixStep(
 	resolver fixagent.RepoResolver,
 	writer fixagent.SpecWriter,
 	trace fixagent.TraceReader,
+	currentDateTime libtime.CurrentDateTimeGetter,
 ) agentlib.Step {
-	return &fixStep{resolver: resolver, writer: writer, trace: trace}
+	return &fixStep{
+		resolver:        resolver,
+		writer:          writer,
+		trace:           trace,
+		currentDateTime: currentDateTime,
+	}
 }
 
 func (s *fixStep) Name() string {
@@ -143,7 +154,7 @@ func (s *fixStep) Run(
 		return done, nil
 	}
 
-	spec, err := fixagent.BuildSpec(ctx, v, resolution)
+	spec, err := fixagent.BuildSpec(ctx, v, resolution, s.currentDateTime)
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "fix-agent: build spec")
 	}

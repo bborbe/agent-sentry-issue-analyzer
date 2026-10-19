@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: the fix agent now files an approved `kind: bug` spec at `specs/in-progress/bug-<issue-slug>.md`, with the `approved:` timestamp taken from the injected clock, so the emitted artifact is one the dark-factory watcher consumes instead of a `status: draft` spec at the old `specs/` path.
+
 ## v0.17.7
 
 - fix: the fix agent can file a spec at all. `GitHubSpecWriter` derived the destination branch `sentry-fix/<issue-id>` and then called `CreateFile` with it, but nothing ever created that branch — so every filing failed `404 Branch sentry-fix/<id> not found` and no spec had ever been filed. Measured on prod 2026-10-18, two consecutive runs of the same task (`sentry-fix-agent-3b3ce9fd-20261018204314`, `…204418`): each produced a correct resolution block and then failed at the write with the 404. The writer now creates the branch from the default branch's head before filing, reuses it when it already exists, and treats a concurrent-create `422` as success. Dev's separate failure (`403 Resource not accessible by integration`, App `4931539`) is a permission issue in that environment, not this code path.
