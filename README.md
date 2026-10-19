@@ -34,6 +34,9 @@ issue id: one spec, one branch, one PR. `REPO_ALLOWLIST` (comma-separated
 owner/name, e.g. `bborbe/trading`) bounds which repos it may write into; empty
 means unbound (the App installation scope remains the hard wall).
 
+See [docs/fix-lane.md](docs/fix-lane.md) for the watcher's four-condition
+contract and the lane end to end.
+
 ## Build + Deploy
 
 This repo builds and uploads the image; it no longer owns cluster objects.
