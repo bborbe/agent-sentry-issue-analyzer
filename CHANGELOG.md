@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.18.0
 
 - feat: the fix agent now files an approved `kind: bug` spec at `specs/in-progress/bug-<issue-slug>.md`, with the `approved:` timestamp taken from the injected clock, so the emitted artifact is one the dark-factory watcher consumes instead of a `status: draft` spec at the old `specs/` path.
 - feat: the fix agent now opens (or reuses) one open draft pull request from `sentry-fix/<issue-slug>` to the repository's default branch after filing the spec, and records its URL as `pr_url` in the task's `## Fix Result`; a failed filing creates no pull request, and a re-run of the same verdict creates neither a second spec nor a second pull request.
