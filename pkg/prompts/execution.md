@@ -21,13 +21,29 @@ Emit `unavailable` verbatim — not a paraphrase of it, and never a stand-in num
 
 For derived-key tasks, NEVER emit a `## Failure` — under any circumstance. A `## Failure` section reverts the task to planning and unassigns the analyzer, discarding the `## Analysis`; the missing Sentry ID is a legitimate identity, not a reason to refuse. Every derived-key outcome is expressed in the `## Verdict` YAML block per the Output section — never in a `## Failure` section. The mapping: **no first-party trace → the project's ordered repo list is resolved positionally**, and the planning phase records `candidate position 1 (<repo>)` — that is a resolved repo, so it takes the normal verdict path, NOT `unanalyzable`; `verdict: unanalyzable` with envelope `status: done` applies only when the alert's Sentry project has **no entry in that list at all**; a thin snapshot you cannot judge, or a low-confidence real-bug whose volume cannot be evaluated → write the verdict per the rubric (e.g. `verdict: real bug`, `confidence: low`) and set the execution envelope `status: needs_input`, naming what is missing. `needs_input` is an envelope status written inside the `## Verdict` block, NOT a `## Failure`.
 
+## Mandatory: ask the Jira board before assigning a dedup verdict
+
+The `already-tracked` and `duplicate` verdicts both turn on whether an OPEN Jira ticket already covers this alert. Ask the board — never infer it from a Jira key or link that happens to appear in the alert payload:
+
+`Bash(scripts/jira-read.sh '<jql>')`
+
+Shape the query around the alert's own signature and restrict it to open issues, e.g.
+
+`Bash(scripts/jira-read.sh 'project = BRO AND statusCategory != Done AND text ~ "<distinctive phrase from the exception title>"')`
+
+The script prints `returned=<n>` and then one `<KEY>	<statusCategory>	<status>	<summary>` line per matching issue. Read it literally:
+
+- `returned=0` — no open ticket covers this alert. That is a measurement. It does NOT license `already-tracked`, and a `BRO-…` key quoted anywhere in the task body does not override it.
+- `returned>=1` — name the matching KEY in the verdict's `reason:` and assign `already-tracked`.
+- A non-zero exit is a failed read, not an empty board: set the envelope `status: needs_input` naming the failure. Never guess, and never substitute the payload's own Jira reference for the read.
+
 ## The 7-verdict rubric
 
 Assign exactly one verdict:
 
 | Verdict | When | Action |
 |---|---|---|
-| **`already-tracked`** | Has a matching open vault task (matched by `sentry_issue_id` frontmatter) or open Jira ticket | Verdict only — no further action |
+| **`already-tracked`** | Has a matching open vault task (matched by `sentry_issue_id` frontmatter) or an open Jira ticket returned by `scripts/jira-read.sh` | Verdict only — no further action |
 | **`regression`** | Has a task/ticket marked done but Sentry still firing | Flag for user review (reopen) — set `needs_input` status |
 | **`real bug`** | Clear defect signature, reproducible, code path identifiable from `## Analysis` | Verdict = real bug with confidence, root cause, recommended fix |
 | **`noise`** | Matches a noise pattern AND none of the disqualifiers fire | Verdict = noise |
