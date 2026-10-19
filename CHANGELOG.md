@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.19.2
 
 - fix: `SentryTraceReader` now decodes the Sentry API's camelCase stack-frame flags. `pkg/fixagent` tagged the frame fields `json:"in_app"` / `json:"abs_path"`, but `/organizations/<org>/issues/<id>/events/latest/` serializes them as `inApp` / `absPath`; `encoding/json` matches a tag case-insensitively but not across an underscore, so every live frame decoded with `InApp: false` and `hasFirstPartyFrame` was always false — the frame-path branch was unreachable in production while every fixture, written in the protocol's snake_case spelling, stayed green. Observed 2026-10-19: issue `NUKE-DEV-F8` carries six `inApp=true` frames and the v0.18.0 run (`BuildGitCommit 1f0cca8`) reported `has_first_party_frame: false`, writing `rule: "candidate position 1 (bborbe/trading)"`. Both spellings are now decoded (`inApp`/`in_app`, `absPath`/`abs_path`), so the existing protocol-shaped fixtures keep passing. `trace_reader_test.go` gains camelCase specs for the first-party, all-third-party and path-less cases; they fail on the snake_case-only tags (verified red against `origin/master`).
 
