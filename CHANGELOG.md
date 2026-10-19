@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the Jira preflight is now opt-in per deployment. `ValidateJiraTools` runs only when the deployment has signalled intent — the `Bash(scripts/jira-read.sh:*)` tool is granted, or any one of `JIRA_CLOUD_ID` / `JIRA_EMAIL` / `JIRA_API_TOKEN` is set — so a lane that analyzes alerts with no BRO ticket behind it (the nuke lane, which files into the personal vault) starts without a credential it never uses. Once intent is signalled the full set is still required: a partial configuration is a misconfiguration rather than an unused capability, and it fails at startup naming the missing piece.
+
 ## v0.19.0
 
 - feat: the execution prompt can now answer the Jira half of the `already-tracked` verdict. A new `scripts/jira-read.sh` performs one read-only JQL search through the Atlassian API gateway (`/ex/jira/<cloudId>/rest/api/3/search/jql` — a scoped token sent to the site URL answers 401), printing `returned=<n>` plus one `<KEY>\t<statusCategory>\t<status>\t<summary>` line per matching issue; `pkg/preflight` now refuses to start a run whose `ALLOWED_TOOLS` lacks `Bash(scripts/jira-read.sh:*)` or whose `JIRA_CLOUD_ID` / `JIRA_EMAIL` / `JIRA_API_TOKEN` are unset, because an unbacked "open Jira ticket" is exactly the judgment the verdict must stop resting on. The execution prompt names the script, requires the matching KEY in `reason:`, and forbids inferring the verdict from a Jira key already present in the alert payload.

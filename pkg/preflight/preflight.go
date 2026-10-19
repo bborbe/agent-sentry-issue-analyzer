@@ -193,6 +193,13 @@ func ValidateRepoCloneTools(ctx context.Context, allowed claudelib.AllowedTools)
 // The token is required, not optional: an unset token cannot be distinguished
 // at verdict time from "the search found nothing", so the failure has to land
 // at startup where it names the missing piece.
+//
+// The whole capability is opt-in. A deployment that analyzes alerts with no BRO
+// ticket behind them — the nuke lane, which files into the personal vault —
+// grants neither the tool nor the values, and must start without them; refusing
+// it for a credential it never uses would crashloop a lane that has no Jira work
+// to do. Intent is signalled by granting the tool or by setting any one of the
+// three values, and once signalled the full set is required.
 func ValidateJiraTools(
 	ctx context.Context,
 	allowed claudelib.AllowedTools,
@@ -212,6 +219,15 @@ func ValidateJiraTools(
 			hasTool = true
 			break
 		}
+	}
+	// The Jira read is opt-in per deployment. A lane that analyzes alerts with no
+	// BRO ticket to look up — the nuke lane files into the personal vault — grants
+	// neither the tool nor the values, and must start without them. Only a lane
+	// that has signalled intent, by granting the tool or by setting any one of the
+	// three values, is validated; a partial configuration is still a hard failure,
+	// because that is a misconfiguration rather than an unused capability.
+	if !hasTool && cloudID == "" && email == "" && apiToken == "" {
+		return nil
 	}
 	if !hasTool {
 		missing = append(missing, "Bash(scripts/jira-read.sh:*)")
