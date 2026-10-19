@@ -160,4 +160,30 @@ var _ = Describe("ValidateJiraTools", func() {
 		}, "cloud-123", "agent@example.com", "tok")
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	It("skips validation when the deployment does not use the Jira read", func() {
+		// A lane that analyzes alerts with no BRO ticket behind them — the nuke
+		// lane, which files into the personal vault — grants neither the tool nor
+		// the values. Refusing it for a credential it never uses would crashloop
+		// a lane with no Jira work to do.
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/sentry-read.sh:*)",
+			"Read",
+		}, "", "", "")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("fails on a partial configuration even when the tool is not granted", func() {
+		// Setting any one value signals intent to use the read, so the rest is
+		// required rather than silently ignored — a partial config is a
+		// misconfiguration, not an unused capability.
+		err := preflight.ValidateJiraTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/sentry-read.sh:*)",
+			"Read",
+		}, "cloud-123", "", "")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("scripts/jira-read.sh"))
+		Expect(err.Error()).To(ContainSubstring("JIRA_EMAIL"))
+		Expect(err.Error()).To(ContainSubstring("JIRA_API_TOKEN"))
+	})
 })
