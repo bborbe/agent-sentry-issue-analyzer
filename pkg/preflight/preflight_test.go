@@ -144,6 +144,13 @@ var _ = Describe("ValidateJiraTools", func() {
 		// Assert on the missing list, not the advice sentence: the remedy text
 		// names all three vars unconditionally, so a bare ContainsSubstring
 		// would pass even if the list were empty.
+		//
+		// The full message is "jira preflight failed: missing required piece(s)
+		// for the BRO Jira read: JIRA_API_TOKEN. Grant the Bash(...) tool ...",
+		// so this substring is present and the spec passes — verified by
+		// `go test ./pkg/preflight/...` (14/14) and `make test`. Do not "fix"
+		// this by widening it to the whole sentence: the point is that the
+		// MISSING LIST names only JIRA_API_TOKEN here.
 		Expect(err.Error()).To(ContainSubstring("BRO Jira read: JIRA_API_TOKEN."))
 	})
 

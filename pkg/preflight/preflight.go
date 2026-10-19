@@ -34,6 +34,10 @@ const repoCloneToolPrefix = "Bash(scripts/repo-clone.sh"
 // Jira issue matching this alert?". Before it existed the rubric named "open
 // Jira ticket" as an already-tracked input with no mechanism behind it, so the
 // verdict rested on an unbacked LLM judgment.
+//
+// Deliberately an untyped string constant, matching the four sibling prefixes
+// above: the set is a prefix-match table, not a closed enum, and typing one
+// entry alone would make the block inconsistent without making it safer.
 const jiraReadToolPrefix = "Bash(scripts/jira-read.sh"
 
 // collectorScriptToolPrefix is the constrained Bash tool the collector-step prompt
