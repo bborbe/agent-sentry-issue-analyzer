@@ -50,12 +50,38 @@ type sentryEvent struct {
 	} `json:"entries"`
 }
 
-// sentryFrame is one stack frame. A frame is first-party when in_app is set;
-// the path fields name the source it came from.
+// sentryFrame is one stack frame. A frame is first-party when its in_app flag is
+// set; the path fields name the source it came from.
+//
+// The REST API serializes a frame's flags in camelCase (`inApp`, `absPath`),
+// while the SDK event protocol and the fixtures in this package's older tests
+// use snake_case (`in_app`, `abs_path`). Both spellings are decoded: encoding/json
+// matches a tag case-insensitively but not across an underscore, so a camelCase
+// payload never reaches a snake_case tag. With only the protocol spelling the
+// reader reported "no first-party frame" for every live event while every
+// fixture — written in that same protocol spelling — stayed green.
 type sentryFrame struct {
-	InApp    bool   `json:"in_app"`
+	InApp    bool   `json:"inApp"`
 	Filename string `json:"filename"`
-	AbsPath  string `json:"abs_path"`
+	AbsPath  string `json:"absPath"`
+
+	InAppSnake   bool   `json:"in_app"`
+	AbsPathSnake string `json:"abs_path"`
+}
+
+// isFirstParty reports whether the frame carries the in_app flag in either
+// spelling and names a path.
+func (f sentryFrame) isFirstParty() bool {
+	return (f.InApp || f.InAppSnake) && (f.Filename != "" || f.path() != "")
+}
+
+// path returns the frame's absolute path in whichever spelling the payload
+// carried it.
+func (f sentryFrame) path() string {
+	if f.AbsPath != "" {
+		return f.AbsPath
+	}
+	return f.AbsPathSnake
 }
 
 // SentryTraceReader reads an issue's latest event over the Sentry REST API and
@@ -157,7 +183,7 @@ func hasFirstPartyFrame(event sentryEvent) bool {
 				continue
 			}
 			for _, frame := range value.Stacktrace.Frames {
-				if frame.InApp && (frame.Filename != "" || frame.AbsPath != "") {
+				if frame.isFirstParty() {
 					return true
 				}
 			}

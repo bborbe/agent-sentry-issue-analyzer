@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: `SentryTraceReader` now decodes the Sentry API's camelCase stack-frame flags. `pkg/fixagent` tagged the frame fields `json:"in_app"` / `json:"abs_path"`, but `/organizations/<org>/issues/<id>/events/latest/` serializes them as `inApp` / `absPath`; `encoding/json` matches a tag case-insensitively but not across an underscore, so every live frame decoded with `InApp: false` and `hasFirstPartyFrame` was always false — the frame-path branch was unreachable in production while every fixture, written in the protocol's snake_case spelling, stayed green. Observed 2026-10-19: issue `NUKE-DEV-F8` carries six `inApp=true` frames and the v0.18.0 run (`BuildGitCommit 1f0cca8`) reported `has_first_party_frame: false`, writing `rule: "candidate position 1 (bborbe/trading)"`. Both spellings are now decoded (`inApp`/`in_app`, `absPath`/`abs_path`), so the existing protocol-shaped fixtures keep passing. `trace_reader_test.go` gains camelCase specs for the first-party, all-third-party and path-less cases; they fail on the snake_case-only tags (verified red against `origin/master`).
+
 ## v0.19.1
 
 - fix: the Jira preflight is now opt-in per deployment. `ValidateJiraTools` runs only when the deployment has signalled intent — the `Bash(scripts/jira-read.sh:*)` tool is granted, or any one of `JIRA_CLOUD_ID` / `JIRA_EMAIL` / `JIRA_API_TOKEN` is set — so a lane that analyzes alerts with no BRO ticket behind it (the nuke lane, which files into the personal vault) starts without a credential it never uses. Once intent is signalled the full set is still required: a partial configuration is a misconfiguration rather than an unused capability, and it fails at startup naming the missing piece.
