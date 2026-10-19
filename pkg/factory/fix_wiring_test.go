@@ -6,6 +6,7 @@ package factory_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -91,6 +92,9 @@ var _ = Describe("CreateFixAgentFromRunner wiring", func() {
 		Expect(ok).To(BeTrue())
 		Expect(section.Body).To(ContainSubstring("status: filed"))
 		Expect(section.Body).To(ContainSubstring("repo: bborbe/trading"))
+		Expect(
+			section.Body,
+		).To(ContainSubstring("pr_url: https://github.com/bborbe/trading/pull/1"))
 	})
 })
 
@@ -121,9 +125,11 @@ func newClient(tb newClientT, handler http.Handler) *github.Client {
 // and PUT records the write — exercising the actual HTTP boundary of the
 // fix-agent writer through the factory wiring.
 type fakeFixGithubAPI struct {
-	client   *github.Client
-	created  map[string]bool
-	putCount int
+	client    *github.Client
+	created   map[string]bool
+	putCount  int
+	prCreates int
+	pulls     []*github.PullRequest
 }
 
 func newFakeFixGithubAPI(tb newClientT) *fakeFixGithubAPI {
@@ -138,6 +144,17 @@ func newFakeFixGithubAPI(tb newClientT) *fakeFixGithubAPI {
 		case r.Method == http.MethodGet && strings.Contains(p, "/git/ref/heads/"):
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"ref":"refs/heads/master","object":{"sha":"abc123"}}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(p, "/pulls"):
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(f.pulls)
+		case r.Method == http.MethodPost && strings.HasSuffix(p, "/pulls"):
+			f.prCreates++
+			pull := &github.PullRequest{
+				HTMLURL: github.Ptr("https://github.com/bborbe/trading/pull/1"),
+			}
+			f.pulls = append(f.pulls, pull)
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(pull)
 		case r.Method == http.MethodGet && strings.Count(p, "/") == 3:
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"default_branch":"master"}`))

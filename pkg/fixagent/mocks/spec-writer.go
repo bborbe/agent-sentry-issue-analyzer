@@ -9,23 +9,25 @@ import (
 )
 
 type SpecWriter struct {
-	WriteStub        func(context.Context, fixagent.Spec) error
+	WriteStub        func(context.Context, fixagent.Spec) (string, error)
 	writeMutex       sync.RWMutex
 	writeArgsForCall []struct {
 		arg1 context.Context
 		arg2 fixagent.Spec
 	}
 	writeReturns struct {
-		result1 error
+		result1 string
+		result2 error
 	}
 	writeReturnsOnCall map[int]struct {
-		result1 error
+		result1 string
+		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *SpecWriter) Write(arg1 context.Context, arg2 fixagent.Spec) error {
+func (fake *SpecWriter) Write(arg1 context.Context, arg2 fixagent.Spec) (string, error) {
 	fake.writeMutex.Lock()
 	ret, specificReturn := fake.writeReturnsOnCall[len(fake.writeArgsForCall)]
 	fake.writeArgsForCall = append(fake.writeArgsForCall, struct {
@@ -40,9 +42,9 @@ func (fake *SpecWriter) Write(arg1 context.Context, arg2 fixagent.Spec) error {
 		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *SpecWriter) WriteCallCount() int {
@@ -51,7 +53,7 @@ func (fake *SpecWriter) WriteCallCount() int {
 	return len(fake.writeArgsForCall)
 }
 
-func (fake *SpecWriter) WriteCalls(stub func(context.Context, fixagent.Spec) error) {
+func (fake *SpecWriter) WriteCalls(stub func(context.Context, fixagent.Spec) (string, error)) {
 	fake.writeMutex.Lock()
 	defer fake.writeMutex.Unlock()
 	fake.WriteStub = stub
@@ -64,27 +66,30 @@ func (fake *SpecWriter) WriteArgsForCall(i int) (context.Context, fixagent.Spec)
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *SpecWriter) WriteReturns(result1 error) {
+func (fake *SpecWriter) WriteReturns(result1 string, result2 error) {
 	fake.writeMutex.Lock()
 	defer fake.writeMutex.Unlock()
 	fake.WriteStub = nil
 	fake.writeReturns = struct {
-		result1 error
-	}{result1}
+		result1 string
+		result2 error
+	}{result1, result2}
 }
 
-func (fake *SpecWriter) WriteReturnsOnCall(i int, result1 error) {
+func (fake *SpecWriter) WriteReturnsOnCall(i int, result1 string, result2 error) {
 	fake.writeMutex.Lock()
 	defer fake.writeMutex.Unlock()
 	fake.WriteStub = nil
 	if fake.writeReturnsOnCall == nil {
 		fake.writeReturnsOnCall = make(map[int]struct {
-			result1 error
+			result1 string
+			result2 error
 		})
 	}
 	fake.writeReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
+		result1 string
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *SpecWriter) Invocations() map[string][][]interface{} {

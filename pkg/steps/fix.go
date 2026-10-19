@@ -162,7 +162,8 @@ func (s *fixStep) Run(
 	// An out-of-scope repo or API failure returns the wrapped error (loud, the
 	// writer's wrap names the repo — AC-6 / FM-3) so the Job fails and the
 	// controller retries; it is never a silent no-op.
-	if err := s.writer.Write(ctx, spec); err != nil {
+	prURL, err := s.writer.Write(ctx, spec)
+	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "fix-agent: file spec")
 	}
 
@@ -171,6 +172,7 @@ func (s *fixStep) Run(
 		"status: filed",
 		"repo: "+resolution.Repo,
 		"spec_path: "+spec.Path,
+		"pr_url: "+prURL,
 		"message: filed kind: bug spec for Sentry issue "+v.SentryIssueID,
 	)
 	return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
