@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.19.3
 
 - chore: update github.com/bborbe/kafka to v1.28.3, github.com/bborbe/maintainer to v0.50.12, github.com/bborbe/time to v1.27.17, github.com/bborbe/vault-cli to v0.174.0
 
