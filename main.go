@@ -79,7 +79,7 @@ type application struct {
 	// supported shape.
 	JiraCloudID  string `required:"false" arg:"jira-cloud-id"  env:"JIRA_CLOUD_ID"  usage:"Atlassian cloud id for the API gateway"`
 	JiraEmail    string `required:"false" arg:"jira-email"     env:"JIRA_EMAIL"     usage:"Jira account email for Basic auth"`
-	JiraAPIToken string `required:"false" arg:"jira-api-token" env:"JIRA_API_TOKEN" usage:"Jira API token (teamvault-sourced)" display:"length"`
+	JiraAPIToken string `required:"false" arg:"jira-api-token" env:"JIRA_API_TOKEN" usage:"Jira API token (teamvault-sourced)"     display:"length"`
 
 	// Assignee is this agent's own identity — the exact value agent-task-executor
 	// matches against the Config CR's spec.assignee. Required, deliberately with
