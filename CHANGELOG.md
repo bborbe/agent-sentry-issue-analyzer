@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.19.4
 
 - chore: update Go to 1.27.3 and github.com/bborbe/agent to v0.111.0, github.com/bborbe/kafka to v1.28.4, github.com/bborbe/sentry to v1.10.5, github.com/bborbe/vault-cli to v0.177.0
 
