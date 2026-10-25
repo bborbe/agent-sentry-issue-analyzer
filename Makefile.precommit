@@ -39,6 +39,7 @@ test:
 	go test -mod=mod -p=$${GO_TEST_PARALLEL:-1} -cover $(TESTFLAGS_RACE) $(shell go list -mod=mod ./... | grep -v /vendor/)
 	bash scripts/test-repo-clone-containment.sh
 	bash scripts/test-jira-read.sh
+	bash scripts/test-vault-list.sh
 
 check: lint vet vulncheck osv-scanner trivy
 
