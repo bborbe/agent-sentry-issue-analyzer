@@ -95,6 +95,12 @@ type application struct {
 	// because the controller owns dedup — published != landed.
 	GitRestURL string `required:"false" arg:"git-rest-url" env:"GIT_REST_URL" usage:"git-rest HTTP endpoint for the target vault, e.g. http://vault-obsidian-personal:9090"`
 
+	// The typed vault API, which now answers "which alerts are already tracked"
+	// (scripts/vault-list.sh). Separate from GitRestURL because it is a different
+	// service on a different host: the listing asks what a task IS, not where its
+	// file sits, so a vault renumbering cannot break it.
+	VaultAPIURL string `required:"false" arg:"vault-api-url" env:"VAULT_API_URL" usage:"typed vault API endpoint, e.g. http://vault-api-personal:9090"`
+
 	// Optional git-rest gateway shared secret, forwarded to the subprocess when set.
 	GatewaySecret string `required:"false" arg:"gateway-secret" env:"GATEWAY_SECRET" usage:"git-rest gateway shared secret" display:"length"`
 
@@ -276,6 +282,9 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	// is not enough.
 	if a.GitRestURL != "" {
 		claudeEnv["GIT_REST_URL"] = a.GitRestURL
+	}
+	if a.VaultAPIURL != "" {
+		claudeEnv["VAULT_API_URL"] = a.VaultAPIURL
 	}
 	if a.GatewaySecret != "" {
 		claudeEnv["GATEWAY_SECRET"] = a.GatewaySecret
