@@ -360,7 +360,7 @@ func (a *application) validatePreflight(
 	if a.TaskType == taskTypeSentryCollector {
 		return errors.Wrap(
 			ctx,
-			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken, a.GitRestURL),
+			preflight.ValidateCollectorTools(ctx, allowedTools, a.SentryAPIToken, a.VaultAPIURL),
 			"sentry-collector preflight",
 		)
 	}

@@ -9,11 +9,16 @@
 # Vault endpoint via env var:
 #   VAULT_API_URL  e.g. http://vault-api-personal:9090
 #
-# ⚠️ Why three task_type values and not one. The tracked pages carry three
-# different types — sentry-issue-analyzer (1,726), sentry-deep-analyzer (118),
-# sentry-fix (53) — so a single-value filter returns 1,726 of 1,898 and the
-# missing 172 look untracked. The caller's own "matched nothing" guard does not
-# fire on that, because 1,726 is neither empty nor correct.
+# ⚠️ Why three task_type values and not one. Over the 1,898 pages matching the
+# old filename glob, the types are sentry-issue-analyzer 1,726,
+# sentry-deep-analyzer 118, sentry-fix 53, and 1 page carrying no type at all
+# (a manual page whose title happens to begin "Analyze Sentry issue"). The three
+# typed values therefore cover 1,897; the one untyped page is a glob false
+# positive, and this query correctly omits it.
+#
+# A single-value filter returns 1,726 of those 1,897, leaving 171 typed pages
+# looking untracked. The caller's own "matched nothing" guard does not fire on
+# that, because 1,726 is neither empty nor correct.
 #
 # The values are a union: a page matches when its type is any one of them.
 #
@@ -42,7 +47,27 @@ curl -sfS --max-time 30 \
   "${VAULT_API_URL}/api/v1/tasks" |
   python3 -c '
 import json, sys
-items = json.load(sys.stdin).get("items", [])
+
+# A wrong-shaped answer must FAIL, never read as an empty listing. An error
+# envelope, a renamed key or a wrapper object would all become [] with exit 0,
+# and the caller cannot tell that from "this vault tracks nothing" — it would
+# then publish every alert again.
+try:
+    body = json.load(sys.stdin)
+except json.JSONDecodeError as err:
+    sys.exit("vault-list: response is not JSON: %s" % err)
+
+if not isinstance(body, dict):
+    sys.exit("vault-list: response is not a JSON object")
+for key in ("error", "message"):
+    if key in body:
+        sys.exit("vault-list: API refused the listing: %s" % body[key])
+if "items" not in body:
+    sys.exit("vault-list: response has no items field (keys: %s)" % sorted(body))
+items = body["items"]
+if not isinstance(items, list):
+    sys.exit("vault-list: items is %s, not a list" % type(items).__name__)
+
 for task in items:
     print(task["path"])
 '

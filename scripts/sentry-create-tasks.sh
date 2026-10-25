@@ -11,8 +11,8 @@
 # Env: SENTRY_API_TOKEN (required, Bearer token), KAFKA_BROKERS (required),
 #      SENTRY_URL (default https://bborbe.sentry.io), SENTRY_ORG (default bborbe),
 #      TOPIC_PREFIX (default empty), TARGET_VAULT (default personal),
-#      STAGE (default dev), GIT_REST_URL (required — vault observation),
-#      GATEWAY_SECRET (optional — git-rest gateway auth),
+#      STAGE (default dev), VAULT_API_URL (required — typed vault-API listing),
+#      GATEWAY_SECRET (optional — gateway auth, presented to the vault API),
 #      VAULT_POLL_ATTEMPTS (default 12), VAULT_POLL_INTERVAL_SECONDS (default 5),
 #      CREATE_TASKS_KAFKA_BROKERS (TEST-ONLY, default KAFKA_BROKERS — see below)
 #
@@ -59,7 +59,7 @@ set -euo pipefail
 
 : "${SENTRY_API_TOKEN:?SENTRY_API_TOKEN is required}"
 : "${KAFKA_BROKERS:?KAFKA_BROKERS is required}"
-: "${GIT_REST_URL:?GIT_REST_URL is required}"
+: "${VAULT_API_URL:?VAULT_API_URL is required — the tracked-task listing is a typed vault-API query}"
 SENTRY_URL="${SENTRY_URL:-https://bborbe.sentry.io}"
 SENTRY_ORG="${SENTRY_ORG:-bborbe}"
 TOPIC_PREFIX="${TOPIC_PREFIX:-}"
