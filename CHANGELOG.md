@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: List the tracked alert tasks through the typed vault API instead of a git-rest filename glob. `vault-list.sh` asked for `* Tasks/Analyze Sentry issue *.md`, which baked the vault's layout into this image: the vault renumbered `24 Tasks/` → `25 Tasks/` on 2026-09-13 and the script kept matching the old name, which is what the zero-match guard exists to catch. It now asks what a task **is**, in one multi-value `task_type` query covering the three types the tracked pages carry. **One value would not do:** the pages split 1,726 / 118 / 53 across three types, so a single-value filter returns 1,726 of 1,897 and leaves 171 looking untracked — and the caller's own guard only catches an *empty* answer, so it would re-create those 171 as duplicate tasks on every run. **Proven against the dev instance, compared as sets rather than by status code:** every genuine glob page comes back (1,897, the 1,898th being a manual page the glob matched by coincidence and which carries no `task_type`), **plus 32 real tasks of those types whose titles the glob never matched** — 28 `Sentry has stopped retaining events`, 3 `Daily Sentry Triage`, 1 `Verify trace read on prod`. The filename pattern was under-reporting the population all along. New `--vault-api-url` / `VAULT_API_URL`, forwarded into the subprocess env and now required by the collector's preflight, so a pod missing it fails before the run rather than mid-way. A wrong-shaped API response — an error envelope, a renamed key — fails the listing rather than reading as an empty one.
+
 ## v0.19.5
 
 - chore: update github.com/bborbe/agent to v0.114.0, github.com/bborbe/kafka to v1.28.5, github.com/bborbe/log to v1.7.5, github.com/bborbe/service to v1.11.1, github.com/bborbe/time to v1.27.18

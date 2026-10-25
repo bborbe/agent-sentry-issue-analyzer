@@ -11,8 +11,8 @@
 # Env: SENTRY_API_TOKEN (required, Bearer token), KAFKA_BROKERS (required),
 #      SENTRY_URL (default https://bborbe.sentry.io), SENTRY_ORG (default bborbe),
 #      TOPIC_PREFIX (default empty), TARGET_VAULT (default personal),
-#      STAGE (default dev), GIT_REST_URL (required — vault observation),
-#      GATEWAY_SECRET (optional — git-rest gateway auth),
+#      STAGE (default dev), VAULT_API_URL (required — typed vault-API listing),
+#      GATEWAY_SECRET (optional — gateway auth, presented to the vault API),
 #      VAULT_POLL_ATTEMPTS (default 12), VAULT_POLL_INTERVAL_SECONDS (default 5),
 #      CREATE_TASKS_KAFKA_BROKERS (TEST-ONLY, default KAFKA_BROKERS — see below)
 #
@@ -59,7 +59,7 @@ set -euo pipefail
 
 : "${SENTRY_API_TOKEN:?SENTRY_API_TOKEN is required}"
 : "${KAFKA_BROKERS:?KAFKA_BROKERS is required}"
-: "${GIT_REST_URL:?GIT_REST_URL is required}"
+: "${VAULT_API_URL:?VAULT_API_URL is required — the tracked-task listing is a typed vault-API query}"
 SENTRY_URL="${SENTRY_URL:-https://bborbe.sentry.io}"
 SENTRY_ORG="${SENTRY_ORG:-bborbe}"
 TOPIC_PREFIX="${TOPIC_PREFIX:-}"
@@ -68,12 +68,12 @@ STAGE="${STAGE:-dev}"
 VAULT_POLL_ATTEMPTS="${VAULT_POLL_ATTEMPTS:-12}"
 VAULT_POLL_INTERVAL_SECONDS="${VAULT_POLL_INTERVAL_SECONDS:-5}"
 
-# The per-alert task files, matched WITHOUT naming the numbered tasks directory.
-# The vault renumbered `24 Tasks/` -> `25 Tasks/` on 2026-09-13 and this script
-# kept globbing the old name, which is what the zero-match guard below exists to
-# catch. `* Tasks/` follows the directory wherever it moves: the vault's layout
-# is not baked into the image, and a future renumber cannot repeat the failure.
-TASK_GLOB="* Tasks/Analyze Sentry issue *.md"
+# The per-alert tasks are listed through the typed vault API, by task_type, never
+# by a filename glob. The old glob baked the vault's layout into this image: the
+# vault renumbered `24 Tasks/` -> `25 Tasks/` on 2026-09-13 and this script kept
+# globbing the old name, which is what the zero-match guard below exists to catch.
+# A typed query cannot repeat that failure, because it asks what a task IS rather
+# than where its file sits.
 # Where the result line is written for the Go step to read. This path is shared
 # with pkg/steps/collector.go (collectorResultPath) — the step gates the task's
 # terminal status on THIS FILE, never on the model's transcription of stdout.
@@ -156,7 +156,7 @@ echo "sentry-create-tasks: ${count} active unresolved alerts: ${short_ids}"
 observed="true"
 unobserved_reason=""
 existing_files=""
-if ! existing_files="$("${vault_list}" "${TASK_GLOB}")"; then
+if ! existing_files="$("${vault_list}")"; then
   observed="false"
   unobserved_reason="vault-list failed while checking which alerts are already tracked"
 fi
@@ -174,7 +174,7 @@ fi
 # has never run this collector it fires once and self-resolves on the next run.
 if [ "${observed}" = "true" ] && [ "${count}" -gt 0 ] && [ -z "${existing_files}" ]; then
   observed="false"
-  unobserved_reason="the task glob '${TASK_GLOB}' matched no files at all while ${count} alert(s) were fetched — the tasks directory is probably renamed"
+  unobserved_reason="the typed listing returned no tracked tasks at all while ${count} alert(s) were fetched — either the vault genuinely holds none of the three alert task types, or the API answered with an empty set it should not have"
 fi
 
 expected_new=0
@@ -218,7 +218,7 @@ if [ "${observed}" = "true" ]; then
   attempt=1
   while :; do
     current_files=""
-    if ! current_files="$("${vault_list}" "${TASK_GLOB}")"; then
+    if ! current_files="$("${vault_list}")"; then
       observed="false"
       unobserved_reason="vault-list failed while observing which task files landed"
       break

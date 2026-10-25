@@ -108,18 +108,20 @@ func hasSentryReadTool(ctx context.Context, allowed claudelib.AllowedTools) bool
 // ValidateCollectorTools returns an error if the collector step's tool path is not
 // wired: the `Bash(scripts/sentry-create-tasks.sh:*` and
 // `Bash(scripts/vault-list.sh:*` tools must be present in ALLOWED_TOOLS, and
-// SENTRY_API_TOKEN + GIT_REST_URL must be set. The collector agent needs none
+// SENTRY_API_TOKEN + VAULT_API_URL must be set. The collector agent needs none
 // of the triage/deep tools (sentry-read.sh, repo-clone.sh), so it is validated
 // against its own constrained scripts instead.
 //
-// GIT_REST_URL is required, not optional: the collector observes the landed
-// per-alert task files through it, and a run that cannot observe its own
-// creation phase is exactly the false-green this path exists to prevent.
+// VAULT_API_URL is required, not optional: the collector lists the tracked
+// per-alert tasks through the typed vault API, and a run that cannot observe its
+// own creation phase is exactly the false-green this path exists to prevent. It
+// is checked here rather than only in the script so a pod missing the value
+// fails at preflight instead of mid-run.
 func ValidateCollectorTools(
 	ctx context.Context,
 	allowed claudelib.AllowedTools,
 	apiToken string,
-	gitRestURL string,
+	vaultAPIURL string,
 ) error {
 	present := map[string]bool{}
 	for _, t := range allowed {
@@ -146,8 +148,8 @@ func ValidateCollectorTools(
 	if apiToken == "" {
 		missing = append(missing, "SENTRY_API_TOKEN")
 	}
-	if gitRestURL == "" {
-		missing = append(missing, "GIT_REST_URL")
+	if vaultAPIURL == "" {
+		missing = append(missing, "VAULT_API_URL")
 	}
 	if len(missing) == 0 {
 		return nil
@@ -155,7 +157,7 @@ func ValidateCollectorTools(
 	sort.Strings(missing)
 	return errors.Errorf(
 		ctx,
-		"sentry-collector preflight failed: missing required piece(s) for the collector step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) and Bash(scripts/vault-list.sh:*) tools in the agent Config CRD ALLOWED_TOOLS, and set SENTRY_API_TOKEN + GIT_REST_URL (teamvault-sourced).",
+		"sentry-collector preflight failed: missing required piece(s) for the collector step: %s. Grant the Bash(scripts/sentry-create-tasks.sh:*) and Bash(scripts/vault-list.sh:*) tools in the agent Config CRD ALLOWED_TOOLS, and set SENTRY_API_TOKEN + VAULT_API_URL (teamvault-sourced).",
 		strings.Join(missing, ", "),
 	)
 }
