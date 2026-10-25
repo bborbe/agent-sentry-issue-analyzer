@@ -11,6 +11,10 @@
 # not by testing a parser function in isolation — because the failure this
 # prevents lives in how the script composes curl, the parser and `pipefail`.
 #
+# Each failing case asserts the DISTINCT diagnostic it should produce, not just
+# a non-zero exit: a bare `rc != 0` is satisfied by any unrelated crash, which
+# would let a broken parser pass this suite.
+#
 # Run: bash scripts/test-vault-list.sh
 
 set -uo pipefail
@@ -18,7 +22,19 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_LIST="${SCRIPT_DIR}/vault-list.sh"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+SERVER_PID=""
+# The mock server is one-shot, so a case that never reaches its request would
+# leave it blocked in handle_request() forever. The trap kills it, and every
+# wait is bounded, so a hang in the script under test fails this suite instead
+# of hanging CI.
+cleanup() {
+	if [ -n "${SERVER_PID}" ] && kill -0 "${SERVER_PID}" 2>/dev/null; then
+		kill "${SERVER_PID}" 2>/dev/null
+		wait "${SERVER_PID}" 2>/dev/null
+	fi
+	rm -rf "$WORK"
+}
+trap cleanup EXIT
 
 fails=0
 pass() { printf 'ok   %s\n' "$1"; }
@@ -27,10 +43,22 @@ fail() {
 	fails=$((fails + 1))
 }
 
+# wait_bounded <pid> — returns 1 (and kills) if the process outlives 5s.
+wait_bounded() {
+	local pid="$1" deadline=$((SECONDS + 5))
+	while kill -0 "$pid" 2>/dev/null; do
+		if [ "$SECONDS" -ge "$deadline" ]; then
+			kill "$pid" 2>/dev/null
+			return 1
+		fi
+		sleep 0.05
+	done
+	return 0
+}
+
 # serve <status> <body> — starts a one-shot server, sets PORT and SERVER_PID.
 # Deliberately NOT called in a command substitution: a subshell would swallow
 # SERVER_PID and `wait` would then read an unbound variable under `set -u`.
-# The port is chosen by the OS (bind 0) so parallel runs cannot collide.
 serve() {
 	local status="$1" body="$2"
 	cat >"$WORK/server.py" <<'PY'
@@ -53,14 +81,12 @@ PY
 	rm -f "$WORK/port"
 	python3 "$WORK/server.py" "$status" "$body" >"$WORK/port" 2>"$WORK/server.err" &
 	SERVER_PID=$!
-	# Wait for the port line rather than sleeping a fixed amount.
 	for _ in $(seq 1 100); do
 		[ -s "$WORK/port" ] && break
 		sleep 0.05
 	done
 	if [ ! -s "$WORK/port" ]; then
 		cat "$WORK/server.err" >&2
-		wait "$SERVER_PID" 2>/dev/null
 		return 1
 	fi
 	PORT="$(head -1 "$WORK/port")"
@@ -77,7 +103,23 @@ run_against() {
 	OUT="$(VAULT_API_URL="http://127.0.0.1:${PORT}" bash "$VAULT_LIST" 2>"$WORK/stderr")"
 	RC=$?
 	ERR="$(cat "$WORK/stderr")"
-	wait "$SERVER_PID" 2>/dev/null
+	if ! wait_bounded "$SERVER_PID"; then
+		fail "mock server did not exit — the script never issued its request"
+	fi
+	SERVER_PID=""
+}
+
+# expect_guard <label> <status> <body> <stderr-substring>
+# Fails unless the script exits non-zero, prints nothing to stdout, AND names
+# the specific diagnostic — so an unrelated crash cannot satisfy the case.
+expect_guard() {
+	local label="$1" status="$2" body="$3" want="$4"
+	run_against "$status" "$body"
+	if [ "$RC" -ne 0 ] && [ -z "$OUT" ] && [[ "$ERR" == *"$want"* ]]; then
+		pass "$label"
+	else
+		fail "$label (rc=$RC out=$OUT err=$ERR want=$want)"
+	fi
 }
 
 # --- happy path: a well-shaped answer is listed ------------------------------
@@ -89,39 +131,47 @@ else
 fi
 
 # --- an error envelope must NOT read as an empty listing ---------------------
-run_against 200 '{"error":"unauthorized"}'
-if [ "$RC" -ne 0 ] && [ -z "$OUT" ]; then
-	pass "error envelope fails instead of listing nothing"
-else
-	fail "error envelope fails instead of listing nothing (rc=$RC out=$OUT)"
-fi
+expect_guard "error envelope fails and names the refusal" 200 \
+	'{"error":"unauthorized"}' "API refused the listing"
 
 # --- a missing items key must NOT read as an empty listing ------------------
-run_against 200 '{"total":0,"warnings":[]}'
-if [ "$RC" -ne 0 ] && [ -z "$OUT" ]; then
-	pass "missing items key fails instead of listing nothing"
-else
-	fail "missing items key fails instead of listing nothing (rc=$RC out=$OUT)"
-fi
+expect_guard "missing items key fails and names the missing field" 200 \
+	'{"total":0,"warnings":[]}' "no items field"
 
 # --- items of the wrong type must NOT read as an empty listing --------------
-run_against 200 '{"items":"not-a-list","total":0}'
-if [ "$RC" -ne 0 ] && [ -z "$OUT" ]; then
-	pass "non-list items fails instead of listing nothing"
-else
-	fail "non-list items fails instead of listing nothing (rc=$RC out=$OUT)"
-fi
+expect_guard "non-list items fails and names the actual type" 200 \
+	'{"items":"not-a-list","total":0}' "items is str, not a list"
 
 # --- a non-JSON body must NOT read as an empty listing ----------------------
-run_against 200 'this is not json'
+expect_guard "non-JSON body fails and names the parse error" 200 \
+	'this is not json' "response is not JSON"
+
+# --- a JSON body that is not an object --------------------------------------
+expect_guard "non-object JSON fails and says so" 200 \
+	'[1,2,3]' "not a JSON object"
+
+# --- a non-2xx status is refused by curl itself -----------------------------
+run_against 401 '{"error":"unauthorized"}'
 if [ "$RC" -ne 0 ] && [ -z "$OUT" ]; then
-	pass "non-JSON body fails instead of listing nothing"
+	pass "HTTP 401 fails instead of listing nothing"
 else
-	fail "non-JSON body fails instead of listing nothing (rc=$RC out=$OUT)"
+	fail "HTTP 401 fails instead of listing nothing (rc=$RC out=$OUT)"
+fi
+
+# --- a malformed items entry still fails closed -----------------------------
+# vault-list.sh indexes task["path"] unguarded, so this raises rather than
+# emitting the clean diagnostic the other guards produce. It must still exit
+# non-zero — the property the caller depends on — and this case pins that,
+# recording the rough edge rather than pretending it is a clean refusal.
+run_against 200 '{"items":[{"title":"no path here"}],"total":1}'
+if [ "$RC" -ne 0 ]; then
+	pass "malformed items entry fails closed"
+else
+	fail "malformed items entry fails closed (rc=$RC out=$OUT)"
 fi
 
 # --- a transport failure must NOT read as an empty listing ------------------
-# No server at all: curl fails, pipefail carries it, the caller sees non-zero.
+# Nothing listens on port 1 without root, so curl gets ECONNREFUSED.
 OUT="$(VAULT_API_URL="http://127.0.0.1:1" bash "$VAULT_LIST" 2>"$WORK/stderr")"
 RC=$?
 if [ "$RC" -ne 0 ] && [ -z "$OUT" ]; then

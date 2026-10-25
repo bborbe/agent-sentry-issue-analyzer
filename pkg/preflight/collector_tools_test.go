@@ -50,12 +50,23 @@ var _ = Describe("ValidateCollectorTools", func() {
 		Expect(err.Error()).To(ContainSubstring("sentry-collector preflight failed"))
 	})
 
-	// The rename is the regression this case exists for: a pod wired the old
-	// way must fail loudly rather than pass preflight and break mid-run.
-	It("does not accept GIT_REST_URL in place of VAULT_API_URL", func() {
-		err := preflight.ValidateCollectorTools(ctx, allows, "tok", "")
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).NotTo(ContainSubstring("GIT_REST_URL"))
+	// A narrower scope must still satisfy the grant: the check is a HasPrefix
+	// match, so a Config that restricts the subcommand has to pass rather than
+	// silently fail preflight. Every sibling validator's spec asserts this; the
+	// collector one did not.
+	//
+	// ⚠️ This replaces an earlier "does not accept GIT_REST_URL" case that was
+	// vacuous: ValidateCollectorTools only ever sees the URL VALUE, never a
+	// variable name, so asserting the error lacks the string "GIT_REST_URL"
+	// could never fail. The rename is pinned by the missing-value case above;
+	// proving the CALLER wires the right field needs a main.go-level test, not
+	// this one.
+	It("accepts a narrower subcommand scope for the same scripts", func() {
+		err := preflight.ValidateCollectorTools(ctx, claudelib.AllowedTools{
+			"Bash(scripts/sentry-create-tasks.sh create:*)",
+			"Bash(scripts/vault-list.sh list:*)",
+		}, "tok", "http://vault-api-personal:9090")
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("fails naming SENTRY_API_TOKEN when the token is empty", func() {
