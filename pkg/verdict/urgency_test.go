@@ -70,6 +70,33 @@ var _ = Describe("Urgency", func() {
 			5, true, now.Add(-60*24*time.Hour), "unresolved", verdict.UrgencySomeday),
 		Entry("an unknown count is not read as zero events",
 			0, false, now.Add(-2*time.Hour), "unresolved", verdict.UrgencySomeday),
+
+		// Boundaries. These are where the restated disqualifier arithmetic can
+		// drift silently, so each edge is pinned on both sides.
+		Entry("volume just above the now threshold is now",
+			10001, true, now.Add(-26*time.Hour), "unresolved", verdict.UrgencyNow),
+		Entry("volume exactly at the now threshold is not now — the branch is strict >",
+			10000, true, now.Add(-26*time.Hour), "unresolved", verdict.UrgencySoon),
+		Entry("burst at exactly the 24h edge is still now",
+			2000, true, now.Add(-24*time.Hour), "unresolved", verdict.UrgencyNow),
+		Entry("one second past the 24h edge is no longer a burst, but the backlog floor holds",
+			2000, true, now.Add(-24*time.Hour-time.Second), "unresolved", verdict.UrgencySoon),
+		Entry("recency at exactly the 7d edge is soon",
+			500, true, now.Add(-7*24*time.Hour), "unresolved", verdict.UrgencySoon),
+		Entry("one second past the 7d edge is someday",
+			500, true, now.Add(-7*24*time.Hour-time.Second), "unresolved", verdict.UrgencySomeday),
+		Entry("count exactly at soonMinCount, recent, is soon",
+			100, true, now.Add(-2*time.Hour), "unresolved", verdict.UrgencySoon),
+		Entry("one below soonMinCount, recent, is someday",
+			99, true, now.Add(-2*time.Hour), "unresolved", verdict.UrgencySomeday),
+		Entry("count exactly at the backlog floor, stale, is soon",
+			1000, true, now.Add(-60*24*time.Hour), "unresolved", verdict.UrgencySoon),
+		Entry("one below the backlog floor, stale, is someday",
+			999, true, now.Add(-60*24*time.Hour), "unresolved", verdict.UrgencySomeday),
+		Entry("a regression with an unmeasurable count is still now",
+			0, false, now.Add(-60*24*time.Hour), "regressed", verdict.UrgencyNow),
+		Entry("a last_seen in the future reads as just now, not as a negative delta",
+			500, true, now.Add(48*time.Hour), "unresolved", verdict.UrgencySoon),
 	)
 
 	// The two pairs SC2 turns on. Each pair differs in exactly one input, so a

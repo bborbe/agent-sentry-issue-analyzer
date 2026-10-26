@@ -79,10 +79,16 @@ type Verdict struct {
 	// cannot be derived without them.
 	Urgency            UrgencyBand `yaml:"urgency,omitempty"`
 	DisqualifiersFired []string    `yaml:"disqualifiers_fired"`
-	// Promoted states that this verdict was forced by a fired disqualifier
-	// rather than declared by the model, and what urgency that promotion
-	// carries. Absent on a model-declared verdict, so the operator can tell a
-	// promoted noise spike from a clear defect without reading the Reason.
+	// Promoted states that a fired disqualifier raised this verdict's priority
+	// — it names the fired disqualifiers and the urgency that follows — and is
+	// binary-owned: cleared before evaluation, so a model that emits the key
+	// cannot keep it. Absent on a model-declared verdict, so the operator can
+	// tell a promoted noise spike from a clear defect without reading the
+	// Reason.
+	//
+	// Priority, not override: an `unanalyzable` verdict is exempt from the flip
+	// (a volume disqualifier is not evidence the alert was analysable) yet
+	// still carries Promoted, because the promotion did happen.
 	Promoted      string `yaml:"promoted,omitempty"`
 	Understanding string `yaml:"understanding"`
 	FixCertainty       string     `yaml:"fix_certainty"`

@@ -33,10 +33,16 @@ const (
 	UrgencySomeday UrgencyBand = "someday"
 )
 
-// Urgency bands thresholds. `now` deliberately restates the disqualifier
-// thresholds (volumeThreshold, burstEventThreshold, burstWindow) so the band
-// and the noise-to-real-bug flip cannot disagree — an alert the code promoted
-// is never labelled with a quieter band than the promotion implies.
+// Urgency bands thresholds. The `now` branch restates three of the
+// disqualifiers verbatim (volumeThreshold, burstEventThreshold, burstWindow,
+// plus the regressed status) so those cannot disagree with the band: an alert
+// they promote is never labelled with a quieter band than the promotion
+// implies.
+//
+// SustainedSpan is deliberately NOT restated. It promotes a verdict to
+// `real bug` because a long-running alert is real, which is a claim about
+// significance, not about timing — a 100-event alert last seen 60 days ago is
+// genuinely `someday` even though the span disqualifier promotes it.
 const (
 	// soonWindow is how recent last_seen must be for a low-volume alert to
 	// count as still-active rather than historical.
@@ -75,6 +81,11 @@ func (e *disqualifierEvaluator) EvaluateUrgency(
 	}
 
 	now := e.currentDateTime.Now().Time()
+	// A last_seen in the future — clock skew, or a bad Sentry timestamp — is
+	// clamped to "just now" rather than left as a negative delta. Left alone it
+	// still satisfies both recency windows, so the band would be the same, but
+	// by accident rather than by intent; clamping says which reading is meant.
+	recency := max(now.Sub(input.LastSeen), 0)
 
 	// `now` — the disqualifier arithmetic verbatim: volume, active burst, or a
 	// regression. Restated rather than derived from the fired list so the band
@@ -85,7 +96,7 @@ func (e *disqualifierEvaluator) EvaluateUrgency(
 			return UrgencyNow, nil
 		}
 		if input.LiveEventCount.Count > burstEventThreshold &&
-			now.Sub(input.LastSeen) <= burstWindow {
+			recency <= burstWindow {
 			return UrgencyNow, nil
 		}
 	}
@@ -98,7 +109,7 @@ func (e *disqualifierEvaluator) EvaluateUrgency(
 	// recency alone: the same 500 events seen two hours ago and sixty days ago
 	// are `soon` and `someday` respectively.
 	if input.LiveEventCount.Known {
-		if now.Sub(input.LastSeen) <= soonWindow &&
+		if recency <= soonWindow &&
 			input.LiveEventCount.Count >= soonMinCount {
 			return UrgencySoon, nil
 		}

@@ -93,11 +93,12 @@ func (s *disqualifierGuardStep) Run(
 	}
 	// Normalize the identity BEFORE the disqualifier override re-renders the
 	// section, so that re-render is fed the already-normalized verdict and cannot
-	// reintroduce the model's form. The line rewrite below covers the
-	// no-disqualifier case, where applyDisqualifiers returns early and the
-	// section is otherwise left exactly as the deep model wrote it — including
-	// its `file:line`, which a full re-render would drop and thereby break the
-	// High/High fix handoff. This runs for every verdict label, not only
+	// reintroduce the model's form. The line rewrite below runs before any
+	// re-render so the section carries the canonical form even if a later step
+	// bails early (unparseable dates, empty verdict). applyDisqualifiers now
+	// re-renders on this path too, preserving the deep model's `file:line`
+	// through RestoreUnmodeledLines, so that pointer no longer depends on the
+	// rewrite surviving. This runs for every verdict label, not only
 	// `real bug`: the identity flip is a form-based rule about the issue
 	// reference, not a verdict judgment. A resolution failure fails the run and
 	// writes nothing — the model's raw form is never substituted.
@@ -112,7 +113,7 @@ func (s *disqualifierGuardStep) Run(
 	if err := applyAnalyzabilityGuard(ctx, md, &v); err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply analyzability guard")
 	}
-	if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers, false); err != nil {
+	if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply disqualifiers")
 	}
 	// Count the finalized deep verdict — after applyDisqualifiers, so the value

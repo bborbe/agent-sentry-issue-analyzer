@@ -162,6 +162,16 @@ func RestoreUnmodeledLines(original, rendered string) string {
 	return strings.Join(out, "\n")
 }
 
+// binaryOwnedKeys are keys the binary writes and the model must never author.
+// They are excluded from restoration: when the binary clears one (say
+// `promoted` on a verdict no disqualifier fired), a model-written value for
+// that key must not be carried back in as if it were an unmodeled field. Only
+// genuinely unknown keys — `file:line` above all — are restored.
+var binaryOwnedKeys = map[string]bool{
+	"urgency":  true,
+	"promoted": true,
+}
+
 // unmodeledEntries returns the top-level entries of original whose key does not
 // appear as a top-level entry in rendered.
 func unmodeledEntries(original, rendered string) []string {
@@ -177,7 +187,7 @@ func unmodeledEntries(original, rendered string) []string {
 		if len(current) == 0 {
 			return
 		}
-		if key, ok := topLevelKey(current[0]); ok && !present[key] {
+		if key, ok := topLevelKey(current[0]); ok && !present[key] && !binaryOwnedKeys[key] {
 			extra = append(extra, current...)
 		}
 		current = nil

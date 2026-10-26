@@ -159,7 +159,7 @@ func (s *reassignExecutionStep) finalizeVerdict(
 	if err := applyAnalyzabilityGuard(ctx, md, v); err != nil {
 		return errors.Wrapf(ctx, err, "reassign: apply analyzability guard")
 	}
-	if err := applyDisqualifiers(ctx, md, v, s.disqualifiers, true); err != nil {
+	if err := applyDisqualifiers(ctx, md, v, s.disqualifiers); err != nil {
 		return errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
 	}
 	// Count the finalized verdict — after applyDisqualifiers, so the value
@@ -205,19 +205,22 @@ func applyAnalyzabilityGuard(
 // It also stamps the urgency band, which is computed for every verdict, not
 // only promoted ones.
 // Shared by the reassign step (triage path) and the disqualifier guard (deep
-// path).
+// path). Both render unconditionally: the band has to reach the operator on a
+// model-declared verdict too, which is the common case and the one the whole
+// feature exists for.
 //
-// renderAlways controls whether the section is rewritten when no disqualifier
-// fires. The triage path passes true so the band reaches the operator on a
-// model-declared verdict too. The deep path passes false: its model block
-// carries `file:line`, which verdict.Verdict has no field for, so an
-// unconditional re-render would drop it and break the High/High fix handoff.
+// An earlier revision skipped the render on the deep path to protect the deep
+// verdict's `file:line`, which verdict.Verdict has no field for. That was
+// wrong twice over: RestoreUnmodeledLines already preserves it (the
+// analyzability guard uses the same call), and skipping the render discarded
+// the computed band on every non-promoted deep verdict — which is the final
+// verdict for a real-bug task — while leaving a model-written `urgency:` line
+// untouched.
 func applyDisqualifiers(
 	ctx context.Context,
 	md *agentlib.Markdown,
 	v *verdict.Verdict,
 	disqualifiers verdict.DisqualifierEvaluator,
-	renderAlways bool,
 ) error {
 	// A verdict that omits the live-state date fields cannot be evaluated:
 	// sustained span and active burst both need first_seen/last_seen. Skip the
@@ -259,6 +262,11 @@ func applyDisqualifiers(
 		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate urgency")
 	}
 	v.Urgency = band
+	// Promoted is binary-owned: clear it before the fired check so a model that
+	// emits `promoted:` (contrary to the prompt) cannot keep that value through
+	// the render when nothing fires. Without this, a declared defect could
+	// advertise a promotion it never received.
+	v.Promoted = ""
 
 	fired, err := disqualifiers.Evaluate(ctx, input)
 	if err != nil {
@@ -276,10 +284,9 @@ func applyDisqualifiers(
 	}
 
 	if len(fired) == 0 {
-		if !renderAlways {
-			return nil
-		}
-		// Nothing to override, but the band still has to reach the block.
+		// Nothing to override, but the band still has to reach the block — on
+		// both paths, because a model-declared verdict is the final verdict for
+		// most real-bug tasks.
 		return renderVerdictSection(ctx, md, v)
 	}
 
@@ -326,7 +333,10 @@ func renderVerdictSection(
 		return errors.Wrapf(ctx, err, "apply disqualifiers: render verdict")
 	}
 	if section, ok := md.FindSection("## Verdict"); ok {
-		section.Body = rendered
+		// Restore anything the triage schema does not model — the deep verdict's
+		// `file:line` above all — or the re-render silently drops the pointer the
+		// High/High fix handoff resolves. Same call the analyzability guard makes.
+		section.Body = verdict.RestoreUnmodeledLines(section.Body, rendered)
 	}
 	return nil
 }
