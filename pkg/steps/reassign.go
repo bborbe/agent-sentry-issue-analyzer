@@ -257,21 +257,21 @@ func applyDisqualifiers(
 	// the whole point: a model-declared `real bug` and a noise spike the
 	// disqualifiers promoted both land in `real bug`, and the operator needs
 	// to tell them apart without re-deriving the arithmetic.
-	band, err := disqualifiers.EvaluateUrgency(ctx, input)
+	// One call, one clock reading: the band and the fired list describe the same
+	// instant, so they cannot straddle the 24h or 7d boundary and disagree about
+	// the same alert.
+	evaluation, err := disqualifiers.EvaluateAll(ctx, input)
 	if err != nil {
-		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate urgency")
+		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate")
 	}
-	v.Urgency = band
+	v.Urgency = evaluation.Urgency
 	// Promoted is binary-owned: clear it before the fired check so a model that
 	// emits `promoted:` (contrary to the prompt) cannot keep that value through
 	// the render when nothing fires. Without this, a declared defect could
 	// advertise a promotion it never received.
 	v.Promoted = ""
 
-	fired, err := disqualifiers.Evaluate(ctx, input)
-	if err != nil {
-		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate")
-	}
+	fired := evaluation.Disqualifiers
 
 	names := make([]string, 0, len(fired))
 	for _, d := range fired {
@@ -315,7 +315,8 @@ func applyDisqualifiers(
 	// the same. Set whenever a disqualifier fired, including the `unanalyzable`
 	// exemption above, where the verdict stands but the live state still
 	// promoted the alert's priority.
-	v.Promoted = "disqualifier-fired (" + strings.Join(names, ", ") + "); urgency " + string(band)
+	v.Promoted = "disqualifier-fired (" + strings.Join(names, ", ") +
+		"); urgency " + string(evaluation.Urgency)
 
 	return renderVerdictSection(ctx, md, v)
 }

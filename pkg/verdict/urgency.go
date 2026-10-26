@@ -79,8 +79,13 @@ func (e *disqualifierEvaluator) EvaluateUrgency(
 		return "", ctx.Err()
 	default:
 	}
+	return urgencyAt(input, e.currentDateTime.Now().Time()), nil
+}
 
-	now := e.currentDateTime.Now().Time()
+// urgencyAt derives the band against a supplied instant. EvaluateAll calls it
+// with the same instant it hands the disqualifiers, so the band and the fired
+// list cannot describe two different moments.
+func urgencyAt(input DisqualifierInput, now time.Time) UrgencyBand {
 	// A last_seen in the future — clock skew, or a bad Sentry timestamp — is
 	// clamped to "just now" rather than left as a negative delta. Left alone it
 	// still satisfies both recency windows, so the band would be the same, but
@@ -93,15 +98,15 @@ func (e *disqualifierEvaluator) EvaluateUrgency(
 	// disqualifier fires but the verdict is deliberately left alone.
 	if input.LiveEventCount.Known {
 		if input.LiveEventCount.Count > volumeThreshold {
-			return UrgencyNow, nil
+			return UrgencyNow
 		}
 		if input.LiveEventCount.Count > burstEventThreshold &&
 			recency <= burstWindow {
-			return UrgencyNow, nil
+			return UrgencyNow
 		}
 	}
 	if input.SentryStatus == "regressed" {
-		return UrgencyNow, nil
+		return UrgencyNow
 	}
 
 	// `soon` — recently active at meaningful volume, or a large backlog
@@ -111,12 +116,12 @@ func (e *disqualifierEvaluator) EvaluateUrgency(
 	if input.LiveEventCount.Known {
 		if recency <= soonWindow &&
 			input.LiveEventCount.Count >= soonMinCount {
-			return UrgencySoon, nil
+			return UrgencySoon
 		}
 		if input.LiveEventCount.Count >= soonCountFloor {
-			return UrgencySoon, nil
+			return UrgencySoon
 		}
 	}
 
-	return UrgencySomeday, nil
+	return UrgencySomeday
 }

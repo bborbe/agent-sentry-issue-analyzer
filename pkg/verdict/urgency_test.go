@@ -99,6 +99,64 @@ var _ = Describe("Urgency", func() {
 			500, true, now.Add(48*time.Hour), "unresolved", verdict.UrgencySoon),
 	)
 
+	// Sharing the getter is not sharing the instant: two reads inside one
+	// applyDisqualifiers call can straddle the 24h or 7d boundary, leaving the
+	// band and the fired list describing different moments of the same alert.
+	Describe("a single evaluation instant", func() {
+		It("reads the clock exactly once for both results", func() {
+			calls := 0
+			single := verdict.NewDisqualifierEvaluator(
+				libtime.CurrentDateTimeGetterFunc(func() libtime.DateTime {
+					calls++
+					return libtime.DateTime(now)
+				}),
+			)
+
+			evaluation, err := single.EvaluateAll(
+				context.Background(),
+				verdict.DisqualifierInput{
+					LiveEventCount: verdict.EventCount{Count: 500, Known: true},
+					FirstSeen:      now.Add(-60 * 24 * time.Hour),
+					LastSeen:       now.Add(-2 * time.Hour),
+					SentryStatus:   "unresolved",
+				},
+			)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(calls).To(Equal(1))
+			Expect(evaluation.Urgency).To(Equal(verdict.UrgencySoon))
+		})
+
+		It("derives both results from that one instant", func() {
+			// The getter would return a 400-day-later instant on a second read.
+			// If either result were computed from it, the band would collapse to
+			// someday and the burst would not fire.
+			calls := 0
+			straddling := verdict.NewDisqualifierEvaluator(
+				libtime.CurrentDateTimeGetterFunc(func() libtime.DateTime {
+					calls++
+					if calls == 1 {
+						return libtime.DateTime(now)
+					}
+					return libtime.DateTime(now.Add(400 * 24 * time.Hour))
+				}),
+			)
+
+			evaluation, err := straddling.EvaluateAll(
+				context.Background(),
+				verdict.DisqualifierInput{
+					LiveEventCount: verdict.EventCount{Count: 2000, Known: true},
+					FirstSeen:      now.Add(-60 * 24 * time.Hour),
+					LastSeen:       now.Add(-2 * time.Hour),
+					SentryStatus:   "unresolved",
+				},
+			)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(calls).To(Equal(1))
+			Expect(evaluation.Urgency).To(Equal(verdict.UrgencyNow))
+			Expect(evaluation.Disqualifiers).To(ContainElement(verdict.DisqualifierActiveBurst))
+		})
+	})
+
 	// The two pairs SC2 turns on. Each pair differs in exactly one input, so a
 	// band derived from the other input alone cannot split it.
 	Describe("the controlled pairs", func() {
