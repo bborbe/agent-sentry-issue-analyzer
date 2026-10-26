@@ -141,10 +141,10 @@ func (s *reassignExecutionStep) finalizeVerdict(
 ) error {
 	// Normalize the identity BEFORE the disqualifier override re-renders the
 	// section, so that re-render is fed the already-normalized verdict and
-	// cannot reintroduce the model's form. The line rewrite below covers the
-	// no-disqualifier case, where applyDisqualifiers returns early and the
-	// section is otherwise left exactly as the model wrote it. This runs for
-	// every verdict label, not only `real bug`: the identity flip is a
+	// cannot reintroduce the model's form. The line rewrite below also covers
+	// the unparseable-dates case, where applyDisqualifiers returns early and
+	// the section is otherwise left exactly as the model wrote it. This runs
+	// for every verdict label, not only `real bug`: the identity flip is a
 	// form-based rule about the issue reference, not a verdict judgment. A
 	// resolution failure fails the run and writes nothing — the model's raw
 	// form is never substituted.
@@ -202,14 +202,47 @@ func applyAnalyzabilityGuard(
 // verdict's live-state fields, forces `real bug` when any fire — except for
 // `unanalyzable` verdicts, which are left exactly as the classifier wrote them
 // — and records the fired disqualifiers as evidence in the ## Verdict section.
+// It also stamps the urgency band, which is computed for every verdict, not
+// only promoted ones.
 // Shared by the reassign step (triage path) and the disqualifier guard (deep
-// path).
+// path). Both render unconditionally: the band has to reach the operator on a
+// model-declared verdict too, which is the common case and the one the whole
+// feature exists for.
+//
+// An earlier revision skipped the render on the deep path to protect the deep
+// verdict's `file:line`, which verdict.Verdict has no field for. That was
+// wrong twice over: RestoreUnmodeledLines already preserves it (the
+// analyzability guard uses the same call), and skipping the render discarded
+// the computed band on every non-promoted deep verdict — which is the final
+// verdict for a real-bug task — while leaving a model-written `urgency:` line
+// untouched.
 func applyDisqualifiers(
 	ctx context.Context,
 	md *agentlib.Markdown,
 	v *verdict.Verdict,
 	disqualifiers verdict.DisqualifierEvaluator,
 ) error {
+	// Binary-owned fields are cleared FIRST, before any early return below, and
+	// the early returns strip them from the block rather than returning bare.
+	// Clearing the struct field alone would not be enough: the section body is
+	// what the operator reads, so a model-written `urgency:` or `promoted:` line
+	// survives unless the block is rewritten. That matters most on these paths,
+	// not least — a derived-key alert is precisely where the prompt tells the
+	// model to write `first_seen: unavailable`, and where it has no live state
+	// to derive either field from.
+	//
+	// The strip is targeted rather than a re-render: with no live state to
+	// evaluate, the model's own block must otherwise survive verbatim, and a
+	// full render would also normalise things it should not — including closing
+	// a malformed fence that downstream parsing relies on rejecting.
+	v.Urgency = ""
+	v.Promoted = ""
+	stripBinaryOwned := func() {
+		if section, ok := md.FindSection("## Verdict"); ok {
+			section.Body = verdict.StripKeys(section.Body, "urgency", "promoted")
+		}
+	}
+
 	// A verdict that omits the live-state date fields cannot be evaluated:
 	// sustained span and active burst both need first_seen/last_seen. Skip the
 	// disqualifier override rather than crashing on empty dates — observed live
@@ -217,6 +250,7 @@ func applyDisqualifiers(
 	// guard errored, failing every deep job. With the dates absent the model's
 	// own verdict stands.
 	if v.FirstSeen == "" || v.LastSeen == "" {
+		stripBinaryOwned()
 		return nil
 	}
 	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
@@ -228,24 +262,35 @@ func applyDisqualifiers(
 		// — there is no live state to evaluate, so the disqualifier override
 		// does not apply. Treating it as a parse failure crashed every such Job
 		// and left no verdict recorded.
+		stripBinaryOwned()
 		return nil
 	}
 	lastSeen, err := libtime.ParseDateTime(ctx, v.LastSeen)
 	if err != nil {
+		stripBinaryOwned()
 		return nil
 	}
-	fired, err := disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
+	input := verdict.DisqualifierInput{
 		LiveEventCount: v.LiveEventCount,
 		FirstSeen:      firstSeen.Time(),
 		LastSeen:       lastSeen.Time(),
 		SentryStatus:   v.SentryStatus,
-	})
+	}
+
+	// The band is stamped for EVERY verdict, not only promoted ones. That is
+	// the whole point: a model-declared `real bug` and a noise spike the
+	// disqualifiers promoted both land in `real bug`, and the operator needs
+	// to tell them apart without re-deriving the arithmetic.
+	// One call, one clock reading: the band and the fired list describe the same
+	// instant, so they cannot straddle the 24h or 7d boundary and disagree about
+	// the same alert.
+	evaluation, err := disqualifiers.EvaluateAll(ctx, input)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate")
 	}
-	if len(fired) == 0 {
-		return nil
-	}
+	v.Urgency = evaluation.Urgency
+
+	fired := evaluation.Disqualifiers
 
 	names := make([]string, 0, len(fired))
 	for _, d := range fired {
@@ -256,6 +301,14 @@ func applyDisqualifiers(
 		}
 		names = append(names, string(d))
 	}
+
+	if len(fired) == 0 {
+		// Nothing to override, but the band still has to reach the block — on
+		// both paths, because a model-declared verdict is the final verdict for
+		// most real-bug tasks.
+		return renderVerdictSection(ctx, md, v)
+	}
+
 	// A volume or span disqualifier says the alert is too big to be noise,
 	// which is not a claim about analysability — we may have failed to analyse
 	// it precisely BECAUSE it is large and long-running. Asserting
@@ -274,13 +327,36 @@ func applyDisqualifiers(
 		}
 	}
 	v.DisqualifiersFired = names
+	// The promotion marker. `reason` and `disqualifiers_fired` already record
+	// WHICH disqualifier fired, but neither states what it means for the
+	// operator — this field carries both the provenance and the urgency
+	// consequence, so a promoted alert and a model-declared defect do not read
+	// the same. Set whenever a disqualifier fired, including the `unanalyzable`
+	// exemption above, where the verdict stands but the live state still
+	// promoted the alert's priority.
+	v.Promoted = "disqualifier-fired (" + strings.Join(names, ", ") +
+		"); urgency " + string(evaluation.Urgency)
 
+	return renderVerdictSection(ctx, md, v)
+}
+
+// renderVerdictSection re-renders the verdict into the task's ## Verdict
+// section. Extracted so both the changed and unchanged branches write the
+// section the same way.
+func renderVerdictSection(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	v *verdict.Verdict,
+) error {
 	rendered, err := verdict.Render(ctx, *v)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "apply disqualifiers: render verdict")
 	}
 	if section, ok := md.FindSection("## Verdict"); ok {
-		section.Body = rendered
+		// Restore anything the triage schema does not model — the deep verdict's
+		// `file:line` above all — or the re-render silently drops the pointer the
+		// High/High fix handoff resolves. Same call the analyzability guard makes.
+		section.Body = verdict.RestoreUnmodeledLines(section.Body, rendered)
 	}
 	return nil
 }

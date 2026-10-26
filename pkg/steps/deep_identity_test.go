@@ -100,8 +100,9 @@ var _ = Describe("deep identity normalization", func() {
 	// and the U/F pair are what the High/High fix handoff consumes. The live state
 	// fires NO disqualifier against the fixed clock — count 50 is under both
 	// thresholds, the span is ~16 days, and last_seen is more than 24h before it —
-	// so applyDisqualifiers returns early and the section body stays byte-for-byte
-	// what the model wrote apart from the identity line.
+	// so the verdict is not promoted. The section IS still re-rendered, which is
+	// how the band reaches it; `file:line` survives that render through
+	// RestoreUnmodeledLines rather than by skipping it.
 	deepBlock := func(identity string) string {
 		return "```yaml\n" +
 			"sentry_issue_id: " + identity + "\n" +
@@ -118,13 +119,15 @@ var _ = Describe("deep identity normalization", func() {
 			"```"
 	}
 
-	// AC3 — the identity line is the ONLY line that changes, and the deep
-	// verdict's file:line survives. This is the assertion a full re-render would
-	// fail: verdict.Render has no file:line field, so re-rendering the block
-	// would silently drop the citation the fix agent needs. The non-empty
-	// `verdict:` is load-bearing too — the guard returns early on an absent
-	// verdict, before the normalization runs at all.
-	It("rewrites only the identity line and keeps file:line", func() {
+	// AC3 — the identity line is canonical and the deep verdict's file:line
+	// survives. The citation is the assertion that matters: verdict.Render has
+	// no file:line field, so a re-render would silently drop the pointer the fix
+	// agent needs unless RestoreUnmodeledLines puts it back — which is what the
+	// guard does, and why the block is now re-rendered on this path too (the
+	// band has to reach a non-promoted deep verdict, the final verdict for a
+	// real-bug task). The non-empty `verdict:` is load-bearing too — the guard
+	// returns early on an absent verdict, before the normalization runs at all.
+	It("canonicalises the identity and keeps file:line", func() {
 		modelResult := deepBlock("7791255664")
 		runner.RunReturns(&claudelib.ClaudeResult{Result: modelResult}, nil)
 
@@ -138,20 +141,10 @@ var _ = Describe("deep identity normalization", func() {
 		Expect(body).To(ContainSubstring("understanding: High"))
 		Expect(body).To(ContainSubstring("fix_certainty: High"))
 
-		before := strings.Split(modelResult, "\n")
-		after := strings.Split(body, "\n")
-		Expect(after).To(HaveLen(len(before)))
-
-		differing := make([]int, 0, 1)
-		for i := range before {
-			if before[i] != after[i] {
-				differing = append(differing, i)
-			}
-		}
-		Expect(differing).To(HaveLen(1))
-		Expect(before[differing[0]]).To(Equal("sentry_issue_id: 7791255664"))
-		Expect(after[differing[0]]).To(Equal("sentry_issue_id: NUKE-DEV-FB"))
 		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-FB"))
+		// The band is the reason this path re-renders: 50 events, last seen 26h
+		// ago, so not `soon` (under 100) and not `someday`-by-staleness either.
+		Expect(body).To(ContainSubstring("urgency: someday"))
 	})
 
 	// AC2 (deep half) — the identity does not depend on which source the model
@@ -249,10 +242,12 @@ var _ = Describe("deep identity normalization", func() {
 		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-FB"))
 	})
 
-	// The already-canonical path is idempotent: running the normalization on an
-	// identity that is already canonical leaves the section byte-identical, so a
-	// re-analysis of the same task changes nothing.
-	It("leaves an already-canonical identity byte-identical", func() {
+	// The already-canonical path is idempotent in what it writes: the identity
+	// line comes out unchanged, and re-running produces the same block. The body
+	// is no longer byte-identical to the model's — the guard stamps the band and
+	// re-marshals the triage schema — so idempotency is asserted on the identity
+	// line and on a second run, not on the raw bytes.
+	It("leaves an already-canonical identity unchanged", func() {
 		modelResult := deepBlock("NUKE-DEV-FB")
 		runner.RunReturns(&claudelib.ClaudeResult{Result: modelResult}, nil)
 
@@ -261,6 +256,15 @@ var _ = Describe("deep identity normalization", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-FB"))
-		Expect(verdictBody(md)).To(Equal(modelResult))
+		first := verdictBody(md)
+		Expect(first).To(ContainSubstring("urgency: someday"))
+		Expect(first).To(ContainSubstring("file:line: pkg/handler/handler.go:142"))
+
+		// The actual idempotency claim: running the guard again over the block it
+		// just wrote must leave it unchanged. One pass would pass whether or not
+		// a second pass were stable.
+		_, err = buildStep(echoDeepIdentityResolver()).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(verdictBody(md)).To(Equal(first))
 	})
 })

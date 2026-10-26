@@ -311,7 +311,9 @@ var _ = Describe("FixHandoffStep", func() {
 		}, nil)
 
 		evaluator := &verdictmocks.DisqualifierEvaluator{}
-		evaluator.EvaluateReturns(nil, errors.New("evaluator unavailable"))
+		// applyDisqualifiers makes ONE EvaluateAll call so the band and the fired
+		// list share an instant; stubbing Evaluate alone would no longer reach it.
+		evaluator.EvaluateAllReturns(verdict.Evaluation{}, errors.New("evaluator unavailable"))
 
 		step := buildDeepStepWithEvaluator(evaluator)
 		md := buildTask("")

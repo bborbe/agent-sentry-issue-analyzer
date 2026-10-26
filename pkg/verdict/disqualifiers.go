@@ -60,6 +60,22 @@ type DisqualifierInput struct {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2 -o mocks/disqualifier-evaluator.go --fake-name DisqualifierEvaluator . DisqualifierEvaluator
 type DisqualifierEvaluator interface {
 	Evaluate(ctx context.Context, input DisqualifierInput) ([]Disqualifier, error)
+	// EvaluateUrgency derives the operator-facing urgency band from the same
+	// input, on the same injected clock. It lives on this interface rather
+	// than a separate evaluator so the 24h burst window and the 7d recency
+	// window cannot be computed against two clocks that drift apart.
+	EvaluateUrgency(ctx context.Context, input DisqualifierInput) (UrgencyBand, error)
+	// EvaluateAll computes both from ONE clock reading. Prefer it wherever both
+	// results are needed: sharing the getter is not sharing the instant, so two
+	// calls can straddle the 24h or 7d boundary and let the band and the fired
+	// list disagree about the same alert.
+	EvaluateAll(ctx context.Context, input DisqualifierInput) (Evaluation, error)
+}
+
+// Evaluation is one evaluator pass over one alert, against one instant.
+type Evaluation struct {
+	Urgency       UrgencyBand
+	Disqualifiers []Disqualifier
 }
 
 // NewDisqualifierEvaluator creates the evaluator with an injectable clock so
@@ -81,14 +97,35 @@ func (e *disqualifierEvaluator) Evaluate(
 		return nil, ctx.Err()
 	default:
 	}
+	return disqualifiersAt(input, e.currentDateTime.Now().Time()), nil
+}
 
+// EvaluateAll reads the clock once and derives both results from that instant,
+// so the band and the fired list can never describe different moments.
+func (e *disqualifierEvaluator) EvaluateAll(
+	ctx context.Context,
+	input DisqualifierInput,
+) (Evaluation, error) {
+	select {
+	case <-ctx.Done():
+		return Evaluation{}, ctx.Err()
+	default:
+	}
+	now := e.currentDateTime.Now().Time()
+	return Evaluation{
+		Urgency:       urgencyAt(input, now),
+		Disqualifiers: disqualifiersAt(input, now),
+	}, nil
+}
+
+func disqualifiersAt(input DisqualifierInput, now time.Time) []Disqualifier {
 	var fired []Disqualifier
 	if input.LiveEventCount.Known {
 		if input.LiveEventCount.Count > volumeThreshold {
 			fired = append(fired, DisqualifierVolume)
 		}
 		if input.LiveEventCount.Count > burstEventThreshold &&
-			e.currentDateTime.Now().Time().Sub(input.LastSeen) <= burstWindow {
+			now.Sub(input.LastSeen) <= burstWindow {
 			fired = append(fired, DisqualifierActiveBurst)
 		}
 	}
@@ -98,7 +135,7 @@ func (e *disqualifierEvaluator) Evaluate(
 	if sustainedSpanFires(input) {
 		fired = append(fired, DisqualifierSustainedSpan)
 	}
-	return fired, nil
+	return fired
 }
 
 // sustainedSpanFires implements the sustained-span rule: first-seen to
