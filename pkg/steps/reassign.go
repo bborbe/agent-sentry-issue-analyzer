@@ -141,10 +141,10 @@ func (s *reassignExecutionStep) finalizeVerdict(
 ) error {
 	// Normalize the identity BEFORE the disqualifier override re-renders the
 	// section, so that re-render is fed the already-normalized verdict and
-	// cannot reintroduce the model's form. The line rewrite below covers the
-	// no-disqualifier case, where applyDisqualifiers returns early and the
-	// section is otherwise left exactly as the model wrote it. This runs for
-	// every verdict label, not only `real bug`: the identity flip is a
+	// cannot reintroduce the model's form. The line rewrite below also covers
+	// the unparseable-dates case, where applyDisqualifiers returns early and
+	// the section is otherwise left exactly as the model wrote it. This runs
+	// for every verdict label, not only `real bug`: the identity flip is a
 	// form-based rule about the issue reference, not a verdict judgment. A
 	// resolution failure fails the run and writes nothing — the model's raw
 	// form is never substituted.
@@ -159,7 +159,7 @@ func (s *reassignExecutionStep) finalizeVerdict(
 	if err := applyAnalyzabilityGuard(ctx, md, v); err != nil {
 		return errors.Wrapf(ctx, err, "reassign: apply analyzability guard")
 	}
-	if err := applyDisqualifiers(ctx, md, v, s.disqualifiers); err != nil {
+	if err := applyDisqualifiers(ctx, md, v, s.disqualifiers, true); err != nil {
 		return errors.Wrapf(ctx, err, "reassign: apply disqualifiers")
 	}
 	// Count the finalized verdict — after applyDisqualifiers, so the value
@@ -202,13 +202,22 @@ func applyAnalyzabilityGuard(
 // verdict's live-state fields, forces `real bug` when any fire — except for
 // `unanalyzable` verdicts, which are left exactly as the classifier wrote them
 // — and records the fired disqualifiers as evidence in the ## Verdict section.
+// It also stamps the urgency band, which is computed for every verdict, not
+// only promoted ones.
 // Shared by the reassign step (triage path) and the disqualifier guard (deep
 // path).
+//
+// renderAlways controls whether the section is rewritten when no disqualifier
+// fires. The triage path passes true so the band reaches the operator on a
+// model-declared verdict too. The deep path passes false: its model block
+// carries `file:line`, which verdict.Verdict has no field for, so an
+// unconditional re-render would drop it and break the High/High fix handoff.
 func applyDisqualifiers(
 	ctx context.Context,
 	md *agentlib.Markdown,
 	v *verdict.Verdict,
 	disqualifiers verdict.DisqualifierEvaluator,
+	renderAlways bool,
 ) error {
 	// A verdict that omits the live-state date fields cannot be evaluated:
 	// sustained span and active burst both need first_seen/last_seen. Skip the
@@ -234,17 +243,26 @@ func applyDisqualifiers(
 	if err != nil {
 		return nil
 	}
-	fired, err := disqualifiers.Evaluate(ctx, verdict.DisqualifierInput{
+	input := verdict.DisqualifierInput{
 		LiveEventCount: v.LiveEventCount,
 		FirstSeen:      firstSeen.Time(),
 		LastSeen:       lastSeen.Time(),
 		SentryStatus:   v.SentryStatus,
-	})
+	}
+
+	// The band is stamped for EVERY verdict, not only promoted ones. That is
+	// the whole point: a model-declared `real bug` and a noise spike the
+	// disqualifiers promoted both land in `real bug`, and the operator needs
+	// to tell them apart without re-deriving the arithmetic.
+	band, err := disqualifiers.EvaluateUrgency(ctx, input)
+	if err != nil {
+		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate urgency")
+	}
+	v.Urgency = band
+
+	fired, err := disqualifiers.Evaluate(ctx, input)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate")
-	}
-	if len(fired) == 0 {
-		return nil
 	}
 
 	names := make([]string, 0, len(fired))
@@ -256,6 +274,15 @@ func applyDisqualifiers(
 		}
 		names = append(names, string(d))
 	}
+
+	if len(fired) == 0 {
+		if !renderAlways {
+			return nil
+		}
+		// Nothing to override, but the band still has to reach the block.
+		return renderVerdictSection(ctx, md, v)
+	}
+
 	// A volume or span disqualifier says the alert is too big to be noise,
 	// which is not a claim about analysability — we may have failed to analyse
 	// it precisely BECAUSE it is large and long-running. Asserting
@@ -274,7 +301,26 @@ func applyDisqualifiers(
 		}
 	}
 	v.DisqualifiersFired = names
+	// The promotion marker. `reason` and `disqualifiers_fired` already record
+	// WHICH disqualifier fired, but neither states what it means for the
+	// operator — this field carries both the provenance and the urgency
+	// consequence, so a promoted alert and a model-declared defect do not read
+	// the same. Set whenever a disqualifier fired, including the `unanalyzable`
+	// exemption above, where the verdict stands but the live state still
+	// promoted the alert's priority.
+	v.Promoted = "disqualifier-fired (" + strings.Join(names, ", ") + "); urgency " + string(band)
 
+	return renderVerdictSection(ctx, md, v)
+}
+
+// renderVerdictSection re-renders the verdict into the task's ## Verdict
+// section. Extracted so both the changed and unchanged branches write the
+// section the same way.
+func renderVerdictSection(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	v *verdict.Verdict,
+) error {
 	rendered, err := verdict.Render(ctx, *v)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "apply disqualifiers: render verdict")

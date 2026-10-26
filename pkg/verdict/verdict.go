@@ -73,8 +73,18 @@ type Verdict struct {
 	FirstSeen          string     `yaml:"first_seen"`
 	LastSeen           string     `yaml:"last_seen"`
 	SentryStatus       string     `yaml:"sentry_status"`
-	DisqualifiersFired []string   `yaml:"disqualifiers_fired"`
-	Understanding      string     `yaml:"understanding"`
+	// Urgency is the operator-facing band (now | soon | someday), computed by
+	// the binary from the live-state fields above — never written by the model.
+	// Absent when the live-state dates could not be parsed, since the band
+	// cannot be derived without them.
+	Urgency            UrgencyBand `yaml:"urgency,omitempty"`
+	DisqualifiersFired []string    `yaml:"disqualifiers_fired"`
+	// Promoted states that this verdict was forced by a fired disqualifier
+	// rather than declared by the model, and what urgency that promotion
+	// carries. Absent on a model-declared verdict, so the operator can tell a
+	// promoted noise spike from a clear defect without reading the Reason.
+	Promoted      string `yaml:"promoted,omitempty"`
+	Understanding string `yaml:"understanding"`
 	FixCertainty       string     `yaml:"fix_certainty"`
 	RootCause          string     `yaml:"root_cause"`
 	RecommendedFix     string     `yaml:"recommended_fix"`

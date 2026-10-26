@@ -112,7 +112,7 @@ func (s *disqualifierGuardStep) Run(
 	if err := applyAnalyzabilityGuard(ctx, md, &v); err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply analyzability guard")
 	}
-	if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers); err != nil {
+	if err := applyDisqualifiers(ctx, md, &v, s.disqualifiers, false); err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: apply disqualifiers")
 	}
 	// Count the finalized deep verdict — after applyDisqualifiers, so the value

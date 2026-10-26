@@ -60,6 +60,11 @@ type DisqualifierInput struct {
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2 -o mocks/disqualifier-evaluator.go --fake-name DisqualifierEvaluator . DisqualifierEvaluator
 type DisqualifierEvaluator interface {
 	Evaluate(ctx context.Context, input DisqualifierInput) ([]Disqualifier, error)
+	// EvaluateUrgency derives the operator-facing urgency band from the same
+	// input, on the same injected clock. It lives on this interface rather
+	// than a separate evaluator so the 24h burst window and the 7d recency
+	// window cannot be computed against two clocks that drift apart.
+	EvaluateUrgency(ctx context.Context, input DisqualifierInput) (UrgencyBand, error)
 }
 
 // NewDisqualifierEvaluator creates the evaluator with an injectable clock so

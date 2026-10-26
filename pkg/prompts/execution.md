@@ -98,4 +98,4 @@ root_cause: <one-line>
 recommended_fix: <one-line>
 ```
 
-Use exactly these keys. Your final response MUST be valid JSON matching the `<output-format>` spec: `status` must be `done` if the verdict is written — an `unanalyzable` verdict counts as written and therefore takes `done` — `needs_input` for regression / low-confidence real-bug / missing live state, `failed` on infra error.
+Use exactly these keys. The binary also stamps an `urgency` key into the block — one of `now`, `soon` or `someday` — computed in code from `live_event_count`, `last_seen` and `sentry_status`. Do NOT emit an `urgency` key yourself: it is derived from the live state you report, never from your judgement, and any value you write is overwritten. Likewise `promoted`, which the binary sets only when a fired disqualifier forced the verdict. Your final response MUST be valid JSON matching the `<output-format>` spec: `status` must be `done` if the verdict is written — an `unanalyzable` verdict counts as written and therefore takes `done` — `needs_input` for regression / low-confidence real-bug / missing live state, `failed` on infra error.

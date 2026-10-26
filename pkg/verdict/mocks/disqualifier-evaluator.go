@@ -23,6 +23,20 @@ type DisqualifierEvaluator struct {
 		result1 []verdict.Disqualifier
 		result2 error
 	}
+	EvaluateUrgencyStub        func(context.Context, verdict.DisqualifierInput) (verdict.UrgencyBand, error)
+	evaluateUrgencyMutex       sync.RWMutex
+	evaluateUrgencyArgsForCall []struct {
+		arg1 context.Context
+		arg2 verdict.DisqualifierInput
+	}
+	evaluateUrgencyReturns struct {
+		result1 verdict.UrgencyBand
+		result2 error
+	}
+	evaluateUrgencyReturnsOnCall map[int]struct {
+		result1 verdict.UrgencyBand
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -88,6 +102,71 @@ func (fake *DisqualifierEvaluator) EvaluateReturnsOnCall(i int, result1 []verdic
 	}
 	fake.evaluateReturnsOnCall[i] = struct {
 		result1 []verdict.Disqualifier
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *DisqualifierEvaluator) EvaluateUrgency(arg1 context.Context, arg2 verdict.DisqualifierInput) (verdict.UrgencyBand, error) {
+	fake.evaluateUrgencyMutex.Lock()
+	ret, specificReturn := fake.evaluateUrgencyReturnsOnCall[len(fake.evaluateUrgencyArgsForCall)]
+	fake.evaluateUrgencyArgsForCall = append(fake.evaluateUrgencyArgsForCall, struct {
+		arg1 context.Context
+		arg2 verdict.DisqualifierInput
+	}{arg1, arg2})
+	stub := fake.EvaluateUrgencyStub
+	fakeReturns := fake.evaluateUrgencyReturns
+	fake.recordInvocation("EvaluateUrgency", []interface{}{arg1, arg2})
+	fake.evaluateUrgencyMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *DisqualifierEvaluator) EvaluateUrgencyCallCount() int {
+	fake.evaluateUrgencyMutex.RLock()
+	defer fake.evaluateUrgencyMutex.RUnlock()
+	return len(fake.evaluateUrgencyArgsForCall)
+}
+
+func (fake *DisqualifierEvaluator) EvaluateUrgencyCalls(stub func(context.Context, verdict.DisqualifierInput) (verdict.UrgencyBand, error)) {
+	fake.evaluateUrgencyMutex.Lock()
+	defer fake.evaluateUrgencyMutex.Unlock()
+	fake.EvaluateUrgencyStub = stub
+}
+
+func (fake *DisqualifierEvaluator) EvaluateUrgencyArgsForCall(i int) (context.Context, verdict.DisqualifierInput) {
+	fake.evaluateUrgencyMutex.RLock()
+	defer fake.evaluateUrgencyMutex.RUnlock()
+	argsForCall := fake.evaluateUrgencyArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *DisqualifierEvaluator) EvaluateUrgencyReturns(result1 verdict.UrgencyBand, result2 error) {
+	fake.evaluateUrgencyMutex.Lock()
+	defer fake.evaluateUrgencyMutex.Unlock()
+	fake.EvaluateUrgencyStub = nil
+	fake.evaluateUrgencyReturns = struct {
+		result1 verdict.UrgencyBand
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *DisqualifierEvaluator) EvaluateUrgencyReturnsOnCall(i int, result1 verdict.UrgencyBand, result2 error) {
+	fake.evaluateUrgencyMutex.Lock()
+	defer fake.evaluateUrgencyMutex.Unlock()
+	fake.EvaluateUrgencyStub = nil
+	if fake.evaluateUrgencyReturnsOnCall == nil {
+		fake.evaluateUrgencyReturnsOnCall = make(map[int]struct {
+			result1 verdict.UrgencyBand
+			result2 error
+		})
+	}
+	fake.evaluateUrgencyReturnsOnCall[i] = struct {
+		result1 verdict.UrgencyBand
 		result2 error
 	}{result1, result2}
 }
