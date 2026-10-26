@@ -124,6 +124,35 @@ var _ = Describe("urgency band in the rendered verdict block", func() {
 		Expect(promoted).To(ContainSubstring("promoted: disqualifier-fired (Volume); urgency now"))
 		Expect(declared).NotTo(ContainSubstring("promoted:"))
 	})
+
+	It("strips model-written binary-owned fields when the dates are unavailable", func() {
+		// A derived-key alert is where the prompt tells the model to write
+		// `unavailable` for the live-state fields, so no band can be derived and
+		// applyDisqualifiers returns early. That path must still strip the
+		// binary-owned keys: it is the case most likely to carry an invented
+		// value, not the least.
+		block := renderBlock("```yaml\n" +
+			"sentry_issue_id: OCTOPUS-PROD-1J\n" +
+			"verdict: real bug\n" +
+			"confidence: low\n" +
+			"reason: derived-key alert, no live state\n" +
+			"live_event_count: unavailable\n" +
+			"first_seen: unavailable\n" +
+			"last_seen: unavailable\n" +
+			"sentry_status: unknown\n" +
+			"urgency: now\n" +
+			"promoted: disqualifier-fired (Volume); urgency now\n" +
+			"understanding: low\n" +
+			"fix_certainty: low\n" +
+			"root_cause: unknown\n" +
+			"recommended_fix: unknown\n" +
+			"```")
+
+		Expect(block).NotTo(ContainSubstring("urgency:"))
+		Expect(block).NotTo(ContainSubstring("promoted:"))
+		// Everything else the model wrote still stands.
+		Expect(block).To(ContainSubstring("verdict: real bug"))
+	})
 })
 
 // The deep path renders through the disqualifier guard, not the reassign step.

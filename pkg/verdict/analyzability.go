@@ -172,6 +172,45 @@ var binaryOwnedKeys = map[string]bool{
 	"promoted": true,
 }
 
+// StripKeys removes every top-level entry named in keys from a verdict block
+// body and leaves every other line untouched.
+//
+// It exists for the paths where the block must not be re-rendered at all — a
+// verdict whose live-state dates are absent or unparseable, where the model's
+// own block has to survive verbatim — yet the binary-owned fields still must
+// not reach the operator with a model-authored value. A full re-render there
+// would normalise more than it should, including closing a malformed fence that
+// downstream parsing relies on rejecting.
+func StripKeys(body string, keys ...string) string {
+	drop := map[string]bool{}
+	for _, key := range keys {
+		drop[key] = true
+	}
+	var out []string
+	var current []string
+	flush := func() {
+		if len(current) == 0 {
+			return
+		}
+		if key, ok := topLevelKey(current[0]); ok && drop[key] {
+			current = nil
+			return
+		}
+		out = append(out, current...)
+		current = nil
+	}
+	for _, line := range strings.Split(body, "\n") {
+		if _, ok := topLevelKey(line); ok {
+			flush()
+		}
+		if len(current) > 0 || strings.TrimSpace(line) != "" {
+			current = append(current, line)
+		}
+	}
+	flush()
+	return strings.Join(out, "\n")
+}
+
 // unmodeledEntries returns the top-level entries of original whose key does not
 // appear as a top-level entry in rendered.
 func unmodeledEntries(original, rendered string) []string {

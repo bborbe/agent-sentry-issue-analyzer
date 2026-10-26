@@ -222,6 +222,27 @@ func applyDisqualifiers(
 	v *verdict.Verdict,
 	disqualifiers verdict.DisqualifierEvaluator,
 ) error {
+	// Binary-owned fields are cleared FIRST, before any early return below, and
+	// the early returns strip them from the block rather than returning bare.
+	// Clearing the struct field alone would not be enough: the section body is
+	// what the operator reads, so a model-written `urgency:` or `promoted:` line
+	// survives unless the block is rewritten. That matters most on these paths,
+	// not least — a derived-key alert is precisely where the prompt tells the
+	// model to write `first_seen: unavailable`, and where it has no live state
+	// to derive either field from.
+	//
+	// The strip is targeted rather than a re-render: with no live state to
+	// evaluate, the model's own block must otherwise survive verbatim, and a
+	// full render would also normalise things it should not — including closing
+	// a malformed fence that downstream parsing relies on rejecting.
+	v.Urgency = ""
+	v.Promoted = ""
+	stripBinaryOwned := func() {
+		if section, ok := md.FindSection("## Verdict"); ok {
+			section.Body = verdict.StripKeys(section.Body, "urgency", "promoted")
+		}
+	}
+
 	// A verdict that omits the live-state date fields cannot be evaluated:
 	// sustained span and active burst both need first_seen/last_seen. Skip the
 	// disqualifier override rather than crashing on empty dates — observed live
@@ -229,6 +250,7 @@ func applyDisqualifiers(
 	// guard errored, failing every deep job. With the dates absent the model's
 	// own verdict stands.
 	if v.FirstSeen == "" || v.LastSeen == "" {
+		stripBinaryOwned()
 		return nil
 	}
 	firstSeen, err := libtime.ParseDateTime(ctx, v.FirstSeen)
@@ -240,10 +262,12 @@ func applyDisqualifiers(
 		// — there is no live state to evaluate, so the disqualifier override
 		// does not apply. Treating it as a parse failure crashed every such Job
 		// and left no verdict recorded.
+		stripBinaryOwned()
 		return nil
 	}
 	lastSeen, err := libtime.ParseDateTime(ctx, v.LastSeen)
 	if err != nil {
+		stripBinaryOwned()
 		return nil
 	}
 	input := verdict.DisqualifierInput{
@@ -265,11 +289,6 @@ func applyDisqualifiers(
 		return errors.Wrapf(ctx, err, "apply disqualifiers: evaluate")
 	}
 	v.Urgency = evaluation.Urgency
-	// Promoted is binary-owned: clear it before the fired check so a model that
-	// emits `promoted:` (contrary to the prompt) cannot keep that value through
-	// the render when nothing fires. Without this, a declared defect could
-	// advertise a promotion it never received.
-	v.Promoted = ""
 
 	fired := evaluation.Disqualifiers
 

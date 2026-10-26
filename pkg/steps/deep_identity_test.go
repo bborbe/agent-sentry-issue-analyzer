@@ -100,8 +100,9 @@ var _ = Describe("deep identity normalization", func() {
 	// and the U/F pair are what the High/High fix handoff consumes. The live state
 	// fires NO disqualifier against the fixed clock — count 50 is under both
 	// thresholds, the span is ~16 days, and last_seen is more than 24h before it —
-	// so applyDisqualifiers returns early and the section body stays byte-for-byte
-	// what the model wrote apart from the identity line.
+	// so the verdict is not promoted. The section IS still re-rendered, which is
+	// how the band reaches it; `file:line` survives that render through
+	// RestoreUnmodeledLines rather than by skipping it.
 	deepBlock := func(identity string) string {
 		return "```yaml\n" +
 			"sentry_issue_id: " + identity + "\n" +
@@ -258,5 +259,12 @@ var _ = Describe("deep identity normalization", func() {
 		first := verdictBody(md)
 		Expect(first).To(ContainSubstring("urgency: someday"))
 		Expect(first).To(ContainSubstring("file:line: pkg/handler/handler.go:142"))
+
+		// The actual idempotency claim: running the guard again over the block it
+		// just wrote must leave it unchanged. One pass would pass whether or not
+		// a second pass were stable.
+		_, err = buildStep(echoDeepIdentityResolver()).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(verdictBody(md)).To(Equal(first))
 	})
 })
