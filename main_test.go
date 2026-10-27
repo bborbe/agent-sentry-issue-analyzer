@@ -37,6 +37,48 @@ var _ = Describe("Main", func() {
 })
 
 var _ = Describe("application", func() {
+	Describe("buildClaudeEnv", func() {
+		It("forwards the six egress proxy keys to the Claude child", func() {
+			t := GinkgoT()
+			t.Setenv("HTTP_PROXY", "http://egress-proxy.agent-sandbox.svc.cluster.local:8888")
+			t.Setenv("HTTPS_PROXY", "http://egress-proxy.agent-sandbox.svc.cluster.local:8888")
+			t.Setenv("NO_PROXY", ".svc.cluster.local,claude-code-router-prod.agent")
+			t.Setenv("http_proxy", "http://egress-proxy.agent-sandbox.svc.cluster.local:8888")
+			t.Setenv("https_proxy", "http://egress-proxy.agent-sandbox.svc.cluster.local:8888")
+			t.Setenv("no_proxy", ".svc.cluster.local,claude-code-router-prod.agent")
+			t.Setenv("SOME_TOKEN", "must-not-leak")
+
+			app := &application{}
+			env, err := app.buildClaudeEnv(context.Background())
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(
+				env,
+			).To(HaveKeyWithValue("HTTPS_PROXY", "http://egress-proxy.agent-sandbox.svc.cluster.local:8888"))
+			Expect(
+				env,
+			).To(HaveKeyWithValue("NO_PROXY", ".svc.cluster.local,claude-code-router-prod.agent"))
+			Expect(
+				env,
+			).To(HaveKeyWithValue("https_proxy", "http://egress-proxy.agent-sandbox.svc.cluster.local:8888"))
+			Expect(env).NotTo(HaveKey("SOME_TOKEN"))
+		})
+
+		It("omits the proxy keys when unset", func() {
+			t := GinkgoT()
+			for _, k := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"} {
+				t.Setenv(k, "")
+			}
+
+			app := &application{}
+			env, err := app.buildClaudeEnv(context.Background())
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env).NotTo(HaveKey("HTTPS_PROXY"))
+			Expect(env).NotTo(HaveKey("NO_PROXY"))
+		})
+	})
+
 	Describe("deliverNilResult", func() {
 		var (
 			ctx       context.Context

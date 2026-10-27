@@ -308,7 +308,32 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 		}
 		claudeEnv["GIT_CLONE_TOKEN"] = iat
 	}
+	forwardProxyEnv(claudeEnv)
 	return claudeEnv, nil
+}
+
+// proxyEnvKeys are the six egress proxy variables forwarded to the Claude
+// child. NO_PROXY is comma-separated, so it cannot ride CLAUDE_ENV: that bag
+// splits on commas and would keep only the first entry, sending in-cluster
+// calls through the proxy.
+var proxyEnvKeys = []string{
+	"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+	"http_proxy", "https_proxy", "no_proxy",
+}
+
+// forwardProxyEnv copies the six proxy variables from this process's env into
+// claudeEnv when set. The pod env carries them (the chart's
+// egressProxy.injectAgentEnv renders HTTP_PROXY / HTTPS_PROXY / NO_PROXY), but
+// the Claude CLI child is spawned with a fixed allowlist that strips them, so
+// scripts/sentry-read.sh and scripts/repo-clone.sh (curl and git inside the
+// Bash tool) would dial direct and be refused by the default-deny sandbox.
+// The proxy URLs are not credentials.
+func forwardProxyEnv(claudeEnv map[string]string) {
+	for _, k := range proxyEnvKeys {
+		if v, ok := os.LookupEnv(k); ok && v != "" {
+			claudeEnv[k] = v
+		}
+	}
 }
 
 // parseRepoAllowlist splits a comma-separated REPO_ALLOWLIST value into its
