@@ -65,14 +65,14 @@ func (c EventCount) MarshalYAML() (interface{}, error) {
 // ## Verdict section with EXACTLY these keys (see pkg/prompts/execution.md).
 // Unknown verdicts or missing required fields fail validation.
 type Verdict struct {
-	SentryIssueID      string     `yaml:"sentry_issue_id"`
-	Verdict            string     `yaml:"verdict"`
-	Confidence         string     `yaml:"confidence"`
-	Reason             string     `yaml:"reason"`
-	LiveEventCount     EventCount `yaml:"live_event_count"`
-	FirstSeen          string     `yaml:"first_seen"`
-	LastSeen           string     `yaml:"last_seen"`
-	SentryStatus       string     `yaml:"sentry_status"`
+	SentryIssueID  string     `yaml:"sentry_issue_id"`
+	Verdict        string     `yaml:"verdict"`
+	Confidence     string     `yaml:"confidence"`
+	Reason         string     `yaml:"reason"`
+	LiveEventCount EventCount `yaml:"live_event_count"`
+	FirstSeen      string     `yaml:"first_seen"`
+	LastSeen       string     `yaml:"last_seen"`
+	SentryStatus   string     `yaml:"sentry_status"`
 	// Urgency is the operator-facing band (now | soon | someday), computed by
 	// the binary from the live-state fields above — never written by the model.
 	// Absent when the live-state dates could not be parsed, since the band
@@ -89,11 +89,11 @@ type Verdict struct {
 	// Priority, not override: an `unanalyzable` verdict is exempt from the flip
 	// (a volume disqualifier is not evidence the alert was analysable) yet
 	// still carries Promoted, because the promotion did happen.
-	Promoted      string `yaml:"promoted,omitempty"`
-	Understanding string `yaml:"understanding"`
-	FixCertainty       string     `yaml:"fix_certainty"`
-	RootCause          string     `yaml:"root_cause"`
-	RecommendedFix     string     `yaml:"recommended_fix"`
+	Promoted       string `yaml:"promoted,omitempty"`
+	Understanding  string `yaml:"understanding"`
+	FixCertainty   string `yaml:"fix_certainty"`
+	RootCause      string `yaml:"root_cause"`
+	RecommendedFix string `yaml:"recommended_fix"`
 }
 
 // Valid verdict vocabulary (the 7-verdict rubric, mirrored verbatim from
