@@ -269,7 +269,9 @@ var _ = Describe("urgency band on the deep path", func() {
 		// The guard skips evaluation without first_seen/last_seen, so no band can
 		// be derived. It must be absent — a fabricated band would assert a live
 		// state the run never observed.
-		block := renderDeep("```yaml\nsentry_issue_id: NUKE-DEV-A4\nverdict: noise\nlive_event_count: 193\n```")
+		block := renderDeep(
+			"```yaml\nsentry_issue_id: NUKE-DEV-A4\nverdict: noise\nlive_event_count: 193\n```",
+		)
 		Expect(block).NotTo(ContainSubstring("urgency:"))
 	})
 })

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update github.com/bborbe/agent to v0.134.0, github.com/bborbe/cqrs to v0.6.15, github.com/bborbe/errors to v1.6.5, github.com/bborbe/kafka to v1.29.2, github.com/bborbe/maintainer to v0.50.14, github.com/bborbe/sentry to v1.10.6, github.com/bborbe/service to v1.11.2, github.com/bborbe/time to v1.27.19, github.com/bborbe/vault-cli to v0.184.0
+
 ## v0.21.1
 
 - fix: forward the six egress proxy variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` and their lowercase forms) to the Claude child, so `scripts/sentry-read.sh` and `scripts/repo-clone.sh` reach `bborbe.sentry.io` and `github.com` through the egress proxy instead of dialling direct and being refused by the default-deny sandbox. Measured on prod (`sentry-analyzer-agent-12266ddb-20261027230200`) and dev (`sentry-analyzer-agent-4a8fc0a9-20261027225450`): the pod env carries the proxy (the chart's `egressProxy.injectAgentEnv`), but `bborbe/agent`'s `buildSubprocessEnv` allowlist stripped it from the Claude CLI child, so every `curl`/`git` the model ran itself failed with `curl 7: could not connect to bborbe.sentry.io:443` and the run parked `needs_input`. The six keys are forwarded from the pod env via `forwardProxyEnv`; `NO_PROXY` rides a dedicated loop rather than `CLAUDE_ENV` because that bag splits on commas and would keep only the first entry, sending in-cluster calls through the proxy. Test asserts all six pass through when set, are omitted when unset, and an unrelated secret-shaped var does not.

@@ -52,7 +52,8 @@ var _ = Describe("Urgency", func() {
 		))
 	})
 
-	DescribeTable("computes the band from live state",
+	DescribeTable(
+		"computes the band from live state",
 		func(count int, known bool, lastSeen time.Time, status string, expected verdict.UrgencyBand) {
 			Expect(evaluate(count, known, lastSeen, status)).To(Equal(expected))
 		},
