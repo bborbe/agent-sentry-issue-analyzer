@@ -77,6 +77,27 @@ var _ = Describe("application", func() {
 			Expect(env).NotTo(HaveKey("HTTPS_PROXY"))
 			Expect(env).NotTo(HaveKey("NO_PROXY"))
 		})
+
+		It("forwards SENTRY_URL and SENTRY_ORG to the Claude child", func() {
+			app := &application{
+				SentryURL: "https://seibert-group.sentry.io",
+				SentryOrg: "seibert-group",
+			}
+			env, err := app.buildClaudeEnv(context.Background())
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env).To(HaveKeyWithValue("SENTRY_URL", "https://seibert-group.sentry.io"))
+			Expect(env).To(HaveKeyWithValue("SENTRY_ORG", "seibert-group"))
+		})
+
+		It("omits SENTRY_URL and SENTRY_ORG when unset", func() {
+			app := &application{}
+			env, err := app.buildClaudeEnv(context.Background())
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env).NotTo(HaveKey("SENTRY_URL"))
+			Expect(env).NotTo(HaveKey("SENTRY_ORG"))
+		})
 	})
 
 	Describe("deliverNilResult", func() {
