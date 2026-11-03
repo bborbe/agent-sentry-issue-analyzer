@@ -71,6 +71,14 @@ type application struct {
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
+	// The Sentry org and base URL the scripts query. Both have baked bborbe
+	// defaults (scripts/sentry-create-tasks.sh:63-64), so an unset value
+	// silently reads the wrong org instead of failing — a Seibert-lane token
+	// then answers 403. Forwarded to the subprocess below; the collector's
+	// Config CR sets both.
+	SentryURL string `required:"false" arg:"sentry-url" env:"SENTRY_URL" usage:"Sentry base URL, e.g. https://seibert-group.sentry.io"`
+	SentryOrg string `required:"false" arg:"sentry-org" env:"SENTRY_ORG" usage:"Sentry organization slug, e.g. seibert-group"`
+
 	// Atlassian credentials for the BRO Jira read (scripts/jira-read.sh), which
 	// answers the Jira half of the `already-tracked` verdict. Sourced like
 	// SENTRY_API_TOKEN: teamvault-rendered into the pod env and granted through
@@ -251,6 +259,7 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	if a.SentryAPIToken != "" {
 		claudeEnv["SENTRY_API_TOKEN"] = a.SentryAPIToken
 	}
+	a.forwardSentryTarget(claudeEnv)
 	// The Jira read (scripts/jira-read.sh) needs all three in the subprocess
 	// env for the same reason: buildSubprocessEnv strips non-allowlisted vars,
 	// so the pod secret alone does not reach the Bash tool.
@@ -310,6 +319,20 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	}
 	forwardProxyEnv(claudeEnv)
 	return claudeEnv, nil
+}
+
+// forwardSentryTarget forwards the Sentry org and base URL to the Claude child.
+// The scripts fall back to the bborbe org when these are absent
+// (scripts/sentry-create-tasks.sh:63-64), so a Seibert-lane run that does not
+// get them queries the wrong org and answers 403. Forward only when non-empty,
+// so the baked defaults still apply on a lane that sets neither.
+func (a *application) forwardSentryTarget(claudeEnv map[string]string) {
+	if a.SentryURL != "" {
+		claudeEnv["SENTRY_URL"] = a.SentryURL
+	}
+	if a.SentryOrg != "" {
+		claudeEnv["SENTRY_ORG"] = a.SentryOrg
+	}
 }
 
 // proxyEnvKeys are the six egress proxy variables forwarded to the Claude
