@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.21.4
 
 - fix: forward `SENTRY_URL` and `SENTRY_ORG` to the Claude child. The collector's Config CR sets both on the Job container, but `buildClaudeEnv` forwarded only `SENTRY_API_TOKEN`, and `bborbe/agent`'s `buildSubprocessEnv` allowlist strips every var it is not handed explicitly — so `scripts/sentry-create-tasks.sh` fell back to its baked `https://bborbe.sentry.io` / `bborbe` defaults (`:63-64`) and the seibert-group token answered 403 on every collector run. Measured on dev: the runner's `cmd.Env` log listed 12 vars with neither Sentry var present. Both are now forwarded when non-empty, so the baked defaults still apply on a lane that sets neither; a unit test asserts both pass through when set and stay absent when unset.
 
