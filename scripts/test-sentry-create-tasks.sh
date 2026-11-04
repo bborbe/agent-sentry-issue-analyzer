@@ -231,10 +231,15 @@ expect "population-fails" "${WORK}/r" "observed=false"
 expect "population-fails" "${WORK}/r" "status=unobserved"
 
 # --- arm 4: population read answers non-numerically -> unobservable ----------
+# A negative total is an integer, so vault-list.sh prints it and exits 0; it is
+# the caller's own `^[0-9]+$` guard that must reject it. A non-integer total
+# would fail earlier, inside vault-list.sh, and land in arm 3's branch instead.
 result="$(run_case "population-non-numeric" \
-	"{\"sentry\": ${ALERT_JSON}, \"typed\": [], \"population_raw\": \"{\\\"items\\\": [], \\\"total\\\": \\\"many\\\"}\"}")"
+	"{\"sentry\": ${ALERT_JSON}, \"typed\": [], \"population_raw\": \"{\\\"items\\\": [], \\\"total\\\": -5}\"}")"
 printf '%s\n' "${result}" > "${WORK}/r"
 expect "population-non-numeric" "${WORK}/r" "observed=false"
+# The reason is on stderr, not in the machine-readable result line.
+expect "population-non-numeric" "${WORK}/err" "non-numeric answer"
 
 # --- arm 5: the typed listing itself fails -> unobservable ------------------
 result="$(run_case "typed-listing-fails" \
@@ -263,6 +268,22 @@ printf '%s\n' "${result}" > "${WORK}/r"
 expect "typed-populated" "${WORK}/r" "observed=true"
 expect "typed-populated" "${WORK}/r" "expected_new=0"
 refuse "typed-populated" "${WORK}/r" "status=unobserved"
+
+# --- arm 8: a filter that stopped matching is DETECTED, not hidden ----------
+# This is the 2026-09-13 shape and the reason the guard cannot simply be
+# deleted: the typed query matches nothing while the vault is demonstrably
+# populated, so the empty set is accepted (observed=true) and every alert looks
+# new (expected_new=count). Publishing stays unconditional, so nothing lands and
+# the landing clause must fail the run — `failed`, never `unobserved`, and never
+# a false `done`. Without this arm the CHANGELOG's "detected" claim is untested.
+result="$(run_case "broken-filter-detected" \
+	"{\"sentry\": ${ALERT_JSON}, \"typed\": [], \"population\": [{\"path\": \"/vault/tasks/pr-review-x.md\"}]}")"
+printf '%s\n' "${result}" > "${WORK}/r"
+expect "broken-filter-detected" "${WORK}/r" "observed=true"
+expect "broken-filter-detected" "${WORK}/r" "expected_new=1"
+expect "broken-filter-detected" "${WORK}/r" "landed=0"
+expect "broken-filter-detected" "${WORK}/r" "status=failed"
+refuse "broken-filter-detected" "${WORK}/r" "status=unobserved"
 
 echo
 if [ "${fails}" -eq 0 ]; then
