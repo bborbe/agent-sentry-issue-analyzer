@@ -14,6 +14,7 @@
 #      STAGE (default dev), VAULT_API_URL (required — typed vault-API listing),
 #      GATEWAY_SECRET (optional — gateway auth, presented to the vault API),
 #      VAULT_POLL_ATTEMPTS (default 12), VAULT_POLL_INTERVAL_SECONDS (default 5),
+#      CREATE_TASKS_BIN (TEST-ONLY, default /create-tasks — see below),
 #      CREATE_TASKS_KAFKA_BROKERS (TEST-ONLY, default KAFKA_BROKERS — see below)
 #
 # CREATE_TASKS_KAFKA_BROKERS overrides the brokers passed to /create-tasks ONLY,
@@ -53,7 +54,8 @@
 #
 # `observed=false` means the vault could not be read at all — that is NOT the
 # same as an observed zero, and the step treats it as a failure rather than
-# letting an unverifiable run report done.
+# letting an unverifiable run report done. An empty typed listing on a vault that
+# demonstrably holds other tasks is an observed zero, not an unreadable vault.
 
 set -euo pipefail
 
@@ -67,6 +69,11 @@ TARGET_VAULT="${TARGET_VAULT:-personal}"
 STAGE="${STAGE:-dev}"
 VAULT_POLL_ATTEMPTS="${VAULT_POLL_ATTEMPTS:-12}"
 VAULT_POLL_INTERVAL_SECONDS="${VAULT_POLL_INTERVAL_SECONDS:-5}"
+# TEST-ONLY, like CREATE_TASKS_KAFKA_BROKERS below: the publish binary lives at
+# /create-tasks inside the image, so without a seam the script cannot run off a
+# cluster — no test and no end-to-end check is possible on a Mac. Production
+# never sets it and gets the absolute path unchanged.
+CREATE_TASKS_BIN="${CREATE_TASKS_BIN:-/create-tasks}"
 
 # The per-alert tasks are listed through the typed vault API, by task_type, never
 # by a filename glob. The old glob baked the vault's layout into this image: the
@@ -170,11 +177,37 @@ fi
 # mirror of the false `done` this script exists to prevent.
 #
 # `unobserved` is the honest verdict: it cannot prove anything, and unlike
-# `failed` it never claims a landing failure it did not witness. On a vault that
-# has never run this collector it fires once and self-resolves on the next run.
+# `failed` it never claims a landing failure it did not witness.
+#
+# ⚠️ An empty typed listing is NOT by itself evidence of a broken query. On a
+# lane that has never published, the vault genuinely holds none of the three
+# types, and treating that as unobservable made a healthy first run — every
+# alert published, every file landed — report `status=unobserved`, so a
+# successful publish could never be proved. The two populations are told apart
+# by asking the same API a question that does not depend on the three types: how
+# many tasks does this vault hold AT ALL? A vault holding tasks of other types
+# while matching none of ours is the correct empty population; a vault holding
+# nothing, or a population read that fails or answers non-numerically, still
+# cannot be told apart from a broken query and stays unobserved.
+#
+# The population read runs ONLY on this path, so a vault with tracked tasks
+# never pays for it.
 if [ "${observed}" = "true" ] && [ "${count}" -gt 0 ] && [ -z "${existing_files}" ]; then
-  observed="false"
-  unobserved_reason="the typed listing returned no tracked tasks at all while ${count} alert(s) were fetched — either the vault genuinely holds none of the three alert task types, or the API answered with an empty set it should not have"
+  population=""
+  population_reason=""
+  if ! population="$("${vault_list}" --population)"; then
+    population_reason="the vault population read failed"
+  elif ! printf '%s' "${population}" | grep -Eq '^[0-9]+$'; then
+    population_reason="the vault population read returned a non-numeric answer (${population})"
+  elif [ "${population}" -eq 0 ]; then
+    population_reason="the vault holds no tasks at all"
+  fi
+  if [ -n "${population_reason}" ]; then
+    observed="false"
+    unobserved_reason="the typed listing returned no tracked tasks at all while ${count} alert(s) were fetched, and ${population_reason} — an empty vault and a broken query cannot be told apart"
+  else
+    echo "sentry-create-tasks: the typed listing matched nothing, but the vault holds ${population} task(s) of other types — accepting the empty set as the correct population, not a broken query" >&2
+  fi
 fi
 
 expected_new=0
@@ -196,7 +229,7 @@ fi
 # Publish. NOT exec'd: the script needs a return path so it can observe what
 # actually landed (exec replaces this shell and discards the counts).
 set +e
-create_out="$(/create-tasks \
+create_out="$("${CREATE_TASKS_BIN}" \
   --alerts-file "${tmp_file}" \
   --kafka-brokers "${CREATE_TASKS_KAFKA_BROKERS:-${KAFKA_BROKERS}}" \
   --topic-prefix "${TOPIC_PREFIX}" \

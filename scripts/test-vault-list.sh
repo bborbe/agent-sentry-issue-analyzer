@@ -188,6 +188,87 @@ else
 	fail "genuinely empty answer is a success with no output (rc=$RC out=$OUT err=$ERR)"
 fi
 
+# --- --population prints the vault total, not the typed paths ---------------
+# The caller uses this to tell "this vault tracks none of our types" from "the
+# query stopped matching", so the number must come from the response's own
+# `total` field rather than from the item count.
+if ! serve 200 '{"items":[{"path":"/v/a.md"},{"path":"/v/b.md"}],"total":7}'; then
+	fail "--population prints the vault total (mock server failed to start)"
+else
+	OUT="$(VAULT_API_URL="http://127.0.0.1:${PORT}" bash "$VAULT_LIST" --population 2>"$WORK/stderr")"
+	RC=$?
+	ERR="$(cat "$WORK/stderr")"
+	if ! wait_bounded "$SERVER_PID"; then
+		fail "--population prints the vault total (script never issued its request)"
+	fi
+	SERVER_PID=""
+	if [ "$RC" -eq 0 ] && [ "$OUT" = "7" ]; then
+		pass "--population prints the vault total"
+	else
+		fail "--population prints the vault total (rc=$RC out=$OUT err=$ERR)"
+	fi
+fi
+
+# --- --population falls back to the item count when `total` is absent --------
+# An older server may not carry `total`. The caller only distinguishes zero from
+# non-zero, so the item count is the correct answer for any non-empty page.
+if ! serve 200 '{"items":[{"path":"/v/a.md"}]}'; then
+	fail "--population falls back to the item count (mock server failed to start)"
+else
+	OUT="$(VAULT_API_URL="http://127.0.0.1:${PORT}" bash "$VAULT_LIST" --population 2>"$WORK/stderr")"
+	RC=$?
+	ERR="$(cat "$WORK/stderr")"
+	if ! wait_bounded "$SERVER_PID"; then
+		fail "--population falls back to the item count (script never issued its request)"
+	fi
+	SERVER_PID=""
+	if [ "$RC" -eq 0 ] && [ "$OUT" = "1" ]; then
+		pass "--population falls back to the item count"
+	else
+		fail "--population falls back to the item count (rc=$RC out=$OUT err=$ERR)"
+	fi
+fi
+
+# --- --population refuses a non-integer total -------------------------------
+# A count the caller cannot compare is worse than a failure: it must not reach
+# the caller's arithmetic test at all.
+if ! serve 200 '{"items":[],"total":"many"}'; then
+	fail "--population refuses a non-integer total (mock server failed to start)"
+else
+	OUT="$(VAULT_API_URL="http://127.0.0.1:${PORT}" bash "$VAULT_LIST" --population 2>"$WORK/stderr")"
+	RC=$?
+	ERR="$(cat "$WORK/stderr")"
+	if ! wait_bounded "$SERVER_PID"; then
+		fail "--population refuses a non-integer total (script never issued its request)"
+	fi
+	SERVER_PID=""
+	if [ "$RC" -ne 0 ] && printf '%s' "$ERR" | grep -q 'not an integer'; then
+		pass "--population refuses a non-integer total"
+	else
+		fail "--population refuses a non-integer total (rc=$RC out=$OUT err=$ERR)"
+	fi
+fi
+
+# --- an unknown argument is refused, never silently treated as no argument ---
+# A typo'd mode must not fall back to the typed listing: the caller would read
+# that as a dedup answer and could publish every alert again.
+OUT="$(VAULT_API_URL="http://127.0.0.1:1" bash "$VAULT_LIST" --bogus 2>"$WORK/stderr")"
+RC=$?
+if [ "$RC" -eq 2 ] && grep -q 'unknown argument' "$WORK/stderr"; then
+	pass "unknown argument is refused with exit 2"
+else
+	fail "unknown argument is refused with exit 2 (rc=$RC err=$(cat "$WORK/stderr"))"
+fi
+
+# --- a stray second argument is refused, not half-honoured -------------------
+OUT="$(VAULT_API_URL="http://127.0.0.1:1" bash "$VAULT_LIST" --population stray 2>"$WORK/stderr")"
+RC=$?
+if [ "$RC" -eq 2 ] && grep -q 'at most one argument' "$WORK/stderr"; then
+	pass "stray second argument is refused with exit 2"
+else
+	fail "stray second argument is refused with exit 2 (rc=$RC err=$(cat "$WORK/stderr"))"
+fi
+
 if [ "$fails" -ne 0 ]; then
 	printf '\n%d case(s) failed\n' "$fails" >&2
 	exit 1

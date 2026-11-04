@@ -40,6 +40,7 @@ test:
 	bash scripts/test-repo-clone-containment.sh
 	bash scripts/test-jira-read.sh
 	bash scripts/test-vault-list.sh
+	bash scripts/test-sentry-create-tasks.sh
 
 check: lint vet vulncheck osv-scanner trivy
 
