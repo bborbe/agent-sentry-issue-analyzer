@@ -186,6 +186,15 @@ func CreateAgent(
 // Result` decides) or carries no `## Fix Result` yet, and the real-bug arm
 // requires that section to exist — so emitting here would file a ticket for a
 // bug the fix agent may still fix.
+//
+// ⚠️ The proposal decorator is deliberately NOT wrapped around this chain. It
+// would be unreachable: the disqualifier guard inside ReassignExecutionStep
+// relabels every verdict that is neither `real bug` nor `unanalyzable` to
+// `real bug` as soon as a disqualifier fires (pkg/steps/reassign.go:320), and
+// the proposal rule requires exactly that. So a `regression` leaves this chain
+// as a `real bug` and reaches the proposal rule on the FIX chain instead, after
+// the deep handoff and the fix attempt — which is the same ticket, filed from
+// the state that actually decides it.
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
@@ -195,15 +204,13 @@ func CreateAgentFromRunner(
 	identityResolver identity.Resolver,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
-	execution := steps.NewJiraProposalStep(
-		steps.NewReassignExecutionStep(
-			steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
-			assignee,
-			string(taskTypeSentryDeepAnalyzer),
-			verdict.NewDisqualifierEvaluator(currentDateTime),
-			verdictMetrics,
-			identityResolver,
-		),
+	execution := steps.NewReassignExecutionStep(
+		steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
+		assignee,
+		string(taskTypeSentryDeepAnalyzer),
+		verdict.NewDisqualifierEvaluator(currentDateTime),
+		verdictMetrics,
+		identityResolver,
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),

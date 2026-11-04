@@ -155,7 +155,11 @@ var _ = Describe("JiraProposalStep", func() {
 		Expect(body).To(ContainSubstring("- label: sentry-OCTOPUS-DEV-11"))
 		Expect(
 			body,
-		).To(ContainSubstring("- description: https://seibert-group.sentry.io/issues/101632819/"))
+		).To(ContainSubstring("- description: https://seibert-group.sentry.io/issues/OCTOPUS-DEV-11"))
+		// The numeric id sits in the fixture's `issue_url` frontmatter but must
+		// NOT reach the block: JQL on the numeric URL returns 0 BRO tickets, on
+		// the short-id URL returns 1. The URL arm is dedup key 2.
+		Expect(body).NotTo(ContainSubstring("101632819"))
 		Expect(body).To(HavePrefix("- summary: octopus-dev: "))
 	})
 
@@ -179,8 +183,8 @@ var _ = Describe("JiraProposalStep", func() {
 
 		Expect(bodyA).To(ContainSubstring("sentry-OCTOPUS-DEV-11"))
 		Expect(bodyB).To(ContainSubstring("sentry-OCTOPUS-PROD-8B"))
-		Expect(bodyA).To(ContainSubstring("issues/101632819/"))
-		Expect(bodyB).To(ContainSubstring("issues/203344556/"))
+		Expect(bodyA).To(ContainSubstring("issues/OCTOPUS-DEV-11"))
+		Expect(bodyB).To(ContainSubstring("issues/OCTOPUS-PROD-8B"))
 		Expect(bodyA).To(HavePrefix("- summary: octopus-dev: "))
 		Expect(bodyB).To(HavePrefix("- summary: octopus-prod: "))
 		Expect(bodyA).NotTo(Equal(bodyB))
@@ -202,7 +206,7 @@ var _ = Describe("JiraProposalStep", func() {
 		))
 		Expect(body).NotTo(ContainSubstring("unresolved error"))
 		Expect(body).To(ContainSubstring("- label: sentry-OCTOPUS-PROD-8D"))
-		Expect(body).To(ContainSubstring("issues/203344558/"))
+		Expect(body).To(ContainSubstring("issues/OCTOPUS-PROD-8D"))
 	})
 
 	// A task whose inner step already ran — a resume after a crash between the

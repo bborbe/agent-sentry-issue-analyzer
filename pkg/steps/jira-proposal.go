@@ -22,6 +22,10 @@ import (
 // section and the consumer would never see it.
 const jiraProposalHeading = "### Jira Proposal"
 
+// sentryIssueURLBase is the prefix of the Sentry issue URL the block carries.
+// The suffix is the SHORT-ID, never the numeric issue id — see buildJiraProposal.
+const sentryIssueURLBase = "https://seibert-group.sentry.io/issues/"
+
 // jiraProposalVerdicts are the classifications that can justify a Jira ticket.
 // The seven-verdict rubric is the source; only these two are important enough
 // to escalate when the fix agent could not resolve them.
@@ -53,6 +57,16 @@ var jiraProposalVerdicts = map[string]bool{
 // A pre-seeded ## Verdict on a task that never ran the analyzer is therefore
 // not enough on its own; the task must reach the state the real pipeline
 // produces.
+//
+// ⚠️ The `regression` arm is unreachable in the wired pipeline, and is kept as
+// a rule rather than as coverage. The disqualifier guard relabels every verdict
+// that is neither `real bug` nor `unanalyzable` to `real bug` as soon as a
+// disqualifier fires (pkg/steps/reassign.go:320) — and this rule requires a
+// fired disqualifier — so a `regression` is always a `real bug` by the time any
+// step sees it, and its ticket is filed through the real-bug arm after the fix
+// attempt. The arm stays because SC11 names both verdicts and because a guard
+// change would otherwise silently remove the coverage; it is exercised by
+// fixture B at the pure-function level.
 type jiraProposalStep struct {
 	// inner is the step whose output this rule evaluates. The proposal is a
 	// decorator, not a phase: it must run after the verdict (and, in the fix
@@ -237,13 +251,19 @@ func buildJiraProposal(
 	if component == "" {
 		return "", errors.New(ctx, "jira-proposal: task frontmatter carries no project")
 	}
-	issueURL := frontmatterString(md, "issue_url")
-	if issueURL == "" {
-		return "", errors.New(ctx, "jira-proposal: task frontmatter carries no issue_url")
-	}
 
 	// summary: `component: short description`, symptom not fix.
 	summary := component + ": " + symptom(summarySource(v))
+	// description: the Sentry issue URL in SHORT-ID form. This is dedup key 2.
+	//
+	// ⚠️ NOT the frontmatter `issue_url`: that field is the NUMERIC id form and
+	// appears in no BRO ticket. Measured 2026-11-04 against live Jira — JQL on
+	// `.../issues/OCTOPUS-PROD-89` → totalCount 1 (BRO-22558), on
+	// `.../issues/101632819` → totalCount 0. Three real tickets carry the URL
+	// with no label (label query 14, URL query 17), so the URL arm is
+	// load-bearing: a numeric URL would query a string that exists in no ticket
+	// and create a duplicate silently — the exact failure this rule prevents.
+	description := sentryIssueURLBase + shortID
 	// label: `sentry-<SHORT-ID>` — ONE token. Never lowercased, never split on
 	// the prefix: a label that is merely present but spelled differently passes
 	// the presence-only consumer parser and then matches nothing in Jira.
@@ -251,7 +271,7 @@ func buildJiraProposal(
 
 	lines := []string{
 		"- summary: " + summary,
-		"- description: " + issueURL,
+		"- description: " + description,
 		"- label: " + label,
 	}
 	return strings.Join(lines, "\n"), nil

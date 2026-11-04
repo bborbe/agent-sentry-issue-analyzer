@@ -19,9 +19,15 @@ import (
 )
 
 // These specs assert the Jira proposal decorator is actually composed into the
-// factory chains. Without them, dropping NewJiraProposalStep from either chain
-// would leave every other test green — fix_wiring_test.go drives the fix chain
-// but never looks for the block.
+// factory chain. Without it, dropping NewJiraProposalStep from the fix chain
+// would leave every other test green — fix_wiring_test.go drives that chain but
+// never looks for the block.
+//
+// Only the fix chain carries the decorator: the triage chain cannot fire it,
+// because the disqualifier guard relabels every non-`real bug`/`unanalyzable`
+// verdict to `real bug` as soon as a disqualifier fires (reassign.go:320) and
+// the rule requires exactly that. A triage-chain spec would assert a state the
+// pipeline cannot produce.
 var _ = Describe("Jira proposal wiring", func() {
 	var ctx context.Context
 
@@ -87,13 +93,23 @@ var _ = Describe("Jira proposal wiring", func() {
 		// output, not FindSection: agentlib's IsMarkdownSectionHeading accepts
 		// only `#`/`##`, so a three-hash heading is body text to it — but the
 		// consumer (/daily-maintenance) scans text, which is what matters.
+		GinkgoWriter.Printf("TRIAGE OUTPUT:\n%s\n", info.Output)
 		Expect(info.Output).To(ContainSubstring("### Jira Proposal"))
 		Expect(info.Output).To(ContainSubstring(
 			"- summary: octopus-prod: cdb writer drops the final batch on shutdown",
 		))
 		Expect(info.Output).To(ContainSubstring(
-			"- description: https://seibert-group.sentry.io/issues/203344558/",
+			"- description: https://seibert-group.sentry.io/issues/OCTOPUS-PROD-8D",
 		))
 		Expect(info.Output).To(ContainSubstring("- label: sentry-OCTOPUS-PROD-8D"))
+
+		// The description line is the SHORT-ID form, NOT the task's numeric
+		// `issue_url` (which is the numeric id and appears in no BRO ticket).
+		// The frontmatter still carries the numeric form — that is correct and
+		// is exactly why the rule must not copy it.
+		Expect(info.Output).NotTo(
+			ContainSubstring("- description: https://seibert-group.sentry.io/issues/203344558/"),
+		)
 	})
+
 })
