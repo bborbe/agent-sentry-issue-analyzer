@@ -187,13 +187,15 @@ func CreateAgentFromRunner(
 	identityResolver identity.Resolver,
 ) *agentlib.Agent {
 	planning := steps.NewPlanningStep(runner, prompts.BuildPlanningInstructions(), envContext)
-	execution := steps.NewReassignExecutionStep(
-		steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
-		assignee,
-		string(taskTypeSentryDeepAnalyzer),
-		verdict.NewDisqualifierEvaluator(currentDateTime),
-		verdictMetrics,
-		identityResolver,
+	execution := steps.NewJiraProposalStep(
+		steps.NewReassignExecutionStep(
+			steps.NewExecutionStep(runner, prompts.BuildExecutionInstructions(), envContext),
+			assignee,
+			string(taskTypeSentryDeepAnalyzer),
+			verdict.NewDisqualifierEvaluator(currentDateTime),
+			verdictMetrics,
+			identityResolver,
+		),
 	)
 	return agentlib.NewAgent(
 		agentlib.NewPhase("planning", planning),
@@ -286,7 +288,9 @@ func CreateFixAgentFromRunner(
 	return agentlib.NewAgent(
 		agentlib.NewPhase(
 			"planning",
-			steps.NewFixStep(resolver, writer, trace, currentDateTime),
+			steps.NewJiraProposalStep(
+				steps.NewFixStep(resolver, writer, trace, currentDateTime),
+			),
 		),
 	)
 }
