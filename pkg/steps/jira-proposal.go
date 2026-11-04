@@ -75,22 +75,66 @@ func (s *jiraProposalStep) Name() string {
 
 // ShouldRun is idempotent per task: a task that already carries the block was
 // handled and must never be rewritten, so a resumed run cannot churn the body.
+//
+// It does NOT delegate to the inner step. The inner step skips once its own
+// output section exists (the triage execution step on `## Verdict`, the fix
+// step on `## Fix Result`), so delegating would make the decorator unreachable
+// in exactly the state it exists for: a task whose inner step already ran —
+// a resume after a crash between the inner write and this evaluation, or this
+// feature deployed onto a task that predates it. Run handles the two cases
+// separately.
 func (s *jiraProposalStep) ShouldRun(
 	ctx context.Context,
 	md *agentlib.Markdown,
 ) (bool, error) {
-	if _, exists := md.FindSection(jiraProposalHeading); exists {
-		return false, nil
+	content, err := md.Marshal(ctx)
+	if err != nil {
+		return false, errors.Wrapf(ctx, err, "jira-proposal: marshal task")
 	}
-	return s.inner.ShouldRun(ctx, md)
+	return !hasJiraProposalBlock(content), nil
 }
 
-// Run delegates to the wrapped step, then evaluates the proposal rule against
-// the state that step produced.
+// hasJiraProposalBlock scans the marshaled text rather than asking
+// md.FindSection.
+//
+// agentlib's IsMarkdownSectionHeading accepts only `# ` and `## ` — a
+// three-hash heading is body text, so on a re-parse `### Jira Proposal` is
+// absorbed into the preceding section and FindSection returns false. A
+// section-based guard would therefore report "no block" for a task that
+// already carries one, the decorator would run again, and ReplaceSection would
+// append a SECOND block — one alert, two proposals, two Jira tickets. The
+// heading level is not negotiable (the consumer requires three hashes), so the
+// detection has to match the consumer's own text scan instead.
+func hasJiraProposalBlock(content string) bool {
+	for line := range strings.SplitSeq(content, "\n") {
+		if strings.TrimSpace(line) == jiraProposalHeading {
+			return true
+		}
+	}
+	return false
+}
+
+// Run delegates to the wrapped step when it still has work, then evaluates the
+// proposal rule against whatever state the task is in.
+//
+// When the inner step has already run, evaluating is the only correct action:
+// re-running it would duplicate its write, and skipping would leave the task
+// permanently without a block. That branch reports Done with no NextPhase,
+// since the inner step already decided the task's outcome.
 func (s *jiraProposalStep) Run(
 	ctx context.Context,
 	md *agentlib.Markdown,
 ) (*agentlib.Result, error) {
+	innerShouldRun, err := s.inner.ShouldRun(ctx, md)
+	if err != nil {
+		return nil, errors.Wrapf(ctx, err, "jira-proposal: check inner step")
+	}
+	if !innerShouldRun {
+		if err := s.evaluate(ctx, md); err != nil {
+			return nil, err
+		}
+		return &agentlib.Result{Status: agentlib.AgentStatusDone}, nil
+	}
 	result, err := s.inner.Run(ctx, md)
 	if err != nil {
 		return result, err
@@ -131,6 +175,12 @@ func (s *jiraProposalStep) evaluate(ctx context.Context, md *agentlib.Markdown) 
 	)
 
 	if !emit {
+		return nil
+	}
+
+	// Belt and braces with ShouldRun: a caller that invokes Run without
+	// consulting ShouldRun must still not append a second block.
+	if hasJiraProposalBlock(content) {
 		return nil
 	}
 
@@ -193,7 +243,7 @@ func buildJiraProposal(
 	}
 
 	// summary: `component: short description`, symptom not fix.
-	summary := component + ": " + symptom(v.Reason)
+	summary := component + ": " + symptom(summarySource(v))
 	// label: `sentry-<SHORT-ID>` — ONE token. Never lowercased, never split on
 	// the prefix: a label that is merely present but spelled differently passes
 	// the presence-only consumer parser and then matches nothing in Jira.
@@ -205,6 +255,23 @@ func buildJiraProposal(
 		"- label: " + label,
 	}
 	return strings.Join(lines, "\n"), nil
+}
+
+// summarySource picks the verdict's one-line symptom.
+//
+// The two chains carry different verdict schemas. The triage schema has
+// `reason`; the deep schema (pkg/prompts/deep-execution.md) has no `reason`
+// key at all — only `root_cause`, `recommended_fix`, `understanding` and
+// `fix_certainty`. The fix chain is the ONLY chain that can fire the real-bug
+// arm, and it parses the deep verdict, so a Reason-only source would summarize
+// every real-bug proposal as "unresolved error" — a ticket title carrying no
+// information about the alert. Fall back to root_cause, which is the deep
+// schema's one-line statement of what went wrong.
+func summarySource(v verdict.Verdict) string {
+	if reason := strings.TrimSpace(v.Reason); reason != "" {
+		return reason
+	}
+	return v.RootCause
 }
 
 // symptom trims the verdict's reason to one line so the summary stays a

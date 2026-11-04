@@ -178,6 +178,14 @@ func CreateAgent(
 // `verdict: real bug` it reassigns the SAME task to the configured assignee
 // (the lane's ASSIGNEE env, threaded in as assignee) with task_type:
 // sentry-deep-analyzer instead of closing it.
+//
+// That whole chain is then wrapped in the Jira proposal decorator, which emits
+// a `### Jira Proposal` block for a `regression` verdict carrying a fired
+// disqualifier. Only the regression arm can fire here: a `real bug` is either
+// handed to the deep analyzer (and later the fix agent, where its `## Fix
+// Result` decides) or carries no `## Fix Result` yet, and the real-bug arm
+// requires that section to exist — so emitting here would file a ticket for a
+// bug the fix agent may still fix.
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
@@ -276,6 +284,12 @@ func CreateCollectorAgentFromRunner(
 // current revision, and files a kind: bug spec through the GitHub API.
 // githubClient is the App-authenticated go-github client (nil when App auth
 // is not configured); repoAllowlist bounds emission (empty = unbounded).
+//
+// The fix step is wrapped in the Jira proposal decorator: once `## Fix Result`
+// is written, a `real bug` that filed no PR gets a `### Jira Proposal` block.
+// This is the only chain that can fire the real-bug arm, and it parses the
+// DEEP verdict schema, which carries `root_cause` and no `reason` — the
+// decorator falls back to `root_cause` for the summary for exactly that reason.
 func CreateFixAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	githubClient *github.Client,
