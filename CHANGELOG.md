@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.21.5
 
 - fix: stop treating a correctly empty typed-vault listing as a broken query. `scripts/sentry-create-tasks.sh:175-178` flipped `observed=false` whenever the dedup listing came back empty while alerts were fetched — but on a lane that has never published the vault genuinely tracks none of the three alert task types, so a healthy first run published every alert, landed every file, and still reported `status=unobserved` (measured on dev 2026-11-04: 89 files landed, `landed=0 observed=false`). The guard is kept and extended: on that path only, it now asks the same API how many tasks the vault holds at all (`vault-list.sh --population`) and accepts the empty set as the real population when the answer is non-zero. A filter that stopped matching presents as a populated vault with an empty typed listing, so it is now *detected* rather than *reported as unobservable* — publishing stays unconditional, `expected_new>0` with `landed=0` still ends in `status=failed`, and no false `done` is reachable. A vault that is genuinely empty of every task type, a failed population read, or a non-numeric answer still yields `observed=false`: an empty vault and a broken query are not distinguishable, and that stays the honest verdict. Also adds a `CREATE_TASKS_BIN` seam (TEST-ONLY, default `/create-tasks`) so the script can run outside the image, and a regression test covering both arms plus the three wrong-shaped responses, wired into `make test`.
 
