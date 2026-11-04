@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.22.0
 
 - fix: return `NextPhase: "done"` from the already-ran branch of the Jira proposal decorator. A `Done` result with no `NextPhase` does not terminate the task: it stays `planning`/`in_progress`, the executor re-dispatches, `ShouldRun` is then false because the block now exists, the step is skipped, and the nil result becomes `deadline_exceeded` → trigger-count churn — the failure `pkg/steps/collector.go:68-72` records for a wrapper that omitted it. That branch is deliberately reachable (a crash between the fix step's `## Fix Result` write and this evaluation, or this feature deployed onto a task that already carries one), so it is exactly where termination must be explicit. Also strips surrounding quotes from the `pr_url` value: a literal `pr_url: ""` is an EMPTY value meaning no PR, and leaving the quote characters made it read as a present PR and suppress a proposal that should be emitted. Adds specs for that branch's `NextPhase`, a missing `project`, an unparseable verdict, an unquoted numeric `short_id`, and the literal-empty `pr_url`.
 
