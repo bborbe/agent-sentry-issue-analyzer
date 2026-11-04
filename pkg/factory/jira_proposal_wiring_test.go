@@ -40,8 +40,11 @@ var _ = Describe("Jira proposal wiring", func() {
 		server := newFakeFixGithubAPI(GinkgoT())
 		deliver := &agentmocks.AgentResultDeliverer{}
 
+		// Intentionally unused: the fix step hits the missing-`file:line` branch
+		// (pkg/steps/fix.go:119-131) and records `status: skipped` before
+		// readTraceEvidence is ever called. The mock is still needed as a
+		// constructor argument.
 		trace := &fixagentmocks.TraceReader{}
-		trace.HasFirstPartyFrameReturns(true, nil)
 
 		agent := factory.CreateFixAgentFromRunner(
 			runner,
@@ -93,7 +96,7 @@ var _ = Describe("Jira proposal wiring", func() {
 		// output, not FindSection: agentlib's IsMarkdownSectionHeading accepts
 		// only `#`/`##`, so a three-hash heading is body text to it — but the
 		// consumer (/daily-maintenance) scans text, which is what matters.
-		GinkgoWriter.Printf("TRIAGE OUTPUT:\n%s\n", info.Output)
+		GinkgoWriter.Printf("FIX CHAIN OUTPUT:\n%s\n", info.Output)
 		Expect(info.Output).To(ContainSubstring("### Jira Proposal"))
 		Expect(info.Output).To(ContainSubstring(
 			"- summary: octopus-prod: cdb writer drops the final batch on shutdown",

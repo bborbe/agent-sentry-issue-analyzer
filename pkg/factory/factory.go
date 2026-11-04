@@ -179,13 +179,8 @@ func CreateAgent(
 // (the lane's ASSIGNEE env, threaded in as assignee) with task_type:
 // sentry-deep-analyzer instead of closing it.
 //
-// That whole chain is then wrapped in the Jira proposal decorator, which emits
-// a `### Jira Proposal` block for a `regression` verdict carrying a fired
-// disqualifier. Only the regression arm can fire here: a `real bug` is either
-// handed to the deep analyzer (and later the fix agent, where its `## Fix
-// Result` decides) or carries no `## Fix Result` yet, and the real-bug arm
-// requires that section to exist — so emitting here would file a ticket for a
-// bug the fix agent may still fix.
+// That whole chain is then wrapped in the real-bug reassign trigger described
+// above; it carries no Jira proposal decorator. See the note below.
 //
 // ⚠️ The proposal decorator is deliberately NOT wrapped around this chain. It
 // would be unreachable: the disqualifier guard inside ReassignExecutionStep
