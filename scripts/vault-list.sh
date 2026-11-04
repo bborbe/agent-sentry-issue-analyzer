@@ -41,6 +41,10 @@ set -e -u -o pipefail
 : "${VAULT_API_URL:?VAULT_API_URL is required}"
 
 mode="typed"
+if [ "$#" -gt 1 ]; then
+  echo "vault-list: expected at most one argument, got $# — refusing rather than half-honouring a mode" >&2
+  exit 2
+fi
 case "${1:-}" in
   "") ;;
   --population) mode="population" ;;

@@ -155,6 +155,12 @@ run_case() {
 	local deadline=$((SECONDS + 5))
 	while [ ! -s "${WORK}/port" ]; do
 		if [ "${SECONDS}" -ge "${deadline}" ]; then
+			# run_case runs inside a command substitution, so this subshell's
+			# SERVER_PID never reaches the parent's trap — kill it here or the
+			# mock outlives the suite.
+			kill "${SERVER_PID}" 2>/dev/null
+			wait "${SERVER_PID}" 2>/dev/null
+			SERVER_PID=""
 			fail "${name}: mock server did not start"
 			return 1
 		fi
