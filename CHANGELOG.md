@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: forward `ASSIGNEE` to the Claude child. The collector's Config CR sets it on the Job container, but `buildClaudeEnv`'s explicit allowlist did not include it, and `bborbe/agent`'s `buildSubprocessEnv` strips every var it is not handed — so `cmd/create-tasks`, which declares `Assignee` `required:"true"`, aborted with `Required field empty, define parameter assignee or define env ASSIGNEE` and the collector published nothing (`fetched=84 published=0 expected_new=0 landed=0 observed=false status=unobserved`, Job `sentry-collector-agent-ee07ba49-20261104082931` on 2026-11-04). It is now forwarded when non-empty, so a lane that sets nothing keeps the child's own flag parsing in charge; a unit test asserts both directions.
+
 ## v0.21.4
 
 - fix: forward `SENTRY_URL` and `SENTRY_ORG` to the Claude child. The collector's Config CR sets both on the Job container, but `buildClaudeEnv` forwarded only `SENTRY_API_TOKEN`, and `bborbe/agent`'s `buildSubprocessEnv` allowlist strips every var it is not handed explicitly — so `scripts/sentry-create-tasks.sh` fell back to its baked `https://bborbe.sentry.io` / `bborbe` defaults (`:63-64`) and the seibert-group token answered 403 on every collector run. Measured on dev: the runner's `cmd.Env` log listed 12 vars with neither Sentry var present. Both are now forwarded when non-empty, so the baked defaults still apply on a lane that sets neither; a unit test asserts both pass through when set and stay absent when unset.

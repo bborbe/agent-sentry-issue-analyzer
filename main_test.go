@@ -98,6 +98,24 @@ var _ = Describe("application", func() {
 			Expect(env).NotTo(HaveKey("SENTRY_URL"))
 			Expect(env).NotTo(HaveKey("SENTRY_ORG"))
 		})
+
+		It("forwards ASSIGNEE to the Claude child", func() {
+			app := &application{Assignee: "sentry-analyzer-agent"}
+			env, err := app.buildClaudeEnv(context.Background())
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env).To(HaveKeyWithValue("ASSIGNEE", "sentry-analyzer-agent"))
+		})
+
+		It("omits ASSIGNEE when empty", func() {
+			// Assignee's zero value IS the empty string, so this covers both
+			// the unset lane and one that sets ASSIGNEE="".
+			app := &application{Assignee: ""}
+			env, err := app.buildClaudeEnv(context.Background())
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(env).NotTo(HaveKey("ASSIGNEE"))
+		})
 	})
 
 	Describe("deliverNilResult", func() {

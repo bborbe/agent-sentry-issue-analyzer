@@ -272,6 +272,15 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 	if a.JiraAPIToken != "" {
 		claudeEnv["JIRA_API_TOKEN"] = a.JiraAPIToken
 	}
+	// The collector step's child (cmd/create-tasks) declares Assignee
+	// required:"true", so it aborts with "Required field empty, define parameter
+	// assignee or define env ASSIGNEE" when this is not forwarded — the pod env
+	// alone does not reach it (buildSubprocessEnv strips non-allowlisted vars).
+	// Forward only when non-empty, so a lane that sets nothing keeps the child's
+	// own flag parsing in charge.
+	if a.Assignee != "" {
+		claudeEnv["ASSIGNEE"] = a.Assignee
+	}
 	// The collector step's Bash tool contract (scripts/sentry-create-tasks.sh)
 	// needs the Kafka brokers + per-alert task knobs in the subprocess env —
 	// the pod secret alone is not enough (buildSubprocessEnv strips
