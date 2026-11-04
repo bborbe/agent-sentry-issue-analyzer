@@ -178,6 +178,18 @@ func CreateAgent(
 // `verdict: real bug` it reassigns the SAME task to the configured assignee
 // (the lane's ASSIGNEE env, threaded in as assignee) with task_type:
 // sentry-deep-analyzer instead of closing it.
+//
+// That whole chain is then wrapped in the real-bug reassign trigger described
+// above; it carries no Jira proposal decorator. See the note below.
+//
+// ⚠️ The proposal decorator is deliberately NOT wrapped around this chain. It
+// would be unreachable: the disqualifier guard inside ReassignExecutionStep
+// relabels every verdict that is neither `real bug` nor `unanalyzable` to
+// `real bug` as soon as a disqualifier fires (pkg/steps/reassign.go:320), and
+// the proposal rule requires exactly that. So a `regression` leaves this chain
+// as a `real bug` and reaches the proposal rule on the FIX chain instead, after
+// the deep handoff and the fix attempt — which is the same ticket, filed from
+// the state that actually decides it.
 func CreateAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	envContext map[string]string,
@@ -274,6 +286,12 @@ func CreateCollectorAgentFromRunner(
 // current revision, and files a kind: bug spec through the GitHub API.
 // githubClient is the App-authenticated go-github client (nil when App auth
 // is not configured); repoAllowlist bounds emission (empty = unbounded).
+//
+// The fix step is wrapped in the Jira proposal decorator: once `## Fix Result`
+// is written, a `real bug` that filed no PR gets a `### Jira Proposal` block.
+// This is the only chain that can fire the real-bug arm, and it parses the
+// DEEP verdict schema, which carries `root_cause` and no `reason` — the
+// decorator falls back to `root_cause` for the summary for exactly that reason.
 func CreateFixAgentFromRunner(
 	runner claudelib.ClaudeRunner,
 	githubClient *github.Client,
@@ -286,7 +304,9 @@ func CreateFixAgentFromRunner(
 	return agentlib.NewAgent(
 		agentlib.NewPhase(
 			"planning",
-			steps.NewFixStep(resolver, writer, trace, currentDateTime),
+			steps.NewJiraProposalStep(
+				steps.NewFixStep(resolver, writer, trace, currentDateTime),
+			),
 		),
 	)
 }
