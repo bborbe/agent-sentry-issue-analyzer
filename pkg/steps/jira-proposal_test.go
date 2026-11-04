@@ -224,6 +224,9 @@ var _ = Describe("JiraProposalStep", func() {
 		result, err := step.Run(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		// NextPhase is the load-bearing half: a Done result without it leaves the
+		// task planning/in_progress and churns the trigger count (collector.go:68-72).
+		Expect(result.NextPhase).To(Equal("done"))
 
 		body, ok := proposalBody(md)
 		Expect(ok).To(BeTrue())
@@ -328,5 +331,77 @@ var _ = Describe("JiraProposalStep", func() {
 		out, err := reparsed.Marshal(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(strings.Count(out, "### Jira Proposal")).To(Equal(1))
+	})
+
+	// Coverage for failure modes the code claims to handle. Each of these was
+	// named as an unasserted path in review.
+	It("fails loudly when a qualifying task lacks project", func() {
+		md, err := agentlib.ParseMarkdown(ctx, "---\nshort_id: OCTOPUS-DEV-11\n---\n\n"+
+			"## Verdict\n\n```yaml\nsentry_issue_id: \"1\"\nverdict: real bug\n"+
+			"confidence: high\nreason: boom\nsentry_status: unresolved\n"+
+			"disqualifiers_fired:\n  - sustained over 30 days\n```\n\n"+
+			"## Fix Result\n\n- status: skipped\n")
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = steps.NewJiraProposalStep(stubStep{}).Run(ctx, md)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("project"))
+	})
+
+	It("fails loudly on an unparseable verdict rather than emitting nothing", func() {
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nshort_id: OCTOPUS-DEV-11\nproject: octopus-dev\n---\n\n"+
+				"## Verdict\n\n```yaml\nverdict: [unclosed\n```\n\n"+
+				"## Fix Result\n\n- status: skipped\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = steps.NewJiraProposalStep(stubStep{}).Run(ctx, md)
+		Expect(err).To(HaveOccurred())
+	})
+
+	// The frontmatter is a generic map: a numeric short_id written unquoted
+	// parses as an int, and a string assertion would silently miss it.
+	It("reads an unquoted numeric short_id", func() {
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nshort_id: 7196177490\nproject: octopus-dev\n---\n\n"+
+				"## Verdict\n\n```yaml\nsentry_issue_id: \"1\"\nverdict: real bug\n"+
+				"confidence: high\nreason: boom\nsentry_status: unresolved\n"+
+				"disqualifiers_fired:\n  - sustained over 30 days\n```\n\n"+
+				"## Fix Result\n\n- status: skipped\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = steps.NewJiraProposalStep(stubStep{}).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		body, ok := proposalBody(md)
+		Expect(ok).To(BeTrue())
+		Expect(body).To(ContainSubstring("- label: sentry-7196177490"))
+		Expect(
+			body,
+		).To(ContainSubstring("- description: https://seibert-group.sentry.io/issues/7196177490"))
+	})
+
+	// A literal `pr_url: ""` is an EMPTY value meaning no PR. Leaving the quote
+	// characters in place would make it read as a present PR and suppress a
+	// proposal that should be emitted.
+	It("treats a literal empty pr_url as no PR", func() {
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nshort_id: OCTOPUS-DEV-11\nproject: octopus-dev\n---\n\n"+
+				"## Verdict\n\n```yaml\nsentry_issue_id: \"1\"\nverdict: real bug\n"+
+				"confidence: high\nreason: boom\nsentry_status: unresolved\n"+
+				"disqualifiers_fired:\n  - sustained over 30 days\n```\n\n"+
+				"## Fix Result\n\n- status: filed\n- pr_url: \"\"\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = steps.NewJiraProposalStep(stubStep{}).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		body, ok := proposalBody(md)
+		Expect(ok).To(BeTrue(), "an empty pr_url means no PR, so the proposal must be emitted")
+		Expect(body).To(ContainSubstring("- label: sentry-OCTOPUS-DEV-11"))
 	})
 })

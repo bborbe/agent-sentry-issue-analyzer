@@ -147,7 +147,17 @@ func (s *jiraProposalStep) Run(
 		if err := s.evaluate(ctx, md); err != nil {
 			return nil, err
 		}
-		return &agentlib.Result{Status: agentlib.AgentStatusDone}, nil
+		// NextPhase "done" is NOT optional. A Done result with no NextPhase does
+		// not terminate the task: it stays planning/in_progress, the executor
+		// re-dispatches, ShouldRun is then false because the block now exists,
+		// the step is skipped, and the nil result becomes deadline_exceeded →
+		// trigger_count churn. pkg/steps/collector.go:68-72 records that exact
+		// failure for a wrapper that omitted it, and the fix step this decorates
+		// returns NextPhase "done" on every path.
+		return &agentlib.Result{
+			Status:    agentlib.AgentStatusDone,
+			NextPhase: "done",
+		}, nil
 	}
 	result, err := s.inner.Run(ctx, md)
 	if err != nil {
@@ -176,9 +186,11 @@ func (s *jiraProposalStep) evaluate(ctx context.Context, md *agentlib.Markdown) 
 	prURL, fixResultExists := fixResultPRURL(md)
 	emit := proposalQualifies(v.Verdict, len(v.DisqualifiersFired), fixResultExists, prURL)
 
-	// One decision line per run. This is the producer SC10's cluster
-	// verification reads: without it, "no block" is indistinguishable from a
-	// step that never executed.
+	// One decision line per run, at V(0) deliberately. It is the only record of
+	// WHY a ticket was or was not proposed, and the cluster verification for
+	// this rule reads it from the Job log at default verbosity — gating it
+	// behind V(2) would make "no block" indistinguishable from a step that never
+	// executed unless someone happened to run the pod with -v=2.
 	glog.Infof(
 		"jira-proposal: verdict=%q disqualifiers=%d fix_result=%t pr=%t emit=%t",
 		v.Verdict,
@@ -318,7 +330,10 @@ func fixResultPRURL(md *agentlib.Markdown) (string, bool) {
 		trimmed := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "-"))
 		const key = "pr_url:"
 		if after, found := strings.CutPrefix(trimmed, key); found {
-			return strings.TrimSpace(after), true
+			// Strip surrounding quotes: a literal `pr_url: ""` is an EMPTY value
+			// meaning no PR, and leaving the quote characters would make it read
+			// as a present PR and suppress a proposal that should be emitted.
+			return strings.Trim(strings.TrimSpace(after), `"`), true
 		}
 	}
 	return "", true
