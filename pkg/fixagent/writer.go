@@ -248,14 +248,74 @@ func (w *GitHubSpecWriter) ensureBranch(
 	return nil
 }
 
-// containsRepo reports whether repo appears in the allowlist.
+// containsRepo reports whether the allowlist admits repo.
+//
+// The list is the repository-wide REPO_ALLOWLIST convention shared with the
+// Seibert watchers, not a bare owner/name list: a token carries a
+// `github.com/` prefix, may end in `/*` to cover an org, and a leading `!`
+// excludes. Comparing those tokens literally against the bare owner/name the
+// resolver produces refused every filing on a lane that sets the variable —
+// `github.com/Seibert-Data/*` can never equal `Seibert-Data/cdb-api` — while
+// staying invisible on a lane that leaves it empty, where the check is
+// skipped. Normalising the tokens first is what makes the bound the operator
+// wrote actually bite.
+//
+// A `!` token wins over any positive token, including one that appears later:
+// the allowlist bounds writes, so an exclusion must not be re-included by a
+// broader glob. An allowlist carrying only exclusions admits everything the
+// exclusions do not name.
 func containsRepo(allowlist []string, repo string) bool {
-	for _, r := range allowlist {
-		if r == repo {
-			return true
+	repo = normalizeRepo(repo)
+	hasPositive := false
+	admitted := false
+	for _, raw := range allowlist {
+		token := strings.TrimSpace(raw)
+		if token == "" {
+			continue
+		}
+		negated := strings.HasPrefix(token, "!")
+		token = normalizeRepo(strings.TrimPrefix(token, "!"))
+		if token == "" {
+			continue
+		}
+		matched := repoMatches(token, repo)
+		if negated {
+			if matched {
+				return false
+			}
+			continue
+		}
+		hasPositive = true
+		if matched {
+			admitted = true
 		}
 	}
-	return false
+	return !hasPositive || admitted
+}
+
+// normalizeRepo reduces a repo reference to the bare `owner/name` form, so the
+// `github.com/`-prefixed tokens the shared allowlist carries compare equal to
+// the bare value the resolver produces. A trailing slash is dropped for the
+// same reason.
+func normalizeRepo(repo string) string {
+	repo = strings.TrimSpace(repo)
+	repo = strings.TrimPrefix(repo, "https://")
+	repo = strings.TrimPrefix(repo, "http://")
+	repo = strings.TrimPrefix(repo, "github.com/")
+	return strings.TrimSuffix(repo, "/")
+}
+
+// repoMatches reports whether repo matches token, where `*` covers any run of
+// non-slash characters: `Seibert-Data/*` spans every repo in the org and no
+// nested path. A token that is not a valid pattern falls back to exact
+// equality rather than being treated as a wildcard — a malformed exclusion
+// must never widen the bound.
+func repoMatches(token, repo string) bool {
+	matched, err := path.Match(token, repo)
+	if err != nil {
+		return token == repo
+	}
+	return matched
 }
 
 // validSpecPath reports whether the destination path stays inside the
