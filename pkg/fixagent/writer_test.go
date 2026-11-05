@@ -571,7 +571,21 @@ var _ = Describe("GitHubSpecWriter", func() {
 			Expect(f.putCount).To(Equal(1))
 		})
 
-		It("admits everything an exclusion-only allowlist does not name", func() {
+		It("matches case-insensitively, because GitHub owner/name are", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/Seibert-Data/*"},
+			)
+
+			s := newSpec()
+			s.Repo = "seibert-data/cdb-api"
+			_, err := writer.Write(ctx, s)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(f.putCount).To(Equal(1))
+		})
+
+		It("fails closed on an allowlist that names no inclusion", func() {
 			f, handler := newFakeGitHub(http.StatusCreated)
 			writer := fixagent.NewGitHubSpecWriter(
 				newClient(GinkgoT(), handler),
@@ -579,8 +593,35 @@ var _ = Describe("GitHubSpecWriter", func() {
 			)
 
 			_, err := writer.Write(ctx, newSpec())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(f.putCount).To(Equal(1))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("names no repository to include"))
+			Expect(f.putCount).To(Equal(0))
+		})
+
+		It("fails closed on a token that names no repository", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/"},
+			)
+
+			_, err := writer.Write(ctx, newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("names no repository"))
+			Expect(f.putCount).To(Equal(0))
+		})
+
+		It("fails closed on a malformed pattern instead of making it inert", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/Seibert-Data/*", "!github.com/Seibert-Data/[bad"},
+			)
+
+			_, err := writer.Write(ctx, newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid pattern"))
+			Expect(f.putCount).To(Equal(0))
 		})
 	})
 
