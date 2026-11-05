@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.22.3
 
 - fix: the High/High fix handoff no longer refuses a verdict whose certainty fields the model wrote in lower case. `fixHandoffStep.Run` compared `understanding` and `fix_certainty` to the literal `"High"`, but both fields are model-authored free-form text and their casing varies run to run — so a genuine High/High `real bug` was silently treated as not worth dispatching and the task completed with no fix agent and no error naming the cause. Measured 2026-11-05 on the Seibert lane: `Analyze Sentry issue OCTOPUS-DEV-4A - 2026-11-04` is the lane's only High/High real bug (`disqualifiers_fired: []`, 111 agent turns) and carries `understanding: high` / `fix_certainty: high`; it sits `phase: human_review` with `assignee: ""` and no `sentry-fix` Job has ever run on that lane. The comparison now folds case (`strings.EqualFold`), which is the same failure class as the `REPO_ALLOWLIST` exact-match bug in v0.22.1 — an exact string match on a value the lane or the model varies. The value set still carries the decision: `Medium` and `Low` never hand off, and three new table entries cover lower-case and mixed-case pairs.
 
