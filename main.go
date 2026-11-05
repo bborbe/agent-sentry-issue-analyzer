@@ -339,12 +339,18 @@ func (a *application) buildClaudeEnv(ctx context.Context) (map[string]string, er
 // (scripts/sentry-create-tasks.sh:63-64), so a Seibert-lane run that does not
 // get them queries the wrong org and answers 403. Forward only when non-empty,
 // so the baked defaults still apply on a lane that sets neither.
+//
+// Trimmed for the same reason validateSentryConfig trims: the scripts use
+// `${SENTRY_URL:-default}`, which only defaults on EMPTY, so forwarding a
+// whitespace-only value would build a malformed request URL instead of falling
+// back. validateSentryConfig treats such a value as unset, and this must agree
+// with it or the guard's contract stops holding one step later.
 func (a *application) forwardSentryTarget(claudeEnv map[string]string) {
-	if a.SentryURL != "" {
-		claudeEnv["SENTRY_URL"] = a.SentryURL
+	if url := strings.TrimSpace(a.SentryURL); url != "" {
+		claudeEnv["SENTRY_URL"] = url
 	}
-	if a.SentryOrg != "" {
-		claudeEnv["SENTRY_ORG"] = a.SentryOrg
+	if org := strings.TrimSpace(a.SentryOrg); org != "" {
+		claudeEnv["SENTRY_ORG"] = org
 	}
 }
 

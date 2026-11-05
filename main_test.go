@@ -250,6 +250,47 @@ var _ = Describe("validateSentryConfig", func() {
 	})
 })
 
+// forwardSentryTarget must agree with validateSentryConfig's trim contract: the
+// scripts use ${VAR:-default}, which only defaults on empty, so forwarding a
+// whitespace-only value would build a malformed URL rather than falling back.
+var _ = Describe("forwardSentryTarget", func() {
+	It("forwards both values when set", func() {
+		env := map[string]string{}
+		(&application{
+			SentryURL: "https://seibert-group.sentry.io",
+			SentryOrg: "seibert-group",
+		}).forwardSentryTarget(env)
+		Expect(env).To(Equal(map[string]string{
+			"SENTRY_URL": "https://seibert-group.sentry.io",
+			"SENTRY_ORG": "seibert-group",
+		}))
+	})
+
+	It("forwards nothing on a lane that sets neither", func() {
+		env := map[string]string{}
+		(&application{}).forwardSentryTarget(env)
+		Expect(env).To(BeEmpty())
+	})
+
+	It("treats an all-whitespace pair as unset, so the scripts keep their defaults", func() {
+		env := map[string]string{}
+		(&application{SentryURL: "  ", SentryOrg: "   "}).forwardSentryTarget(env)
+		Expect(env).To(BeEmpty())
+	})
+
+	It("forwards a real pair trimmed", func() {
+		env := map[string]string{}
+		(&application{
+			SentryURL: "  https://seibert-group.sentry.io  ",
+			SentryOrg: " seibert-group ",
+		}).forwardSentryTarget(env)
+		Expect(env).To(Equal(map[string]string{
+			"SENTRY_URL": "https://seibert-group.sentry.io",
+			"SENTRY_ORG": "seibert-group",
+		}))
+	})
+})
+
 func TestSuite(t *testing.T) {
 	time.Local = time.UTC
 	format.TruncatedDiff = false
