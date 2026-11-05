@@ -489,7 +489,14 @@ func (a *application) buildProvider(
 // on, so it fails loudly instead. A lane that sets neither keeps the personal
 // defaults, which is the personal lane's own configuration.
 func (a *application) validateSentryConfig(ctx context.Context) error {
-	if (a.SentryURL == "") == (a.SentryOrg == "") {
+	// Trimmed, not compared raw: APIBaseURL and OrgOrDefault trim before
+	// defaulting, so a whitespace-only value would pass a raw emptiness check
+	// and then be treated as unset downstream — pairing the personal base with
+	// the lane's org, which is the cross-org request this guard exists to
+	// prevent.
+	rawURL := strings.TrimSpace(a.SentryURL)
+	rawOrg := strings.TrimSpace(a.SentryOrg)
+	if (rawURL == "") == (rawOrg == "") {
 		return nil
 	}
 	return errors.Errorf(

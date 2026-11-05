@@ -193,6 +193,63 @@ var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
+// validateSentryConfig refuses a lane that sets exactly one of the pair. The
+// failure it prevents is not cosmetic: the two values are resolved
+// independently, so a half-set lane builds a request to one org's host with
+// another org's slug and 404s on every lookup with nothing naming the config.
+var _ = Describe("validateSentryConfig", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("accepts a lane that sets neither, keeping the personal defaults", func() {
+		app := &application{}
+		Expect(app.validateSentryConfig(ctx)).To(Succeed())
+	})
+
+	It("accepts a lane that sets both", func() {
+		app := &application{
+			SentryURL: "https://seibert-group.sentry.io",
+			SentryOrg: "seibert-group",
+		}
+		Expect(app.validateSentryConfig(ctx)).To(Succeed())
+	})
+
+	It("refuses a lane that sets only the org", func() {
+		app := &application{SentryOrg: "seibert-group"}
+		err := app.validateSentryConfig(ctx)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("must be set together"))
+	})
+
+	It("refuses a lane that sets only the URL", func() {
+		app := &application{SentryURL: "https://seibert-group.sentry.io"}
+		err := app.validateSentryConfig(ctx)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("must be set together"))
+	})
+
+	// The downstream resolvers trim before defaulting, so a whitespace-only
+	// value reads as unset there. Comparing the raw field would let it through
+	// here and produce exactly the cross-org pairing this guard exists to stop.
+	It("treats a whitespace-only value as unset rather than as a set pair", func() {
+		app := &application{SentryURL: "   ", SentryOrg: "seibert-group"}
+		err := app.validateSentryConfig(ctx)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("must be set together"))
+	})
+
+	It("accepts a lane whose values carry surrounding whitespace", func() {
+		app := &application{
+			SentryURL: "  https://seibert-group.sentry.io  ",
+			SentryOrg: " seibert-group ",
+		}
+		Expect(app.validateSentryConfig(ctx)).To(Succeed())
+	})
+})
+
 func TestSuite(t *testing.T) {
 	time.Local = time.UTC
 	format.TruncatedDiff = false
