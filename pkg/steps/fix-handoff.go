@@ -6,6 +6,7 @@ package steps
 
 import (
 	"context"
+	"strings"
 
 	agentlib "github.com/bborbe/agent"
 	"github.com/bborbe/errors"
@@ -115,7 +116,18 @@ func (s *fixHandoffStep) Run(
 	// machine-actionable fix-spec worth dispatching the fix agent for. A real
 	// bug at Medium or Low certainty, or any other classification, completes
 	// exactly as it does today.
-	if v.Verdict != "real bug" || v.Understanding != "High" || v.FixCertainty != "High" {
+	//
+	// The certainty fields are compared case-insensitively because the model
+	// authors them free-form and its casing varies run to run. Measured
+	// 2026-11-05 on the Seibert lane: `Analyze Sentry issue OCTOPUS-DEV-4A -
+	// 2026-11-04` — the only High/High real bug on that lane — wrote
+	// `understanding: high` / `fix_certainty: high`, and an exact-string gate
+	// silently refused it, so no fix agent was ever dispatched and the failure
+	// named nothing. Case is presentation, not meaning; the value set is what
+	// carries the decision.
+	if v.Verdict != "real bug" ||
+		!strings.EqualFold(v.Understanding, "High") ||
+		!strings.EqualFold(v.FixCertainty, "High") {
 		return result, nil
 	}
 

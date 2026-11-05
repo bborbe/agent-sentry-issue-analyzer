@@ -142,6 +142,14 @@ var _ = Describe("FixHandoffStep", func() {
 			}
 		},
 		Entry("real bug with High/High hands off", realBugYAML("High", "High"), 1),
+		// The model authors these two fields free-form. Measured 2026-11-05 on
+		// the Seibert lane: `Analyze Sentry issue OCTOPUS-DEV-4A - 2026-11-04`
+		// wrote `understanding: high` / `fix_certainty: high` — a High/High
+		// real bug the exact-string gate silently refused, so no fix agent was
+		// ever dispatched. Case is presentation, not meaning: fold it.
+		Entry("real bug with lowercase high/high hands off", realBugYAML("high", "high"), 1),
+		Entry("real bug with mixed-case High/high hands off", realBugYAML("High", "high"), 1),
+		Entry("real bug with mixed-case high/HIGH hands off", realBugYAML("high", "HIGH"), 1),
 		// SC1's positive class: >=5 High/High verdicts in, >=5 handoffs out,
 		// each with a distinct issue id, root cause and file:line so the gate
 		// cannot be passing on one fixture's incidental content.
