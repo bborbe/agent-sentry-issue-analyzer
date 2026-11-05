@@ -336,23 +336,37 @@ func CreateAgentProvider(
 	githubClient *github.Client,
 	repoAllowlist []string,
 	sentryAPIToken string,
+	sentryURL string,
+	sentryOrg string,
 	verdictMetrics metrics.Metrics,
 ) agentlib.AgentProvider {
+	// The lane's own Sentry coordinates, never the code defaults: SENTRY_URL and
+	// SENTRY_ORG arrive from the Config CR and were previously parsed and then
+	// dropped, so every identity and trace lookup asked the personal org for a
+	// Seibert short id and 404ed. See identity.APIBaseURL.
+	sentryBaseURL := identity.APIBaseURL(sentryURL)
+	sentryOrganization := identity.OrgOrDefault(sentryOrg)
 	runner := CreateClaudeRunner(claudeConfigDir, agentDir, allowedTools, model, claudeEnv)
 	domainAgent := CreateAgentFromRunner(
 		runner, envContext, assignee, currentDateTime, verdictMetrics,
-		identity.NewSentryIdentityResolver(http.DefaultClient, "", "", sentryAPIToken),
+		identity.NewSentryIdentityResolver(
+			http.DefaultClient, sentryBaseURL, sentryOrganization, sentryAPIToken,
+		),
 	)
 	deepAgent := CreateDeepAgentFromRunner(
 		runner, envContext, currentDateTime, verdictMetrics,
-		identity.NewSentryIdentityResolver(http.DefaultClient, "", "", sentryAPIToken),
+		identity.NewSentryIdentityResolver(
+			http.DefaultClient, sentryBaseURL, sentryOrganization, sentryAPIToken,
+		),
 	)
 	collectorAgent := CreateCollectorAgentFromRunner(runner, envContext)
 	fixAgent := CreateFixAgentFromRunner(
 		runner,
 		githubClient,
 		repoAllowlist,
-		fixagent.NewSentryTraceReader(http.DefaultClient, "", "", sentryAPIToken),
+		fixagent.NewSentryTraceReader(
+			http.DefaultClient, sentryBaseURL, sentryOrganization, sentryAPIToken,
+		),
 		currentDateTime,
 	)
 	livenessAgent := healthcheck.NewAgent(healthcheck.NewClaudeStep(runner))
