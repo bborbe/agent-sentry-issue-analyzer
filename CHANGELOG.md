@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.22.2
 
 - fix: read the Sentry API base and org from the lane's `SENTRY_URL` / `SENTRY_ORG` instead of the hardcoded personal-lane defaults. Both the identity resolver (`pkg/identity/resolver.go`) and the fix agent's trace reader (`pkg/fixagent/trace_reader.go`) defaulted to `https://bborbe.sentry.io/api/0` and org `bborbe`, and `factory.CreateAgentProvider` passed `""` for both — so the defaults always applied. The Seibert lane sets `SENTRY_URL=https://seibert-group.sentry.io` and `SENTRY_ORG=seibert-group` in its Config, the binary parsed both into `application.SentryURL` / `SentryOrg`, and then forwarded them **only** into the Claude child's env. Every identity lookup therefore asked `bborbe.sentry.io` for a `seibert-group` short id and got a 404. Measured on staging 2026-11-05: `agent run failed: step "sentry-execution-reassign" Run: reassign: resolve identity: identity: fetch issue OCTOPUS-DEV-3A: unexpected status 404`, after the verdict had been produced and before it was written back — so all **151** Seibert alert tasks carry no `## Verdict` and every run re-dispatches the same task forever. `identity.APIBaseURL` now derives the API base from the UI form the lane carries (appending `/api/0` once, never twice, tolerating a trailing slash and whitespace) and `identity.OrgOrDefault` supplies the slug, with the old constants kept strictly as the fallback for a lane that sets nothing — so the personal lane's behaviour is unchanged. Wired through `CreateAgentProvider` to all three consumers: the triage resolver, the deep resolver, and the fix agent's trace reader.
 
