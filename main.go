@@ -471,6 +471,8 @@ func (a *application) buildProvider(
 		githubClient,
 		repoAllowlist,
 		a.SentryAPIToken,
+		a.SentryURL,
+		a.SentryOrg,
 		verdictMetrics,
 	)
 }

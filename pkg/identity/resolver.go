@@ -20,18 +20,54 @@ import (
 	"github.com/golang/glog"
 )
 
-// DefaultSentryBaseURL is the API base for the org this agent reads. The
-// deployed Config CRs set no org override, so the code default applies.
+// DefaultSentryBaseURL is the API base used when the lane supplies no
+// SENTRY_URL. It names the personal lane, so it is only ever a fallback: a
+// lane that sets SENTRY_URL gets its own org through APIBaseURL.
 const DefaultSentryBaseURL = "https://bborbe.sentry.io/api/0"
 
-// DefaultSentryOrg is the organization slug the issue routes are scoped to.
-// It mirrors the SENTRY_ORG default in scripts/sentry-read.sh.
+// DefaultSentryOrg is the organization slug the issue routes are scoped to,
+// used when the lane supplies no SENTRY_ORG. It mirrors the SENTRY_ORG default
+// in scripts/sentry-read.sh.
 //
 // The org segment is not cosmetic: the non-org-scoped /issues/<id>/ route
 // resolves a NUMERIC issue id only, while the agent carries the short id
 // (NUKE-PROD-BX). Only /organizations/<org>/issues/<id>/ accepts both, so
 // dropping this segment 404s every lookup.
 const DefaultSentryOrg = "bborbe"
+
+// APIBaseURL derives the Sentry API base from the value a lane carries in
+// SENTRY_URL. The Config CRs set the UI form (`https://<org>.sentry.io`), while
+// every route this agent calls is served under `/api/0`, so the suffix is
+// appended when absent and never doubled. An empty value falls back to
+// DefaultSentryBaseURL, which keeps a lane that sets nothing on the old
+// behaviour.
+//
+// Without this the base stayed hardcoded to the personal lane: the Seibert
+// lane set SENTRY_URL and SENTRY_ORG in its Config, the binary parsed both, and
+// then passed neither to this resolver — so every identity lookup asked
+// bborbe.sentry.io for a seibert-group short id, 404ed, and the run died after
+// the verdict was produced but before it was written back. No verdict has ever
+// persisted on that lane.
+func APIBaseURL(raw string) string {
+	base := strings.TrimSpace(raw)
+	if base == "" {
+		return DefaultSentryBaseURL
+	}
+	base = strings.TrimSuffix(base, "/")
+	if strings.HasSuffix(base, "/api/0") {
+		return base
+	}
+	return base + "/api/0"
+}
+
+// OrgOrDefault returns org, or DefaultSentryOrg when the lane supplies none.
+func OrgOrDefault(org string) string {
+	org = strings.TrimSpace(org)
+	if org == "" {
+		return DefaultSentryOrg
+	}
+	return org
+}
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6@v6.12.2 -o mocks/resolver.go --fake-name Resolver . Resolver
 

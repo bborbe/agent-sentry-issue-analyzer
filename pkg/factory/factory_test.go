@@ -39,6 +39,8 @@ var _ = Describe("CreateAgentProvider", func() {
 			nil,
 			nil,
 			"test-token",
+			"",
+			"",
 			&metricsmocks.Metrics{},
 		)
 	})
