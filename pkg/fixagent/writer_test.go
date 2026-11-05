@@ -515,6 +515,114 @@ var _ = Describe("GitHubSpecWriter", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(f.putCount).To(Equal(1))
 		})
+
+		// The shape the Seibert lanes actually pass: the repository-wide
+		// REPO_ALLOWLIST convention, `github.com/`-prefixed with globs and
+		// negations. Comparing these tokens literally against the bare
+		// owner/name the resolver produces refused every filing.
+		It("admits a repo covered by an org glob carrying the github.com prefix", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/Seibert-Data/*"},
+			)
+
+			s := newSpec()
+			s.Repo = "Seibert-Data/cdb-api"
+			_, err := writer.Write(ctx, s)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(f.putCount).To(Equal(1))
+		})
+
+		It("refuses a repo the negation excludes, even under a broader glob", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{
+					"github.com/Seibert-Data/*",
+					"!github.com/Seibert-Data/test-dev",
+					"github.com/bborbe/seibert-data-homebrew-tap",
+				},
+			)
+
+			s := newSpec()
+			s.Repo = "Seibert-Data/test-dev"
+			_, err := writer.Write(ctx, s)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Seibert-Data/test-dev"))
+			Expect(f.putCount).To(Equal(0))
+		})
+
+		It("admits a positive token that sits after the negations", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{
+					"github.com/Seibert-Data/*",
+					"!github.com/Seibert-Data/test-dev",
+					"github.com/bborbe/seibert-data-homebrew-tap",
+				},
+			)
+
+			s := newSpec()
+			s.Repo = "bborbe/seibert-data-homebrew-tap"
+			_, err := writer.Write(ctx, s)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(f.putCount).To(Equal(1))
+		})
+
+		It("matches case-insensitively, because GitHub owner/name are", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/Seibert-Data/*"},
+			)
+
+			s := newSpec()
+			s.Repo = "seibert-data/cdb-api"
+			_, err := writer.Write(ctx, s)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(f.putCount).To(Equal(1))
+		})
+
+		It("fails closed on an allowlist that names no inclusion", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"!github.com/bborbe/go-skeleton"},
+			)
+
+			_, err := writer.Write(ctx, newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("names no repository to include"))
+			Expect(f.putCount).To(Equal(0))
+		})
+
+		It("fails closed on a token that names no repository", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/"},
+			)
+
+			_, err := writer.Write(ctx, newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("names no repository"))
+			Expect(f.putCount).To(Equal(0))
+		})
+
+		It("fails closed on a malformed pattern instead of making it inert", func() {
+			f, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/Seibert-Data/*", "!github.com/Seibert-Data/[bad"},
+			)
+
+			_, err := writer.Write(ctx, newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid pattern"))
+			Expect(f.putCount).To(Equal(0))
+		})
 	})
 
 	// Re-running over one verdict files no second spec and no second PR.

@@ -118,8 +118,14 @@ and the watcher's own skip (`no_dark_factory_yaml`) is the filter. For example,
 the watcher skips.
 
 `REPO_ALLOWLIST` is the operator's control over which repositories the lane may
-write into. An empty allowlist means unbound; in that case the GitHub App
-installation scope is the hard wall.
+write into. It takes the repository-wide convention the watchers share:
+comma-separated `github.com/owner/name`, `github.com/owner/*` to cover an org,
+and a leading `!` to exclude — `github.com/Seibert-Data/*,!github.com/Seibert-Data/test-dev`
+admits every Seibert-Data repo except the named one. Matching is
+case-insensitive, as GitHub owner and repo names are. An empty allowlist means
+unbound, and the GitHub App installation scope is then the hard wall; a
+non-empty list that names no inclusion, or carries a token that is not a valid
+pattern, fails closed rather than reading as unbound.
 
 ## Prerequisites
 

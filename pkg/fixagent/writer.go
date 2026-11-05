@@ -54,12 +54,18 @@ func (w *GitHubSpecWriter) Write(ctx context.Context, spec Spec) (string, error)
 	if w.client == nil {
 		return "", errors.New(ctx, "fix-agent: github client not configured")
 	}
-	if len(w.repoAllowlist) > 0 && !containsRepo(w.repoAllowlist, spec.Repo) {
-		return "", errors.Errorf(
-			ctx,
-			"fix-agent: repo %s not in REPO_ALLOWLIST; refusing to file",
-			spec.Repo,
-		)
+	if len(w.repoAllowlist) > 0 {
+		admitted, err := containsRepo(ctx, w.repoAllowlist, spec.Repo)
+		if err != nil {
+			return "", err
+		}
+		if !admitted {
+			return "", errors.Errorf(
+				ctx,
+				"fix-agent: repo %s not in REPO_ALLOWLIST; refusing to file",
+				spec.Repo,
+			)
+		}
 	}
 	if !validSpecPath(spec.Path) {
 		return "", errors.Errorf(
@@ -248,14 +254,104 @@ func (w *GitHubSpecWriter) ensureBranch(
 	return nil
 }
 
-// containsRepo reports whether repo appears in the allowlist.
-func containsRepo(allowlist []string, repo string) bool {
-	for _, r := range allowlist {
-		if r == repo {
-			return true
+// containsRepo reports whether the allowlist admits repo.
+//
+// The list is the repository-wide REPO_ALLOWLIST convention shared with the
+// Seibert watchers, not a bare owner/name list: a token carries a
+// `github.com/` prefix, may end in `/*` to cover an org, and a leading `!`
+// excludes. Comparing those tokens literally against the bare owner/name the
+// resolver produces refused every filing on a lane that sets the variable —
+// `github.com/Seibert-Data/*` can never equal `Seibert-Data/cdb-api` — while
+// staying invisible on a lane that leaves it empty, where the check is
+// skipped. Normalising the tokens first is what makes the bound the operator
+// wrote actually bite.
+//
+// Every failure is fail-closed, because this list bounds WRITES: a token that
+// normalises to nothing, a token that is not a valid pattern, and a list that
+// names no inclusion at all are configuration errors returned to the caller
+// rather than silently reading as "unbounded". A list carrying only exclusions
+// is such an error — a bound that names nothing to include bounds nothing, and
+// a stray `!` on the only intended entry would otherwise turn a restrictive
+// list into a permit for every repo the App can see.
+//
+// A `!` token wins over any positive token, including one that appears later:
+// an exclusion must not be re-included by a broader glob.
+func containsRepo(ctx context.Context, allowlist []string, repo string) (bool, error) {
+	repo = normalizeRepo(repo)
+	if repo == "" {
+		return false, errors.New(ctx, "fix-agent: REPO_ALLOWLIST: empty repo reference")
+	}
+	hasPositive := false
+	admitted := false
+	for _, raw := range allowlist {
+		token := strings.TrimSpace(raw)
+		if token == "" {
+			continue
+		}
+		negated := strings.HasPrefix(token, "!")
+		token = normalizeRepo(strings.TrimPrefix(token, "!"))
+		if token == "" {
+			return false, errors.Errorf(
+				ctx,
+				"fix-agent: REPO_ALLOWLIST: token %q names no repository",
+				strings.TrimSpace(raw),
+			)
+		}
+		matched, err := repoMatches(ctx, token, repo)
+		if err != nil {
+			return false, err
+		}
+		if negated {
+			if matched {
+				return false, nil
+			}
+			continue
+		}
+		hasPositive = true
+		if matched {
+			admitted = true
 		}
 	}
-	return false
+	if !hasPositive {
+		return false, errors.New(
+			ctx,
+			"fix-agent: REPO_ALLOWLIST names no repository to include; refusing to file",
+		)
+	}
+	return admitted, nil
+}
+
+// normalizeRepo reduces a repo reference to the bare `owner/name` form, so the
+// `github.com/`-prefixed tokens the shared allowlist carries compare equal to
+// the bare value the resolver produces. The comparison is case-insensitive
+// because GitHub owner and repo names are: the value comes from the model's
+// resolution, not from a canonical API field, so its casing is not guaranteed.
+// A trailing slash is dropped for the same reason.
+func normalizeRepo(repo string) string {
+	repo = strings.TrimSpace(repo)
+	repo = strings.TrimPrefix(repo, "https://")
+	repo = strings.TrimPrefix(repo, "http://")
+	repo = strings.TrimPrefix(repo, "github.com/")
+	repo = strings.TrimSuffix(repo, "/")
+	return strings.ToLower(repo)
+}
+
+// repoMatches reports whether repo matches token, where `*` covers any run of
+// non-slash characters: `Seibert-Data/*` spans every repo in the org and no
+// nested path. A token that is not a valid pattern is an error rather than an
+// exact-equality fallback: on a negated token the fallback would silently make
+// the exclusion inert, admitting the repo the operator meant to exclude.
+func repoMatches(ctx context.Context, token, repo string) (bool, error) {
+	matched, err := path.Match(token, repo)
+	if err != nil {
+		return false, errors.Wrapf(
+			ctx,
+			err,
+			"fix-agent: REPO_ALLOWLIST: invalid pattern %q",
+			token,
+		)
+	}
+	return matched, nil
 }
 
 // validSpecPath reports whether the destination path stays inside the

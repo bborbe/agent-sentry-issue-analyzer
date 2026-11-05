@@ -30,9 +30,14 @@ from the `sentry-fix/<issue-slug>` branch to the repository's default branch.
 Stale citations file nothing (recorded `status: stale` in `## Fix Result`), an
 unmappable resolution is recorded `status: skipped` instead of failing the
 Job, out-of-scope repos fail loudly, and emission is idempotent per Sentry
-issue id: one spec, one branch, one PR. `REPO_ALLOWLIST` (comma-separated
-owner/name, e.g. `bborbe/trading`) bounds which repos it may write into; empty
-means unbound (the App installation scope remains the hard wall).
+issue id: one spec, one branch, one PR. `REPO_ALLOWLIST` bounds which repos it
+may write into; it takes the repository-wide convention every lane shares —
+comma-separated `github.com/owner/name`, `github.com/owner/*` to cover an org,
+and a leading `!` to exclude (e.g.
+`github.com/Seibert-Data/*,!github.com/Seibert-Data/test-dev`). Empty means
+unbound (the App installation scope remains the hard wall); a non-empty list
+that names no inclusion, or carries a token that is not a valid pattern, fails
+closed.
 
 See [docs/fix-lane.md](docs/fix-lane.md) for the watcher's four-condition
 contract and the lane end to end.
