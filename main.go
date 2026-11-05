@@ -71,11 +71,15 @@ type application struct {
 	SentryProxy    string `required:"false" arg:"sentry-proxy"     env:"SENTRY_PROXY"     usage:"Sentry Proxy"                                     display:"length"`
 	SentryAPIToken string `required:"true"  arg:"sentry-api-token" env:"SENTRY_API_TOKEN" usage:"Sentry REST API Bearer token (teamvault-sourced)" display:"length"`
 
-	// The Sentry org and base URL the scripts query. Both have baked bborbe
-	// defaults (scripts/sentry-create-tasks.sh:63-64), so an unset value
-	// silently reads the wrong org instead of failing — a Seibert-lane token
-	// then answers 403. Forwarded to the subprocess below; the collector's
-	// Config CR sets both.
+	// The Sentry org and base URL this run reads. Both have baked bborbe
+	// defaults, so an unset value silently reads the wrong org instead of
+	// failing — a Seibert-lane token then answers 403 on the script path and
+	// 404 on the identity path. They reach two consumers: the Claude
+	// subprocess env, and every Sentry resolver/trace reader the provider
+	// builds. The collector's Config CR sets both; a lane that sets neither
+	// keeps the personal defaults, and a lane that sets exactly one is refused
+	// at startup (see validateSentryConfig) rather than silently pairing one
+	// lane's URL with another lane's org.
 	SentryURL string `required:"false" arg:"sentry-url" env:"SENTRY_URL" usage:"Sentry base URL, e.g. https://seibert-group.sentry.io"`
 	SentryOrg string `required:"false" arg:"sentry-org" env:"SENTRY_ORG" usage:"Sentry organization slug, e.g. seibert-group"`
 
@@ -477,6 +481,25 @@ func (a *application) buildProvider(
 	)
 }
 
+// validateSentryConfig refuses a lane that sets exactly one of SENTRY_URL and
+// SENTRY_ORG. The two are paired per lane, and the per-value fallback would
+// otherwise build a cross-org request — `https://seibert-group.sentry.io/api/0`
+// with org `bborbe` — which 404s on every lookup with no hint that the config
+// was the problem. That is the same opaque 404 this lane already spent a day
+// on, so it fails loudly instead. A lane that sets neither keeps the personal
+// defaults, which is the personal lane's own configuration.
+func (a *application) validateSentryConfig(ctx context.Context) error {
+	if (a.SentryURL == "") == (a.SentryOrg == "") {
+		return nil
+	}
+	return errors.Errorf(
+		ctx,
+		"SENTRY_URL and SENTRY_ORG must be set together: url=%q org=%q",
+		a.SentryURL,
+		a.SentryOrg,
+	)
+}
+
 // setupMetrics registers both metric sets and returns the pusher cleanup.
 // Extracted from Run for the same reason buildClaudeEnv / buildGithubClient
 // are: Run's funlen budget.
@@ -540,6 +563,12 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	defer pushMetrics()
 
 	glog.V(2).Infof("agent-sentry-issue-analyzer started phase=%s", a.Phase)
+
+	if err := a.validateSentryConfig(ctx); err != nil {
+		jobMetrics.RecordRun(agentlib.AgentStatusFailed)
+		jobMetrics.RecordDuration(time.Since(start))
+		return err
+	}
 
 	deliverer, cleanup, err := a.createDeliverer(ctx)
 	if err != nil {

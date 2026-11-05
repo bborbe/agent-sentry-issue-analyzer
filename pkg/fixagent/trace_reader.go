@@ -22,12 +22,15 @@ import (
 // retry.
 var ErrIssueNotFound = stderrors.New("sentry trace: issue not found")
 
-// DefaultSentryBaseURL is the API base for the org this agent reads. The
-// deployed Config CRs set no org override, so the code default applies.
+// DefaultSentryBaseURL is the API base used when the lane supplies no
+// SENTRY_URL. It names the personal lane, so it is only a fallback: the factory
+// converts the lane's own SENTRY_URL through identity.APIBaseURL and passes the
+// result here, so a Seibert lane reads seibert-group.
 const DefaultSentryBaseURL = "https://bborbe.sentry.io/api/0"
 
-// DefaultSentryOrg is the organization slug the issue routes are scoped to.
-// It mirrors the SENTRY_ORG default in scripts/sentry-read.sh.
+// DefaultSentryOrg is the organization slug the issue routes are scoped to
+// when the lane supplies no SENTRY_ORG. It mirrors the SENTRY_ORG default in
+// scripts/sentry-read.sh.
 //
 // The org segment is not cosmetic: the non-org-scoped /issues/<id>/ route
 // resolves a NUMERIC issue id only, while the agent carries the short id
