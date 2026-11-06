@@ -160,33 +160,45 @@ func (s *fixStep) Run(
 		return nil, errors.Wrapf(ctx, err, "fix-agent: build spec")
 	}
 
-	// A repo the lane's REPO_ALLOWLIST does not admit is deterministic: a retry
-	// can only refuse identically, so it is recorded as a decline naming the
-	// repo rather than returned as an error the controller would re-queue
-	// forever. Every other write failure — an API error, a malformed allowlist
-	// — returns the wrapped error (loud, naming the repo — AC-6 / FM-3) so the
-	// Job fails and the controller retries; neither is ever a silent no-op.
+	return s.fileSpec(ctx, md, v.SentryIssueID, resolution.Repo, spec)
+}
+
+// fileSpec files the built spec through the writer and records the outcome in
+// ## Fix Result. A repo the lane's REPO_ALLOWLIST does not admit is
+// deterministic: a retry can only refuse identically, so it is recorded as a
+// decline naming the repo rather than returned as an error the controller
+// would re-queue forever. Every other write failure — an API error, a
+// malformed allowlist — returns the wrapped error (loud, naming the repo —
+// AC-6 / FM-3) so the Job fails and the controller retries; neither is ever a
+// silent no-op.
+func (s *fixStep) fileSpec(
+	ctx context.Context,
+	md *agentlib.Markdown,
+	issueID string,
+	repo string,
+	spec fixagent.Spec,
+) (*agentlib.Result, error) {
 	prURL, err := s.writer.Write(ctx, spec)
 	if err != nil {
-		if errors.Is(err, fixagent.ErrRepoNotAllowed) {
-			s.recordResult(ctx, md,
-				"sentry_issue_id: "+v.SentryIssueID,
-				"status: declined",
-				"repo: "+resolution.Repo,
-				"message: "+err.Error(),
-			)
-			return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+		if !errors.Is(err, fixagent.ErrRepoNotAllowed) {
+			return nil, errors.Wrapf(ctx, err, "fix-agent: file spec")
 		}
-		return nil, errors.Wrapf(ctx, err, "fix-agent: file spec")
+		s.recordResult(ctx, md,
+			"sentry_issue_id: "+issueID,
+			"status: declined",
+			"repo: "+repo,
+			"message: "+err.Error(),
+		)
+		return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 	}
 
 	s.recordResult(ctx, md,
-		"sentry_issue_id: "+v.SentryIssueID,
+		"sentry_issue_id: "+issueID,
 		"status: filed",
-		"repo: "+resolution.Repo,
+		"repo: "+repo,
 		"spec_path: "+spec.Path,
 		"pr_url: "+prURL,
-		"message: filed kind: bug spec for Sentry issue "+v.SentryIssueID,
+		"message: filed kind: bug spec for Sentry issue "+issueID,
 	)
 	return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
 }
