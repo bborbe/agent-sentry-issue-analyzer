@@ -235,10 +235,16 @@ func CreateDeepAgentFromRunner(
 	verdictMetrics metrics.Metrics,
 	identityResolver identity.Resolver,
 ) *agentlib.Agent {
-	planning := steps.NewDeepPlanningStep(
-		runner,
-		prompts.BuildDeepPlanningInstructions(),
-		envContext,
+	// The guard keeps a handed-off task from being re-planned in-process: the
+	// fix handoff publishes NextPhase "planning", a phase this agent also
+	// declares, and Agent.Run would otherwise advance straight into it.
+	planning := steps.NewHandedOffGuardStep(
+		steps.NewDeepPlanningStep(
+			runner,
+			prompts.BuildDeepPlanningInstructions(),
+			envContext,
+		),
+		assigneeSentryFixAgent,
 	)
 	execution := steps.NewFixHandoffStep(
 		steps.NewDisqualifierGuardStep(

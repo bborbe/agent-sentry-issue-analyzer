@@ -28,11 +28,11 @@ const reassignDeclarationKey = "assignee_reassigned_by"
 // fixHandoffStep wraps the deep execution step (which writes ## Verdict with
 // the deep schema) with the High/High fix handoff trigger. When the deep
 // verdict is `real bug` with BOTH understanding and fix_certainty at High, the
-// step flips the SAME task's frontmatter to the fix agent (assignee, phase:
-// planning, task_type) and returns Status InProgress — an in-place save that
-// the deliverer writes with phase=planning preserved, so the controller
-// applies it, the scanner re-publishes, and the executor re-routes the task to
-// the Config CR named by fixAssignee. Every other verdict — a `real bug` at
+// step flips the SAME task's frontmatter to the fix agent (assignee,
+// task_type) and returns Status Done with NextPhase planning — the one result
+// shape the deliverer publishes a phase for — so the controller writes phase
+// planning at status in_progress, the scanner re-publishes, and the executor
+// re-routes the task to the Config CR named by fixAssignee. Every other verdict — a `real bug` at
 // Medium or Low certainty, or any non-`real bug` classification — returns the
 // wrapped step's own result and completes exactly as it did before the
 // handoff. Never batch: one handoff per High/High verdict, idempotent per
@@ -131,9 +131,24 @@ func (s *fixHandoffStep) Run(
 		return result, nil
 	}
 
-	// Hand the same task to the fix agent. Returning InProgress keeps the task
-	// at status in_progress and phase planning (set below), so the executor
-	// re-routes it instead of marking it done.
+	// Hand the same task to the fix agent at phase planning, the only phase its
+	// Config triggers on.
+	//
+	// The phase move MUST travel as Done + NextPhase. The bborbe/agent deliverer
+	// deletes `phase` from every result that advances none — Status InProgress,
+	// or Done with no NextPhase — so the controller's on-disk-first merge keeps
+	// the current phase, and a `phase` set only on this frontmatter never
+	// reaches disk. Measured 2026-11-06 on the Seibert lane: OCTOPUS-DEV-4A was
+	// handed off at `execution`, and the executor refused the fix Job with
+	// `gate=phase_not_triggered task_type=sentry-fix phase=execution`.
+	// Done + NextPhase "planning" is published as phase planning with status
+	// in_progress, so the executor re-routes the task instead of completing it;
+	// vault-api permits execution -> planning.
+	//
+	// The deep agent also declares a planning phase and Agent.Run advances
+	// in-process into any NextPhase its own agent has, so the deep planning step
+	// is wrapped in NewHandedOffGuardStep: it reads the assignee set below and
+	// skips, and the run exits for the fix agent.
 	md.Frontmatter["assignee"] = s.fixAssignee
 	md.Frontmatter["phase"] = "planning"
 	md.Frontmatter["task_type"] = s.fixTaskType
@@ -143,7 +158,8 @@ func (s *fixHandoffStep) Run(
 	// filter. s.Name() records which step declared it.
 	md.Frontmatter[reassignDeclarationKey] = s.Name()
 	return &agentlib.Result{
-		Status:  agentlib.AgentStatusInProgress,
-		Message: "reassigned to " + s.fixAssignee + " for fix",
+		Status:    agentlib.AgentStatusDone,
+		NextPhase: "planning",
+		Message:   "reassigned to " + s.fixAssignee + " for fix",
 	}, nil
 }
