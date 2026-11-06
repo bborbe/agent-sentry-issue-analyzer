@@ -29,7 +29,9 @@ through the GitHub Contents API. The writer opens a draft pull request
 from the `sentry-fix/<issue-slug>` branch to the repository's default branch.
 Stale citations file nothing (recorded `status: stale` in `## Fix Result`), an
 unmappable resolution is recorded `status: skipped` instead of failing the
-Job, out-of-scope repos fail loudly, and emission is idempotent per Sentry
+Job, a repo `REPO_ALLOWLIST` does not admit is recorded `status: declined`
+with the repo named (a malformed allowlist still fails the Job), API failures
+fail loudly, and emission is idempotent per Sentry
 issue id: one spec, one branch, one PR. `REPO_ALLOWLIST` bounds which repos it
 may write into; it takes the repository-wide convention every lane shares —
 comma-separated `github.com/owner/name`, `github.com/owner/*` to cover an org,

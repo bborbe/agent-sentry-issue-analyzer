@@ -28,10 +28,11 @@ import (
 //
 // Resolution and writing are injected so production (prompt-backed resolver +
 // GitHub API writer) is stub-able in tests. The task body is only mutated (via
-// ## Fix Result) on non-error outcomes: an out-of-scope repo or an API failure
-// returns a Go error so the Job fails and the controller retries, with the
-// error message carrying the repo name / HTTP status. An unmappable
-// resolution is deterministic and is recorded as a skip instead.
+// ## Fix Result) on non-error outcomes: an API failure or a malformed
+// REPO_ALLOWLIST returns a Go error so the Job fails and the controller
+// retries, with the error message carrying the repo name / HTTP status. The
+// deterministic outcomes are recorded instead: an unmappable resolution as a
+// skip, and a repo the allowlist does not admit as a decline naming the repo.
 //
 // The in-place ## Fix Result mutation in Run is safe only under the executor's
 // single-threaded delivery per task: the StepRunner delivers once per step on
@@ -159,11 +160,23 @@ func (s *fixStep) Run(
 		return nil, errors.Wrapf(ctx, err, "fix-agent: build spec")
 	}
 
-	// An out-of-scope repo or API failure returns the wrapped error (loud, the
-	// writer's wrap names the repo — AC-6 / FM-3) so the Job fails and the
-	// controller retries; it is never a silent no-op.
+	// A repo the lane's REPO_ALLOWLIST does not admit is deterministic: a retry
+	// can only refuse identically, so it is recorded as a decline naming the
+	// repo rather than returned as an error the controller would re-queue
+	// forever. Every other write failure — an API error, a malformed allowlist
+	// — returns the wrapped error (loud, naming the repo — AC-6 / FM-3) so the
+	// Job fails and the controller retries; neither is ever a silent no-op.
 	prURL, err := s.writer.Write(ctx, spec)
 	if err != nil {
+		if errors.Is(err, fixagent.ErrRepoNotAllowed) {
+			s.recordResult(ctx, md,
+				"sentry_issue_id: "+v.SentryIssueID,
+				"status: declined",
+				"repo: "+resolution.Repo,
+				"message: "+err.Error(),
+			)
+			return &agentlib.Result{Status: agentlib.AgentStatusDone, NextPhase: "done"}, nil
+		}
 		return nil, errors.Wrapf(ctx, err, "fix-agent: file spec")
 	}
 

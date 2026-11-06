@@ -127,6 +127,13 @@ unbound, and the GitHub App installation scope is then the hard wall; a
 non-empty list that names no inclusion, or carries a token that is not a valid
 pattern, fails closed rather than reading as unbound.
 
+A repo the list does not admit is a **decline**, not a failure: the fix step
+writes `## Fix Result` with `status: declined`, the repo, and the refusal
+message, and completes the task. The refusal is deterministic for a given repo
+and list, so failing the Job would only re-queue it to refuse identically
+forever. A malformed list is the lane's misconfiguration and still fails the
+Job, so a broken allowlist cannot pass as every alert being quietly declined.
+
 ## Prerequisites
 
 The GitHub App behind `PEM_KEY` needs `pull_requests: write` in addition to
