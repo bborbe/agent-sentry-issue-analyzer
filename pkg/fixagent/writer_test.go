@@ -493,6 +493,37 @@ var _ = Describe("GitHubSpecWriter", func() {
 			Expect(f.prCreates).To(Equal(0))
 		})
 
+		// The refusal is deterministic for a given repo and allowlist, so the
+		// caller must be able to tell it apart from a retryable API failure.
+		It("marks the refusal with ErrRepoNotAllowed", func() {
+			_, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"github.com/Seibert-Data/*"},
+			)
+
+			s := newSpec()
+			s.Repo = "bborbe/agent-task-executor"
+			_, err := writer.Write(ctx, s)
+			Expect(err).To(MatchError(fixagent.ErrRepoNotAllowed))
+			Expect(err.Error()).To(ContainSubstring("bborbe/agent-task-executor"))
+		})
+
+		// A misconfigured allowlist is a lane error, not a decline: it must stay
+		// distinguishable so the operator sees the Job fail rather than every
+		// alert quietly declined.
+		It("does not mark a misconfigured allowlist as a decline", func() {
+			_, handler := newFakeGitHub(http.StatusCreated)
+			writer := fixagent.NewGitHubSpecWriter(
+				newClient(GinkgoT(), handler),
+				[]string{"!github.com/Seibert-Data/*"},
+			)
+
+			_, err := writer.Write(ctx, newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(MatchError(fixagent.ErrRepoNotAllowed))
+		})
+
 		It("files a repo inside the allowlist", func() {
 			f, handler := newFakeGitHub(http.StatusCreated)
 			writer := fixagent.NewGitHubSpecWriter(

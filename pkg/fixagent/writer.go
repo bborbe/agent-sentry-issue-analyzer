@@ -6,6 +6,7 @@ package fixagent
 
 import (
 	"context"
+	stderrors "errors"
 	"net/http"
 	"path"
 	"strings"
@@ -13,6 +14,14 @@ import (
 	"github.com/bborbe/errors"
 	"github.com/google/go-github/v88/github"
 )
+
+// ErrRepoNotAllowed reports that the resolved repository is not admitted by
+// the lane's REPO_ALLOWLIST. It is deterministic for a given repo and list —
+// a retry can only refuse identically — so a caller records a decline instead
+// of returning an error the controller would re-queue forever. A list that is
+// itself malformed is a different, non-sentinel error: that is the lane's
+// misconfiguration and must still fail the Job.
+var ErrRepoNotAllowed = stderrors.New("fix-agent: repo not in REPO_ALLOWLIST")
 
 //counterfeiter:generate -o mocks/spec-writer.go --fake-name SpecWriter . SpecWriter
 
@@ -60,8 +69,9 @@ func (w *GitHubSpecWriter) Write(ctx context.Context, spec Spec) (string, error)
 			return "", err
 		}
 		if !admitted {
-			return "", errors.Errorf(
+			return "", errors.Wrapf(
 				ctx,
+				ErrRepoNotAllowed,
 				"fix-agent: repo %s not in REPO_ALLOWLIST; refusing to file",
 				spec.Repo,
 			)

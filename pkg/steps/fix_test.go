@@ -570,6 +570,42 @@ var _ = Describe("FixStep", func() {
 		Expect(writer.WriteCallCount()).To(Equal(0))
 	})
 
+	// A repo the lane's REPO_ALLOWLIST does not admit is a deterministic
+	// outcome: retrying can only refuse identically. Measured 2026-11-05 on the
+	// Seibert lane, whose only High/High real bug (OCTOPUS-DEV-4A) resolves to
+	// bborbe/agent-task-executor while the allowlist admits Seibert-Data/*
+	// only — returning an error would fail and re-queue that Job forever, the
+	// exact loop the missing-branch bug produced. Record it as a decline that
+	// names the repo, so the refusal is visible on the task and terminal.
+	It("records an allowlist refusal as a declined no-op naming the repo", func() {
+		resolver.ResolveReturns(fixagent.Resolution{
+			Repo:  "bborbe/agent-task-executor",
+			Rule:  "resolved from frame path mt5/connector/mt5linux.py",
+			Fresh: true,
+		}, nil)
+		writer.WriteReturns("", errors.Wrapf(
+			ctx,
+			fixagent.ErrRepoNotAllowed,
+			"fix-agent: repo bborbe/agent-task-executor not in REPO_ALLOWLIST; refusing to file",
+		))
+
+		step := buildStep()
+		md := buildTask(realBugVerdict)
+
+		result, err := step.Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).NotTo(BeNil())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("done"))
+
+		section, ok := md.FindSection("## Fix Result")
+		Expect(ok).To(BeTrue())
+		Expect(section.Body).To(ContainSubstring("status: declined"))
+		Expect(section.Body).To(ContainSubstring("repo: bborbe/agent-task-executor"))
+		Expect(section.Body).To(ContainSubstring("REPO_ALLOWLIST"))
+		Expect(section.Body).NotTo(ContainSubstring("pr_url:"))
+	})
+
 	It("propagates an out-of-scope / API failure loudly (AC-6)", func() {
 		resolver.ResolveReturns(fixagent.Resolution{
 			Repo:  "bborbe/trading",
