@@ -120,14 +120,19 @@ var _ = Describe("FixHandoffStep", func() {
 			result, err := step.Run(ctx, md)
 			Expect(err).NotTo(HaveOccurred())
 
+			// A handoff is the one result that moves the task to planning; every
+			// other verdict completes with the wrapped step's NextPhase "done".
 			handoffCount := 0
-			if result.Status == agentlib.AgentStatusInProgress {
+			if result.NextPhase == "planning" {
 				handoffCount = 1
 			}
 			Expect(handoffCount).To(Equal(expected))
 
 			if expected == 1 {
-				Expect(result.Status).To(Equal(agentlib.AgentStatusInProgress))
+				// Done + NextPhase is the only shape the deliverer publishes a
+				// phase for; InProgress would leave the task at execution.
+				Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+				Expect(result.NextPhase).To(Equal("planning"))
 				Expect(result.Message).To(ContainSubstring("sentry-fix-agent"))
 				Expect(md.Frontmatter["assignee"]).To(Equal("sentry-fix-agent"))
 				Expect(md.Frontmatter["phase"]).To(Equal("planning"))
@@ -136,6 +141,7 @@ var _ = Describe("FixHandoffStep", func() {
 				// AC-5: a non-firing verdict completes exactly as it does today —
 				// the wrapped step's own result, frontmatter untouched.
 				Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+				Expect(result.NextPhase).To(Equal("done"))
 				Expect(md.Frontmatter["assignee"]).To(Equal("sentry-analyzer-agent"))
 				Expect(md.Frontmatter["phase"]).To(Equal("execution"))
 				Expect(md.Frontmatter["task_type"]).To(Equal("sentry-deep-analyzer"))
@@ -228,7 +234,8 @@ var _ = Describe("FixHandoffStep", func() {
 		Expect(section.Body).To(ContainSubstring("Sustained span"))
 
 		// ...and the handoff still fires.
-		Expect(result.Status).To(Equal(agentlib.AgentStatusInProgress))
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("planning"))
 		Expect(result.Message).To(ContainSubstring("sentry-fix-agent"))
 		Expect(md.Frontmatter["assignee"]).To(Equal("sentry-fix-agent"))
 		Expect(md.Frontmatter["phase"]).To(Equal("planning"))
@@ -245,7 +252,8 @@ var _ = Describe("FixHandoffStep", func() {
 
 		first, err := step.Run(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(first.Status).To(Equal(agentlib.AgentStatusInProgress))
+		Expect(first.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(first.NextPhase).To(Equal("planning"))
 		Expect(md.Frontmatter["assignee"]).To(Equal("sentry-fix-agent"))
 
 		// The task already carries the fix assignee: the idempotency check
@@ -253,6 +261,7 @@ var _ = Describe("FixHandoffStep", func() {
 		second, err := step.Run(ctx, md)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(second.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(second.NextPhase).To(Equal("done"))
 		Expect(md.Frontmatter["assignee"]).To(Equal("sentry-fix-agent"))
 		Expect(md.Frontmatter["phase"]).To(Equal("planning"))
 		Expect(md.Frontmatter["task_type"]).To(Equal("sentry-fix"))

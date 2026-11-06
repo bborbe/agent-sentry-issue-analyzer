@@ -65,10 +65,23 @@ var _ = Describe("CreateDeepAgentFromRunner fix handoff wiring", func() {
 		// *Markdown, so read the re-marshaled task out of the deliverer.
 		Expect(deliverer.DeliverResultCallCount()).To(Equal(1))
 		_, info := deliverer.DeliverResultArgsForCall(0)
-		Expect(info.Status).To(Equal(agentlib.AgentStatusInProgress))
+		Expect(info.Status).To(Equal(agentlib.AgentStatusDone))
 
 		handedOff, err = agentlib.ParseMarkdown(ctx, info.Output)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	// The phase the controller writes is the one the deliverer PUBLISHES, not the
+	// one left in the marshaled output: the bborbe/agent deliverer deletes
+	// `phase` from every result that advances none (Status InProgress, or Done
+	// with no NextPhase), so an in-memory `phase: planning` never reached disk.
+	// Measured 2026-11-06 on the Seibert lane: OCTOPUS-DEV-4A was handed off and
+	// then refused by the executor with `gate=phase_not_triggered
+	// task_type=sentry-fix phase=execution`, because the fix Config triggers on
+	// planning only. Done + NextPhase is the only form the deliverer publishes.
+	It("publishes the phase change as NextPhase planning, the form the deliverer honours", func() {
+		_, info := deliverer.DeliverResultArgsForCall(0)
+		Expect(info.NextPhase).To(Equal("planning"))
 	})
 
 	It("stamps the live sentry-fix-agent Config CR as the assignee", func() {
@@ -97,5 +110,51 @@ var _ = Describe("CreateDeepAgentFromRunner fix handoff wiring", func() {
 
 	It("hands the task back at phase planning for the fix run", func() {
 		Expect(handedOff.Frontmatter["phase"]).To(Equal("planning"))
+	})
+})
+
+// NextPhase "planning" names a phase the deep agent ALSO declares, and
+// Agent.Run advances in-process into any NextPhase its own agent has. A task
+// carrying `## Failure` and no `## Context` — exactly the shape of a deep run
+// killed at its deadline and re-queued, as OCTOPUS-DEV-4A was — makes the deep
+// planning step's ShouldRun true, so without a guard the handed-off task would
+// be re-planned by the deep analyzer in the same pod instead of exiting for the
+// fix agent.
+var _ = Describe("CreateDeepAgentFromRunner after a handoff", func() {
+	It("exits for the fix agent instead of re-running deep planning in-process", func() {
+		ctx := context.Background()
+
+		runner := &agentmocks.ClaudeRunner{}
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "```yaml\nsentry_issue_id: OCTOPUS-DEV-4A\nverdict: real bug\nunderstanding: high\nfix_certainty: high\nroot_cause: uppercase Job name\nrecommended_fix: deploy executor >= v0.26.4\nfile:line: pkg/spawner/job_spawner.go:667\nlive_event_count: 50\nfirst_seen: 2026-08-20T00:00:00Z\nlast_seen: 2026-09-05T10:00:00Z\nsentry_status: unresolved\n```",
+		}, nil)
+		deliverer := &agentmocks.AgentResultDeliverer{}
+		resolver := &identitymocks.Resolver{}
+		resolver.ResolveStub = func(_ context.Context, reference string) (string, error) {
+			return reference, nil
+		}
+
+		agent := factory.CreateDeepAgentFromRunner(
+			runner,
+			nil,
+			libtime.NewCurrentDateTime(),
+			&metricsmocks.Metrics{},
+			resolver,
+		)
+		result, err := agent.Run(
+			ctx,
+			domain.TaskPhaseExecution,
+			"---\nstatus: in_progress\nphase: execution\nassignee: sentry-analyzer-agent\ntask_type: sentry-deep-analyzer\n---\n\n## Failure\n\n- **Reason:** deadline_exceeded\n",
+			deliverer,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).NotTo(BeNil())
+		Expect(result.Status).To(Equal(agentlib.AgentStatusDone))
+		Expect(result.NextPhase).To(Equal("planning"))
+
+		// One Claude call (the deep execution) and one delivery (the handoff):
+		// the deep planning step must not run after the task left this agent.
+		Expect(runner.RunCallCount()).To(Equal(1))
+		Expect(deliverer.DeliverResultCallCount()).To(Equal(1))
 	})
 })
