@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.22.4
 
 - fix: a repo the lane's `REPO_ALLOWLIST` does not admit is now recorded as a decline instead of failing the fix Job. `GitHubSpecWriter.Write` returned a plain error for an un-admitted repo and `fixStep.Run` propagated it, so the Job failed and the controller re-queued it — to refuse identically, since the outcome is deterministic for a given repo and list. That is the same retry-forever class as the missing-branch bug in v0.21, and it would fire on the Seibert lane's first fix run: its only High/High `real bug` (`Analyze Sentry issue OCTOPUS-DEV-4A - 2026-11-04`) resolves to `bborbe/agent-task-executor` while the lane admits `github.com/Seibert-Data/*` only. The writer now wraps the refusal in the new sentinel `fixagent.ErrRepoNotAllowed`, and the fix step records `## Fix Result` with `status: declined`, the repo, and the refusal message, then completes — so the refusal is visible on the task and terminal, and the Jira proposal decorator, which reads an absent `pr_url` as "the fix agent produced no PR", sees it correctly. A malformed allowlist (no inclusion, an invalid pattern, a token naming nothing) carries no sentinel and still fails the Job, so a broken lane configuration cannot pass as every alert being quietly declined; API failures stay loud as before. README and `docs/fix-lane.md` updated to match.
 
