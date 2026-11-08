@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- feat: add a cluster build arm (`make build BUILD_TARGET=<cluster> REF=<sha> VERSION=<tag>`) that builds and pushes the image inside Kubernetes from a fresh clone, leaving the local `make build` / `buca` path unchanged.
+
 - feat: `make build` gains a `BUILD_TARGET` switch: `local` (the default) keeps the existing `docker build` command and tag unchanged, while any other value routes to a cluster Job via `hack/build-cluster.sh`. The cluster arm prints the composed image reference before it runs, passes the repository URL and `buildkit-push` secret as literals, and refuses to run without a caller-supplied `VERSION`. `upload`, `clean` and `buca` remain local-only and are refused at parse time for a cluster target; the branch guard still protects the local arm.
 
 - feat: add the cluster build runner (`hack/build-cluster.sh`, `hack/cluster-alias.sh`, `hack/build-job.yaml`) copied verbatim from `bborbe/agent-task-executor`, and switch both Dockerfile builds from `-mod=vendor` to `-mod=mod` so the Job builds the image from a fresh clone that has no `vendor/` directory. The Job template passes `DOCKER_REGISTRY=docker.io` so the base images resolve from the public registry inside the cluster.
