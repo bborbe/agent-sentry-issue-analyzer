@@ -1,8 +1,10 @@
 ---
-status: prompted
+status: completed
 approved: "2026-11-08T10:31:18Z"
 generating: "2026-11-08T10:34:51Z"
 prompted: "2026-11-08T10:49:37Z"
+verifying: "2026-11-08T11:21:02Z"
+completed: "2026-11-08T11:21:08Z"
 branch: dark-factory/cluster-build-arm
 ---
 
