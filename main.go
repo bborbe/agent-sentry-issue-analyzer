@@ -420,10 +420,20 @@ func (a *application) buildGithubClient(ctx context.Context) (*github.Client, er
 // own tool contract. The fix agent needs only the read-only repo-clone tool
 // (it files specs through the GitHub API, not Bash), so it is preflighted
 // against that alone. All other task types keep the triage/deep checks.
+// The liveness task types (healthcheck and its deprecated alias oauth-probe,
+// both bound to the same liveness agent in factory.CreateAgentProvider) skip
+// preflight entirely: the liveness step only asks Claude to reply "ok" and uses
+// none of the Sentry, repo-clone or Jira tools, so a lane that does not grant
+// those tools — the sentry-fix and sentry-collector lanes — must still pass its
+// healthcheck.
 func (a *application) validatePreflight(
 	ctx context.Context,
 	allowedTools claudelib.AllowedTools,
 ) error {
+	switch agentlib.TaskType(a.TaskType) {
+	case agentlib.TaskTypeHealthcheck, agentlib.TaskTypeOAuthProbe:
+		return nil
+	}
 	if a.TaskType == taskTypeSentryCollector {
 		return errors.Wrap(
 			ctx,

@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: skip the Sentry/repo-clone/Jira preflight for healthcheck and oauth-probe runs, which never use those tools — every healthcheck on the sentry-fix and sentry-collector lanes died with pod_crash_no_stdout
+
 ## v0.23.2
 
 - chore: restate the do-not-merge contract in the gate workflow
