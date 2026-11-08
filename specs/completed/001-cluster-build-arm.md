@@ -112,7 +112,7 @@ Two further properties only surface once the build runs from a clone rather than
 
 These must hold before the cluster AC can pass; none is created by this spec.
 
-- The `build` namespace and the `buildkit-push` dockerconfigjson secret exist in the target cluster.
+- The `build` namespace and the `buildkit-push` dockerconfigjson secret exist in the target cluster, **and that credential covers the registry the arm pushes to**. Corrected 2026-11-08 after this assumption was found too weak: the secret exists and is healthy, but it authenticates against Docker Hub, not the private mirror, so an arm composed against `$(DOCKER_REGISTRY)` builds and then fails the push with `401 Unauthorized`. The cluster arm therefore pushes `docker.io/bborbe/agent-sentry-issue-analyzer`; the private-registry copy the deployment pulls comes from nuke's `MIRROR_IMAGES` step.
 - The repo is public, so the Job's anonymous `git fetch` succeeds; the init container carries no clone credential.
 - `crane` is installed on the host running the ACs.
 - `REF` exists in the local repository **and on `origin`**: the runner derives `SOURCE_DATE_EPOCH` from the local repository, and the Job's init container fetches the ref from the remote. A commit that exists only locally fails at the clone.

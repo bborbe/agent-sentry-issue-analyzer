@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: the cluster build arm now pushes to `docker.io/bborbe/agent-sentry-issue-analyzer` instead of the private mirror. The build lane's `buildkit-push` credential authenticates against Docker Hub — measured: a sibling cluster build pushed `docker.io/bborbe/git-rest:v0.40.5`, while this repo's arm pointed at `docker.prod.nuke.benjamin-borbe.de:443` failed the push with `401 Unauthorized` after building successfully. The local arm keeps its mirror tag unchanged; the private-registry copy the deployment pulls is produced by nuke's `MIRROR_IMAGES` step, which needs an entry for each new tag.
+
 ## v0.23.0
 
 - feat: add a cluster build arm — `make build BUILD_TARGET=<cluster> REF=<sha> VERSION=<tag>` builds and pushes the image inside Kubernetes as a Job rendered from `hack/build-job.yaml`, so a release no longer needs this Mac. `BUILD_TARGET` defaults to `local`, which keeps the existing `docker build` command and `$(DOCKER_REGISTRY)/$(SERVICE):$(BRANCH)` tag byte-identical; any other value routes through `hack/build-cluster.sh` with `hack/cluster-alias.sh`, prints the composed image reference before it runs, passes the repository URL and `buildkit-push` secret as literals, and refuses to run without a caller-supplied `VERSION` (`$(origin VERSION)` of `file` or `undefined`). `upload`, `clean` and `buca` stay local-only and are refused at parse time for a cluster target, while the branch guard still protects the local arm. Both Dockerfile builds move from `-mod=vendor` to `-mod=mod` so the Job builds from a fresh clone that has no `vendor/` directory, and the Job template passes `DOCKER_REGISTRY=docker.io` so base images resolve from the public registry inside the cluster.
