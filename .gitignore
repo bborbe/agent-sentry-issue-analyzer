@@ -7,5 +7,7 @@
 /vendor
 /.dark-factory.log
 /.dark-factory.lock
-/prompts/
-/specs/
+/prompts/log
+/specs/log
+/prompts/in-progress/*.lock
+/specs/in-progress/*.lock

@@ -48,10 +48,31 @@ contract and the lane end to end.
 
 This repo builds and uploads the image; it no longer owns cluster objects.
 
+### Local arm (this machine)
+
 ```bash
 make precommit                 # lint + test
 BRANCH=dev make buca           # build + upload + clean (no apply)
 ```
+
+The local arm tags `docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:<branch>`.
+`buca` stays local-only: it pushes from this machine and refuses any `BUILD_TARGET`
+other than `local`.
+
+### Cluster arm (Kubernetes Job)
+
+```bash
+make build BUILD_TARGET=<cluster> REF=<sha> VERSION=<tag>
+```
+
+The cluster arm clones `REF` inside the target cluster, builds it as a Kubernetes
+Job, and pushes `docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:<tag>`.
+It needs no local Docker daemon and no prepared working tree. `VERSION` is
+required: the arm refuses to run when the caller did not supply it.
+
+The image name is unprefixed (`agent-sentry-issue-analyzer`) on purpose:
+`bborbe/nuke`'s agent values pull exactly that repository, so a `bborbe/` prefix
+would push to a repository nothing deploys.
 
 The `k8s/` directory was deleted on 2026-09-10 — every manifest it held described
 dead quant leftovers. The live sentry agents (`sentry-analyzer-agent`,

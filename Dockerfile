@@ -5,10 +5,10 @@ ARG BUILD_GIT_COMMIT=none
 ARG BUILD_DATE=unknown
 COPY . /workspace
 WORKDIR /workspace
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -installsuffix cgo -o /main
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=mod -ldflags "-s" -a -installsuffix cgo -o /main
 # The collector step's per-alert task publisher — spawned by
 # scripts/sentry-create-tasks.sh (Bash tool of the sentry-collector agent).
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=vendor -ldflags "-s" -a -installsuffix cgo -o /create-tasks ./cmd/create-tasks
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -mod=mod -ldflags "-s" -a -installsuffix cgo -o /create-tasks ./cmd/create-tasks
 CMD ["/bin/bash"]
 
 FROM ${DOCKER_REGISTRY}/alpine:3.24 AS alpine
