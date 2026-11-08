@@ -12,6 +12,7 @@ import (
 	"time"
 
 	agentlib "github.com/bborbe/agent"
+	claudelib "github.com/bborbe/agent/claude"
 	agentmocks "github.com/bborbe/agent/mocks"
 	"github.com/bborbe/errors"
 	"github.com/bborbe/vault-cli/pkg/domain"
@@ -288,6 +289,52 @@ var _ = Describe("forwardSentryTarget", func() {
 			"SENTRY_URL": "https://seibert-group.sentry.io",
 			"SENTRY_ORG": "seibert-group",
 		}))
+	})
+})
+
+var _ = Describe("validatePreflight", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	DescribeTable("skips the tool/token preflight for the liveness task types",
+		func(taskType string) {
+			app := &application{TaskType: taskType}
+			Expect(app.validatePreflight(ctx, claudelib.AllowedTools{})).To(Succeed())
+		},
+		Entry("healthcheck", string(agentlib.TaskTypeHealthcheck)),
+		Entry("oauth-probe", string(agentlib.TaskTypeOAuthProbe)),
+	)
+
+	DescribeTable("keeps the preflight for every other task type",
+		func(taskType, wantSubstring string) {
+			app := &application{TaskType: taskType}
+			err := app.validatePreflight(ctx, claudelib.AllowedTools{})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(wantSubstring))
+		},
+		Entry("triage", "sentry-issue-analyzer", "sentry preflight failed"),
+		Entry("unknown default", "unknown", "sentry preflight failed"),
+		Entry("fix", taskTypeSentryFix, "sentry-fix preflight"),
+		Entry("collector", taskTypeSentryCollector, "sentry-collector preflight failed"),
+	)
+
+	It("also reports the repo-clone failure for the fix task type", func() {
+		app := &application{TaskType: taskTypeSentryFix}
+		err := app.validatePreflight(ctx, claudelib.AllowedTools{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("repo-clone preflight failed"))
+	})
+
+	// The skip is unconditional for liveness types, not merely a side effect of
+	// an empty tool set: a partial grant that fails the triage path must still
+	// pass a healthcheck.
+	It("skips preflight for a healthcheck even with a partial tool grant", func() {
+		app := &application{TaskType: string(agentlib.TaskTypeHealthcheck)}
+		allowedTools := claudelib.AllowedTools{"Bash(scripts/repo-clone.sh:*)"}
+		Expect(app.validatePreflight(ctx, allowedTools)).To(Succeed())
 	})
 })
 
