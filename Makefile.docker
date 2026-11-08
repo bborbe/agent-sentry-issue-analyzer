@@ -1,5 +1,16 @@
+# BUILD_TARGET selects where `make build` runs. `local` (the default) uses the
+# local Docker daemon; any other value names a cluster alias (sun / nukedev /
+# nukeprod) and builds inside that cluster as a Job rendered from
+# hack/build-job.yaml.
+BUILD_TARGET ?= local
+
+# One image repository for both arms, so the local tag and the cluster push
+# cannot drift. SERVICE is defined in Makefile.
+IMAGE ?= $(SERVICE)
+
 .PHONY: build
-build: check-go-mod
+build: $(if $(filter local,$(BUILD_TARGET)),check-go-mod)
+ifeq ($(BUILD_TARGET),local)
 	DOCKER_BUILDKIT=1 \
 	docker build \
 	--pull \
@@ -11,8 +22,19 @@ build: check-go-mod
 	--build-arg BUILD_GIT_VERSION=$$(git describe --tags --always --dirty) \
 	--build-arg BUILD_GIT_COMMIT=$$(git rev-parse --short HEAD) \
 	--build-arg BUILD_DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-	-t $(DOCKER_REGISTRY)/$(SERVICE):$(BRANCH) \
+	-t $(DOCKER_REGISTRY)/$(IMAGE):$(BRANCH) \
 	-f Dockerfile .
+else
+	@echo "$(DOCKER_REGISTRY)/$(IMAGE):$(VERSION)"
+	BUILD_TARGET='$(BUILD_TARGET)' \
+	REPO_URL='https://github.com/bborbe/agent-sentry-issue-analyzer.git' \
+	REF='$(REF)' \
+	TAG='$(VERSION)' \
+	IMAGE='$(DOCKER_REGISTRY)/$(IMAGE)' \
+	PUSH='true' \
+	PUSH_SECRET='buildkit-push' \
+	hack/build-cluster.sh
+endif
 
 .PHONY: check-go-mod
 check-go-mod:
@@ -25,11 +47,11 @@ check-go-mod:
 
 .PHONY: upload
 upload:
-	docker push $(DOCKER_REGISTRY)/$(SERVICE):$(BRANCH)
+	docker push $(DOCKER_REGISTRY)/$(IMAGE):$(BRANCH)
 
 .PHONY: clean
 clean:
-	docker rmi $(DOCKER_REGISTRY)/$(SERVICE):$(BRANCH) || true
+	docker rmi $(DOCKER_REGISTRY)/$(IMAGE):$(BRANCH) || true
 	docker image prune -f || true
 	docker builder prune --all -f || true
 	rm -rf vendor
