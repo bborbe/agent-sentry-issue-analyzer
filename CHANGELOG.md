@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: restate the do-not-merge contract in the gate workflow
+
 ## v0.23.1
 
 - fix: the cluster build arm now pushes to `docker.io/bborbe/agent-sentry-issue-analyzer` instead of the private mirror. The build lane's `buildkit-push` credential authenticates against Docker Hub — measured: a sibling cluster build pushed `docker.io/bborbe/git-rest:v0.40.5`, while this repo's arm pointed at `docker.prod.nuke.benjamin-borbe.de:443` failed the push with `401 Unauthorized` after building successfully. The local arm keeps its mirror tag unchanged; the private-registry copy the deployment pulls is produced by nuke's `MIRROR_IMAGES` step, which needs an entry for each new tag.
