@@ -4,9 +4,17 @@
 # hack/build-job.yaml.
 BUILD_TARGET ?= local
 
-# One image repository for both arms, so the local tag and the cluster push
-# cannot drift. SERVICE is defined in Makefile.
+# The local arm tags $(DOCKER_REGISTRY)/$(IMAGE) — the private mirror, using the
+# operator's own Docker credentials.
+#
+# The cluster arm pushes somewhere else on purpose. The build lane's
+# buildkit-push credential authenticates against Docker Hub, which is where the
+# sibling agent repos land (measured: a sibling cluster build pushed
+# docker.io/bborbe/git-rest:v0.40.5, while the same arm pointed at the private
+# mirror fails the push with 401 Unauthorized). The private-registry copy the
+# deployment pulls is produced by nuke's MIRROR_IMAGES step, not by this build.
 IMAGE ?= $(SERVICE)
+CLUSTER_IMAGE ?= docker.io/bborbe/$(SERVICE)
 
 .PHONY: build
 build: $(if $(filter local,$(BUILD_TARGET)),check-go-mod)
@@ -25,12 +33,12 @@ ifeq ($(BUILD_TARGET),local)
 	-t $(DOCKER_REGISTRY)/$(IMAGE):$(BRANCH) \
 	-f Dockerfile .
 else
-	@echo "$(DOCKER_REGISTRY)/$(IMAGE):$(VERSION)"
+	@echo "$(CLUSTER_IMAGE):$(VERSION)"
 	BUILD_TARGET='$(BUILD_TARGET)' \
 	REPO_URL='https://github.com/bborbe/agent-sentry-issue-analyzer.git' \
 	REF='$(REF)' \
 	TAG='$(VERSION)' \
-	IMAGE='$(DOCKER_REGISTRY)/$(IMAGE)' \
+	IMAGE='$(CLUSTER_IMAGE)' \
 	PUSH='true' \
 	PUSH_SECRET='buildkit-push' \
 	hack/build-cluster.sh
