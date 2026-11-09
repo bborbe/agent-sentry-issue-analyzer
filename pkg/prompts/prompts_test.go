@@ -579,7 +579,7 @@ var _ = Describe("candidate-list invariant across the planning prompts", func() 
 		deepPlanning := candidateEntries(prompts.BuildDeepPlanningInstructions()[0].Content)
 		fixPlanning := candidateEntries(prompts.BuildFixPlanningInstructions()[0].Content)
 
-		Expect(planning).To(HaveLen(4))
+		Expect(planning).To(HaveLen(19))
 		Expect(deepPlanning).To(Equal(planning))
 		Expect(fixPlanning).To(Equal(planning))
 	})
@@ -590,25 +590,119 @@ var _ = Describe("candidate-list invariant across the planning prompts", func() 
 		Expect(entries[0]).To(ContainSubstring("bborbe/trading"))
 		Expect(entries[0]).To(ContainSubstring("capitalcom/"))
 	})
+
+	// The Seibert projects carry their own numbered lists. Keying on the project
+	// slug rather than on a repo owner is what makes the check see them at all: a
+	// `bborbe/`-prefix selector skips every `Seibert-Data/*` row, so the
+	// three-file comparison passes while the drift it exists to catch goes
+	// unnoticed.
+	for _, project := range []string{"octopus-dev", "octopus-staging", "octopus-prod"} {
+		project := project
+		It("keeps the "+project+" candidate list identical across all three prompts", func() {
+			planning := candidateEntriesForProject(
+				prompts.BuildPlanningInstructions()[0].Content, project,
+			)
+			deepPlanning := candidateEntriesForProject(
+				prompts.BuildDeepPlanningInstructions()[0].Content, project,
+			)
+			fixPlanning := candidateEntriesForProject(
+				prompts.BuildFixPlanningInstructions()[0].Content, project,
+			)
+
+			Expect(planning).NotTo(BeEmpty(), "no candidate rows for "+project)
+			Expect(deepPlanning).To(Equal(planning))
+			Expect(fixPlanning).To(Equal(planning))
+			for _, entry := range planning {
+				Expect(entry).To(ContainSubstring("Seibert-Data/"))
+			}
+		})
+	}
+
+	It("orders the octopus-dev candidates from root through bigquery", func() {
+		entries := candidateEntriesForProject(
+			prompts.BuildPlanningInstructions()[0].Content, "octopus-dev",
+		)
+		Expect(entries).To(HaveLen(5))
+		Expect(entries[0]).To(ContainSubstring("Seibert-Data/root"))
+		Expect(entries[4]).To(ContainSubstring("Seibert-Data/bigquery"))
+	})
+
+	It("orders the octopus-staging candidates from billomat through seatable", func() {
+		entries := candidateEntriesForProject(
+			prompts.BuildPlanningInstructions()[0].Content, "octopus-staging",
+		)
+		Expect(entries).To(HaveLen(6))
+		Expect(entries[0]).To(ContainSubstring("Seibert-Data/billomat"))
+		Expect(entries[5]).To(ContainSubstring("Seibert-Data/seatable"))
+	})
+
+	It("orders the octopus-prod candidates from root through google", func() {
+		entries := candidateEntriesForProject(
+			prompts.BuildPlanningInstructions()[0].Content, "octopus-prod",
+		)
+		Expect(entries).To(HaveLen(4))
+		Expect(entries[0]).To(ContainSubstring("Seibert-Data/root"))
+		Expect(entries[3]).To(ContainSubstring("Seibert-Data/google"))
+	})
 })
 
 // candidateEntries returns the ordered candidate-list entries of a planning
 // prompt with leading indentation stripped, so fix-planning.md's deeper nesting
 // compares equal to the other two. A candidate entry is a numbered line whose
-// text opens with a `bborbe/` repo — the prompts carry other numbered lines
-// (planning.md's `Bash(scripts/sentry-read.sh …)` step), so the repo prefix is
-// what selects the candidate list.
+// text opens with a repo owner the mapping owns — the `bborbe/` repos of the
+// Personal-vault fleet or the `Seibert-Data/` repos of the octopus projects. The
+// prompts carry other numbered lines (planning.md's
+// `Bash(scripts/sentry-read.sh …)` step), so the repo owner is what selects the
+// candidate list.
 func candidateEntries(content string) []string {
 	var entries []string
 	for _, line := range strings.Split(content, "\n") {
-		trimmed := strings.TrimLeft(line, " \t")
-		if len(trimmed) < 5 || trimmed[1] != '.' || trimmed[2] != ' ' || trimmed[3] != '`' {
-			continue
+		if entry, ok := candidateEntry(line); ok {
+			entries = append(entries, entry)
 		}
-		if !strings.HasPrefix(trimmed[4:], "bborbe/") {
-			continue
-		}
-		entries = append(entries, trimmed)
 	}
 	return entries
+}
+
+// candidateEntriesForProject returns the numbered candidate rows of the block
+// introduced by `For Sentry project \`<project>\“, stopping at the first line
+// that is neither blank nor a candidate row. Keying on the project slug is
+// deliberate: a selector keyed on a repo owner would silently skip a project
+// whose repos sit under a different owner, which is exactly the defect this
+// check exists to catch.
+func candidateEntriesForProject(content, project string) []string {
+	var entries []string
+	inBlock := false
+	for _, line := range strings.Split(content, "\n") {
+		if strings.Contains(line, "For Sentry project `"+project+"`") {
+			inBlock = true
+			continue
+		}
+		if !inBlock {
+			continue
+		}
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		entry, ok := candidateEntry(line)
+		if !ok {
+			break
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+// candidateEntry reports whether a line is a numbered candidate row and returns
+// it with leading indentation stripped.
+func candidateEntry(line string) (string, bool) {
+	trimmed := strings.TrimLeft(line, " \t")
+	if len(trimmed) < 5 || trimmed[1] != '.' || trimmed[2] != ' ' || trimmed[3] != '`' {
+		return "", false
+	}
+	rest := trimmed[4:]
+	if !strings.HasPrefix(rest, "bborbe/") && !strings.HasPrefix(rest, "Seibert-Data/") {
+		return "", false
+	}
+	return trimmed, true
 }
