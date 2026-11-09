@@ -38,4 +38,4 @@ COPY --from=build /usr/local/go/lib/time/zoneinfo.zip /
 ENV BUILD_GIT_VERSION=${BUILD_GIT_VERSION}
 ENV BUILD_GIT_COMMIT=${BUILD_GIT_COMMIT}
 ENV BUILD_DATE=${BUILD_DATE}
-ENTRYPOINT ["/main", "-v=2"]
+ENTRYPOINT ["/main", "-logtostderr", "-v=2"]
