@@ -33,6 +33,8 @@ import (
 	"github.com/bborbe/service"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
+
+	"github.com/bborbe/agent-sentry-issue-analyzer/pkg/verdictrecord"
 )
 
 func main() {
@@ -78,6 +80,23 @@ type application struct {
 	Assignee string `required:"true"  arg:"assignee"     env:"ASSIGNEE"     usage:"Frontmatter assignee (must match the lane Config's spec.assignee)"`
 	Status   string `required:"false" arg:"status"       env:"STATUS"       usage:"Frontmatter status"                                                       default:"in_progress"`
 	Phase    string `required:"false" arg:"phase"        env:"PHASE"        usage:"Frontmatter phase"                                                        default:"planning"`
+
+	// VaultAPIURL / GitRestURL / GatewaySecret enable verdict retention across a
+	// re-dispatch (see pkg/verdictrecord). All three are optional and retention
+	// is skipped when either URL is empty, so an environment without them keeps
+	// today's behaviour rather than failing.
+	//
+	// Why this exists: the controller posts this command's body with
+	// ReopenTerminal, and vault-api's reopenTerminalTask REPLACES the task file
+	// rather than merging into it. Without retention, re-dispatching an alert a
+	// previous run already judged discards that run's "## Verdict" and
+	// "## Fix Result" — the evidence SC10/SC11 are measured on.
+	VaultAPIURL string `required:"false" arg:"vault-api-url"  env:"VAULT_API_URL"  usage:"Typed vault API base URL; enables verdict retention when set with --git-rest-url"`
+	GitRestURL  string `required:"false" arg:"git-rest-url"   env:"GIT_REST_URL"   usage:"git-rest base URL used to persist the durable verdict record"`
+	// GatewaySecret is the gateway auth presented to both vault-api and
+	// git-rest. Caller identity (X-Gateway-Initator) is set unconditionally —
+	// git-rest refuses the write without it.
+	GatewaySecret string `required:"false" arg:"gateway-secret" env:"GATEWAY_SECRET" usage:"Gateway auth secret for vault-api / git-rest"                                     display:"length"`
 }
 
 // compactAlert is the compact per-alert JSON shape emitted by
@@ -154,15 +173,26 @@ func deriveStage(alert compactAlert, fallback string) string {
 // alert — shape-identical to the retired sentry-watcher's BuildCreateCommand
 // (title/frontmatter/body rendered from the default templates). date is the
 // UTC calendar date of the alert's last activity.
-func buildCreateCommand(alert compactAlert, date string, cfg taskConfig) task.CreateCommand {
-	taskIDStr := deriveTaskID(alert.ShortID, date).String()
-	title := "Analyze Sentry issue " + alert.ShortID + " - " + date
-	body := "# Analyze Sentry issue " + alert.ShortID + " - " + date + "\n\n" +
+// renderBody renders the fresh task body for one alert. It is deliberately
+// separate from buildCreateCommand so the caller can splice a prior verdict
+// into it (pkg/verdictrecord) before the command is assembled.
+func renderBody(alert compactAlert, date string) string {
+	return "# Analyze Sentry issue " + alert.ShortID + " - " + date + "\n\n" +
 		"Active unresolved Sentry alert (last activity " + date + ") in project " + alert.Project + ".\n" +
 		"- Issue: " + alert.ShortID + "\n" +
 		"- Project: " + alert.Project + "\n" +
 		"- Title: " + alert.Title + "\n" +
 		"- URL: " + alert.Permalink
+}
+
+func buildCreateCommand(
+	alert compactAlert,
+	date string,
+	body string,
+	cfg taskConfig,
+) task.CreateCommand {
+	taskIDStr := deriveTaskID(alert.ShortID, date).String()
+	title := "Analyze Sentry issue " + alert.ShortID + " - " + date
 	return task.CreateCommand{
 		TaskIdentifier: agentlib.TaskIdentifier(taskIDStr),
 		Title:          title,
@@ -198,6 +228,22 @@ func readAlerts(ctx context.Context, path string) ([]compactAlert, error) {
 	return alerts, nil
 }
 
+// buildVerdictStore returns the retention store, or nil when retention is
+// disabled. Retention is opt-in on both URLs: with either unset the store stays
+// nil and RetainAcrossDispatch returns the fresh body untouched, so a
+// deployment without them behaves exactly as before.
+func (a *application) buildVerdictStore() verdictrecord.Store {
+	if a.VaultAPIURL == "" || a.GitRestURL == "" {
+		glog.Warningf(
+			"verdict retention disabled: VAULT_API_URL=%t GIT_REST_URL=%t — a re-dispatch will discard a prior verdict",
+			a.VaultAPIURL != "",
+			a.GitRestURL != "",
+		)
+		return nil
+	}
+	return verdictrecord.NewStore(a.VaultAPIURL, a.GitRestURL, a.GatewaySecret, nil)
+}
+
 func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	alerts, err := readAlerts(ctx, a.AlertsFile)
 	if err != nil {
@@ -227,6 +273,8 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		Phase:    a.Phase,
 	}
 
+	verdictStore := a.buildVerdictStore()
+
 	failed := 0
 	for _, alert := range alerts {
 		select {
@@ -238,7 +286,19 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 		if err != nil {
 			return errors.Wrapf(ctx, err, "derive date for %s", alert.ShortID)
 		}
-		cmd := buildCreateCommand(alert, date, cfg)
+		// Splice any verdict a previous dispatch of this issue left behind, and
+		// persist it durably first. RetainAcrossDispatch fails open: on a read or
+		// write error the fresh body is returned unchanged, so the fan-out keeps
+		// going and the regression is logged rather than swallowed.
+		body := verdictrecord.RetainAcrossDispatch(
+			ctx,
+			verdictStore,
+			time.Now(),
+			deriveTaskID(alert.ShortID, date).String(),
+			alert.ShortID,
+			renderBody(alert, date),
+		)
+		cmd := buildCreateCommand(alert, date, body, cfg)
 		if err := createSender.SendCommand(ctx, cmd); err != nil {
 			glog.Errorf(
 				"publish create-task failed taskID=%s title=%q err=%v",

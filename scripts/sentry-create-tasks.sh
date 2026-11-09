@@ -12,6 +12,10 @@
 #      SENTRY_URL (default https://bborbe.sentry.io), SENTRY_ORG (default bborbe),
 #      TOPIC_PREFIX (default empty), TARGET_VAULT (default personal),
 #      STAGE (default dev), VAULT_API_URL (required — typed vault-API listing),
+#      GIT_REST_URL (optional — with VAULT_API_URL, enables verdict retention:
+#      the prior "## Verdict"/"## Fix Result" of an already-judged issue is
+#      spliced back into the fresh body and persisted to verdicts/<short-id>.md,
+#      so a re-dispatch no longer discards it),
 #      GATEWAY_SECRET (optional — gateway auth, presented to the vault API),
 #      VAULT_POLL_ATTEMPTS (default 12), VAULT_POLL_INTERVAL_SECONDS (default 5),
 #      CREATE_TASKS_BIN (TEST-ONLY, default /create-tasks — see below),
@@ -234,7 +238,10 @@ create_out="$("${CREATE_TASKS_BIN}" \
   --kafka-brokers "${CREATE_TASKS_KAFKA_BROKERS:-${KAFKA_BROKERS}}" \
   --topic-prefix "${TOPIC_PREFIX}" \
   --target-vault "${TARGET_VAULT}" \
-  --stage "${STAGE}")"
+  --stage "${STAGE}" \
+  --vault-api-url "${VAULT_API_URL:-}" \
+  --git-rest-url "${GIT_REST_URL:-}" \
+  --gateway-secret "${GATEWAY_SECRET:-}")"
 create_rc=$?
 set -e
 
