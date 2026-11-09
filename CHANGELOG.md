@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: send the analyzer's log lines to stderr so the `jira-proposal:` decision line is readable from the Job log at default verbosity. `glog.Infof` at `pkg/steps/jira-proposal.go:194` is deliberately V(0) so cluster verification can read the emit decision, but glog writes INFO to a file rather than stderr and the image entrypoint carried no `-logtostderr` — a 30-day Cloud Logging scan for glog-format lines (`^[IWEF][0-9]{4} `) over every analyzer pod returned zero. The entrypoint is now `ENTRYPOINT ["/main", "-logtostderr", "-v=2"]`. No code change is needed: `-logtostderr` is a glog flag registered at package init and parsed by `bborbe/argument` through `flag.CommandLine.Parse`, so it cannot fail at startup.
+
 ## v0.25.1
 
 - fix: drop the mandatory Jira dedup read from the analyzer's execution prompt. `pkg/prompts/execution.md` told every run to call `scripts/jira-read.sh` before assigning a dedup verdict, but the analyzer Config has carried no `jira-read.sh` grant since `937a27b` removed it from `ALLOWED_TOOLS` on 2026-11-05, so the demand outlived the capability: 71 of the 332 analyzer runs carrying a `## Failure` block name `jira-read` (DEV 22, STAGING 12, PROD 37), and the run that could not perform the read could not reach the certainty the fix handoff needs. The `## Mandatory: ask the Jira board before assigning a dedup verdict` section and its three-bullet reading guide are gone, and the `already-tracked` rubric row now rests on the vault-task match alone (`sentry_issue_id` frontmatter). `already-tracked` and `duplicate` stay in the verdict vocabulary — the dedup question is now answered from the vault, which is where the dedup evidence already lives.
