@@ -8,7 +8,7 @@ The task body contains ONE Sentry alert, already flagged `real bug` by the triag
 
 ## Scope
 
-Production only, `bborbe` repos only (Personal-vault fleet). The alert's repo is a `bborbe/*` repo (e.g. `bborbe/trading`, `bborbe/agent-sentry-issue-analyzer`); you have read-only source access via the constrained scripts. `seibert-group` / `seibert-data` repos are OUT OF SCOPE — they are analyzed by the dedicated octopus agent in the octopus cluster, not by this agent. If the stack trace implicates a non-`bborbe` repo, STOP: return `needs_input` naming the repo as out of scope.
+Production only. For the Personal-vault fleet the alert's repo is a `bborbe/*` repo (e.g. `bborbe/trading`, `bborbe/agent-sentry-issue-analyzer`); you have read-only source access via the constrained scripts. For the Seibert octopus stage projects the repo is a `Seibert-Data/*` repo — the same image runs in the octopus cluster against them, and the repo lists in Step 2 name the owning repos. Any other non-`bborbe`, non-`Seibert-Data` repo is OUT OF SCOPE: STOP and return `needs_input` naming the repo.
 
 ## Steps
 
@@ -33,6 +33,32 @@ From the stack trace identify the implicated repo + file (`file.go:line`). Clone
 3. `bborbe/agent-task-executor` — public Go repo holding the agent task executor, including the `configs.agent.benjamin-borbe.de` CRD setup in `pkg/k8s_connector.go` and its `k8s/` manifests
 4. `bborbe/nuke` — LAST, and only for infrastructure-shaped frames (Helm charts, YAML, deployment config); it holds no application source, so never start here
 
+
+For Sentry project `octopus-dev` (`4510753616756816`) — the alert payload carries the numeric project id, not the slug, so match on either — the candidates below are the Seibert service repos observed owning that project's alerts, ordered by observed frequency across the project's 40 most recent issues. Every row cites the alert whose frame path named it (the `module` field of the event's non-vendor frames, read 2026-11-09), so a row here is derived, never guessed:
+
+1. `Seibert-Data/root` — private repo; umbrella Octopus services repo; holds the Go modules under `sentry/`, `moss/`, `mind/`, `monitoring/`, `mcp/`, `ldap/` and the self-test `sentry/dummy-alert-sender`. Observed in OCTOPUS-DEV-9, OCTOPUS-DEV-37, OCTOPUS-DEV-42, OCTOPUS-DEV-3W, OCTOPUS-DEV-44, OCTOPUS-DEV-43, OCTOPUS-DEV-1V, OCTOPUS-DEV-2B
+2. `Seibert-Data/seatable` — private repo; SeaTable integration, Go module `github.com/seibert-data/seatable` (`raw/resource-fetcher/`, `lib/`). Observed in OCTOPUS-DEV-18, OCTOPUS-DEV-4E, OCTOPUS-DEV-49, OCTOPUS-DEV-45
+3. `Seibert-Data/billomat` — private repo; Billomat integration service, Go module `github.com/seibert-data/billomat`. Observed in OCTOPUS-DEV-S, OCTOPUS-DEV-13, OCTOPUS-DEV-3Y
+4. `Seibert-Data/kafka` — private repo; Kafka service, Go module `github.com/seibert-data/kafka`. Observed in OCTOPUS-DEV-4B, OCTOPUS-DEV-47
+5. `Seibert-Data/bigquery` — private repo; BigQuery service, Go module `github.com/seibert-data/bigquery`. Observed in OCTOPUS-DEV-11, OCTOPUS-DEV-1K
+
+For Sentry project `octopus-staging` (`4510753614725200`) — the alert payload carries the numeric project id, not the slug, so match on either — the candidates below are the Seibert service repos observed owning that project's alerts, ordered by observed frequency across the project's 40 most recent issues. Every row cites the alert whose frame path named it (the `module` field of the event's non-vendor frames, read 2026-11-09), so a row here is derived, never guessed:
+
+1. `Seibert-Data/billomat` — private repo; Billomat integration service, Go module `github.com/seibert-data/billomat`. Observed in OCTOPUS-STAGING-A, OCTOPUS-STAGING-7, OCTOPUS-STAGING-3N, OCTOPUS-STAGING-3E, OCTOPUS-STAGING-3G
+2. `Seibert-Data/kafka` — private repo; Kafka service, Go module `github.com/seibert-data/kafka`. Observed in OCTOPUS-STAGING-3S, OCTOPUS-STAGING-3T, OCTOPUS-STAGING-3A, OCTOPUS-STAGING-38
+3. `Seibert-Data/root` — private repo; umbrella Octopus services repo; holds the Go modules under `sentry/`, `moss/`, `mind/`, `monitoring/`, `mcp/`, `ldap/` and the self-test `sentry/dummy-alert-sender`. Observed in OCTOPUS-STAGING-3W, OCTOPUS-STAGING-6, OCTOPUS-STAGING-W, OCTOPUS-STAGING-3K
+4. `Seibert-Data/cdb` — private repo; Central Data Bus service, Go module `github.com/seibert-data/cdb`. Observed in OCTOPUS-STAGING-2S, OCTOPUS-STAGING-28, OCTOPUS-STAGING-3C
+5. `Seibert-Data/bigquery` — private repo; BigQuery service, Go module `github.com/seibert-data/bigquery`. Observed in OCTOPUS-STAGING-1M, OCTOPUS-STAGING-13, OCTOPUS-STAGING-2B
+6. `Seibert-Data/seatable` — private repo; SeaTable integration, Go module `github.com/seibert-data/seatable` (`raw/resource-fetcher/`, `lib/`). Observed in OCTOPUS-STAGING-3V, OCTOPUS-STAGING-G, OCTOPUS-STAGING-3F
+
+For Sentry project `octopus-prod` (`4510753613414480`) — the alert payload carries the numeric project id, not the slug, so match on either — the candidates below are the Seibert service repos observed owning that project's alerts, ordered by observed frequency across the project's 40 most recent issues. Every row cites the alert whose frame path named it (the `module` field of the event's non-vendor frames, read 2026-11-09), so a row here is derived, never guessed:
+
+1. `Seibert-Data/root` — private repo; umbrella Octopus services repo; holds the Go modules under `sentry/`, `moss/`, `mind/`, `monitoring/`, `mcp/`, `ldap/` and the self-test `sentry/dummy-alert-sender`. Observed in OCTOPUS-PROD-A, OCTOPUS-PROD-59, OCTOPUS-PROD-4E, OCTOPUS-PROD-2S, OCTOPUS-PROD-38, OCTOPUS-PROD-2R, OCTOPUS-PROD-58, OCTOPUS-PROD-5N, OCTOPUS-PROD-80
+2. `Seibert-Data/shared` — private repo; shared Go services, module `github.com/seibert-data/shared`. Observed in OCTOPUS-PROD-63, OCTOPUS-PROD-7W, OCTOPUS-PROD-5Z, OCTOPUS-PROD-73, OCTOPUS-PROD-2E, OCTOPUS-PROD-3Q, OCTOPUS-PROD-8R
+3. `Seibert-Data/kafka` — private repo; Kafka service, Go module `github.com/seibert-data/kafka`. Observed in OCTOPUS-PROD-8W, OCTOPUS-PROD-92, OCTOPUS-PROD-7V, OCTOPUS-PROD-23, OCTOPUS-PROD-87
+4. `Seibert-Data/google` — private repo; Google integration service, Go module `github.com/seibert-data/google`. Observed in OCTOPUS-PROD-81, OCTOPUS-PROD-7Z
+
+The `octopus-*` projects are shared: every Seibert service reports into the project matching its stage, so no single repo owns a whole project. A frame-less alert therefore resolves positionally to position 1 as a best effort — record it as `candidate position 1 (<repo>)` and state in `## Analysis` that the project spans many services.
 If the alert's Sentry project has no candidate list above, escalate naming the unmapped project. Never invent a repo name: clone only a repo that a frame path names or that this list names.
 
 `docs/repo-mapping.md` in this repo carries the same table plus the procedure for extending it when a new Sentry project appears; keep the two in sync.
