@@ -46,33 +46,52 @@ contract and the lane end to end.
 
 ## Build + Deploy
 
-This repo builds and uploads the image; it no longer owns cluster objects.
+One image, one registry, one tag — the pipeline every mirrored agent repo uses:
+
+```
+build (local or sun)  →  docker.io/bborbe/agent-sentry-issue-analyzer:<version>
+                      →  nuke MIRROR_IMAGES  →  docker.prod.nuke…/bborbe/agent-sentry-issue-analyzer:<version>
+                      →  nuke/agent/values-<stage>.yaml pins that version  →  the Job pulls it
+```
 
 ### Local arm (this machine)
 
 ```bash
-make precommit                 # lint + test
-BRANCH=dev make buca           # build + upload + clean (no apply)
+make precommit              # lint + test
+make buca                   # build + push + clean, no apply
+VERSION=v0.25.0 make buca   # name the release tag explicitly
 ```
 
-The local arm tags `docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:<branch>`.
-`buca` stays local-only: it pushes from this machine and refuses any `BUILD_TARGET`
-other than `local`.
+`make buca` composes `docker.io/bborbe/agent-sentry-issue-analyzer:$(VERSION)`.
+`VERSION` defaults to `git describe --tags --always`, so a build works on any
+branch and can never overwrite a released tag; a release build passes the tag
+explicitly. There is no branch or stage input. `buca` stays local-only: it acts
+on this machine's Docker daemon and refuses any `BUILD_TARGET` other than `local`.
 
 ### Cluster arm (Kubernetes Job)
 
 ```bash
-make build BUILD_TARGET=<cluster> REF=<sha> VERSION=<tag>
+make build BUILD_TARGET=<cluster> REF=<full-sha> VERSION=<tag>
 ```
 
 The cluster arm clones `REF` inside the target cluster, builds it as a Kubernetes
-Job, and pushes `docker.prod.nuke.benjamin-borbe.de:443/agent-sentry-issue-analyzer:<tag>`.
-It needs no local Docker daemon and no prepared working tree. `VERSION` is
-required: the arm refuses to run when the caller did not supply it.
+Job, and pushes the same Docker Hub reference. It needs no local Docker daemon
+and no prepared working tree. `VERSION` is required: the arm refuses to run
+without one, because it pushes.
 
-The image name is unprefixed (`agent-sentry-issue-analyzer`) on purpose:
-`bborbe/nuke`'s agent values pull exactly that repository, so a `bborbe/` prefix
-would push to a repository nothing deploys.
+`DOCKER_REGISTRY` (default `docker.io`) is the **base-image source**;
+`PUSH_REGISTRY` (default `docker.io`) is the **push target**. They are separate
+knobs so a repo whose base images resolve from the private mirror still cannot
+push there.
+
+### Deployment
+
+`bborbe/nuke` owns the cluster objects. Bump the pin in
+`agent/values-{dev,prod}.yaml` (`image: bborbe/agent-sentry-issue-analyzer`,
+`tag: <version>`), add the same tag to `agent/Makefile`'s `MIRROR_IMAGES`, then
+`/nuke-deploy <stage> agent`: the mirror copies the Docker Hub image into the
+private registry and the apply pins it. This build never writes the private
+registry.
 
 The `k8s/` directory was deleted on 2026-09-10 — every manifest it held described
 dead quant leftovers. The live sentry agents (`sentry-analyzer-agent`,
