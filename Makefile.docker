@@ -21,10 +21,17 @@ IMAGE ?= bborbe/$(SERVICE)
 # The tag both arms publish. A release build passes VERSION=vX.Y.Z explicitly;
 # with no VERSION the `git describe` default names the commit — `vX.Y.Z-<n>-g<sha>`
 # once HEAD has moved past a release, and exactly `vX.Y.Z` only when HEAD *is*
-# that release commit. There is no branch or stage input: the tag names the
-# source, not an environment. Rebuilding at a released tag re-pushes it with a
-# new digest, so a release is built once.
-VERSION ?= $(shell git describe --tags --always)
+# that release commit. `--dirty` keeps a working tree with uncommitted changes off
+# a clean commit tag, so a release tag can only be reproduced from the released
+# tree. There is no branch or stage input: the tag names the source.
+VERSION ?= $(shell git describe --tags --always --dirty)
+
+# A tag must be a legal image reference component. The cluster arm validates the
+# same shape in hack/build-cluster.sh; without this the local arm would push a
+# mangled reference instead of refusing.
+ifneq ($(shell printf '%s' '$(VERSION)' | grep -qE '^[A-Za-z0-9._-]+$$' && echo ok),ok)
+$(error VERSION '$(VERSION)' is not a valid image tag ([A-Za-z0-9._-]) — pass VERSION=<tag>)
+endif
 
 .PHONY: build
 build: $(if $(filter local,$(BUILD_TARGET)),check-go-mod)
@@ -39,7 +46,7 @@ ifeq ($(BUILD_TARGET),local)
 	--build-arg BUILD_GIT_VERSION=$$(git describe --tags --always --dirty) \
 	--build-arg BUILD_GIT_COMMIT=$$(git rev-parse --short HEAD) \
 	--build-arg BUILD_DATE=$$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-	-t $(PUSH_REGISTRY)/$(IMAGE):$(VERSION) \
+	-t "$(PUSH_REGISTRY)/$(IMAGE):$(VERSION)" \
 	-f Dockerfile .
 else
 	@echo "$(PUSH_REGISTRY)/$(IMAGE):$(VERSION)"
@@ -65,11 +72,11 @@ check-go-mod:
 
 .PHONY: upload
 upload:
-	docker push $(PUSH_REGISTRY)/$(IMAGE):$(VERSION)
+	docker push "$(PUSH_REGISTRY)/$(IMAGE):$(VERSION)"
 
 .PHONY: clean
 clean:
-	docker rmi $(PUSH_REGISTRY)/$(IMAGE):$(VERSION) || true
+	docker rmi "$(PUSH_REGISTRY)/$(IMAGE):$(VERSION)" || true
 	docker image prune -f || true
 	docker builder prune --all -f || true
 	rm -rf vendor
