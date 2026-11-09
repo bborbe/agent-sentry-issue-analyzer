@@ -63,10 +63,12 @@ VERSION=v0.25.0 make buca   # name the release tag explicitly
 ```
 
 `make buca` composes `docker.io/bborbe/agent-sentry-issue-analyzer:$(VERSION)`.
-`VERSION` defaults to `git describe --tags --always`, so a build works on any
-branch and can never overwrite a released tag; a release build passes the tag
-explicitly. There is no branch or stage input. `buca` stays local-only: it acts
-on this machine's Docker daemon and refuses any `BUILD_TARGET` other than `local`.
+`VERSION` defaults to `git describe --tags --always`, which names the commit:
+`vX.Y.Z-<n>-g<sha>` once HEAD has moved past a release, and exactly `vX.Y.Z` only
+when HEAD *is* that release commit. So a build works on any branch, and only a
+build at a released commit re-pushes that tag with a new digest — build a release
+once. There is no branch or stage input. `buca` stays local-only: it acts on this
+machine's Docker daemon and refuses any `BUILD_TARGET` other than `local`.
 
 ### Cluster arm (Kubernetes Job)
 
