@@ -70,29 +70,29 @@ var _ = Describe("create-tasks task builder", func() {
 	}
 
 	It("derives the same TaskIdentifier for the same (shortId, date)", func() {
-		cmd1 := buildCreateCommand(alert, "2026-08-23", cfg)
-		cmd2 := buildCreateCommand(alert, "2026-08-23", cfg)
+		cmd1 := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
+		cmd2 := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		Expect(cmd1.TaskIdentifier).To(Equal(cmd2.TaskIdentifier))
 	})
 
 	It("derives the deterministic UUID5 task id for (shortId, date)", func() {
-		cmd := buildCreateCommand(alert, "2026-08-23", cfg)
+		cmd := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		Expect(uuid.MustParse(string(cmd.TaskIdentifier)).Version()).To(BeEquivalentTo(5))
 	})
 
 	It("derives a new TaskIdentifier when the date changes", func() {
-		cmd1 := buildCreateCommand(alert, "2026-08-23", cfg)
-		cmd2 := buildCreateCommand(alert, "2026-08-24", cfg)
+		cmd1 := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
+		cmd2 := buildCreateCommand(alert, "2026-08-24", renderBody(alert, "2026-08-24"), cfg)
 		Expect(cmd1.TaskIdentifier).NotTo(Equal(cmd2.TaskIdentifier))
 	})
 
 	It("builds the exact collector title", func() {
-		cmd := buildCreateCommand(alert, "2026-08-23", cfg)
+		cmd := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		Expect(cmd.Title).To(Equal("Analyze Sentry issue SENTRY-TEST-1 - 2026-08-23"))
 	})
 
 	It("frontmatter has all required keys", func() {
-		cmd := buildCreateCommand(alert, "2026-08-23", cfg)
+		cmd := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		for _, key := range []string{
 			"task_type", "assignee", "phase", "status", "stage",
 			"task_identifier", "title", "short_id", "project", "date", "issue_url",
@@ -152,10 +152,16 @@ var _ = Describe("deriveStage", func() {
 			Status:   "in_progress",
 			Phase:    "planning",
 		}
-		cmd := buildCreateCommand(compactAlert{
+		prodAlert := compactAlert{
 			ShortID: "NUKE-PROD-9K",
 			Project: "nuke-prod",
-		}, "2026-08-30", localCfg)
+		}
+		cmd := buildCreateCommand(
+			prodAlert,
+			"2026-08-30",
+			renderBody(prodAlert, "2026-08-30"),
+			localCfg,
+		)
 		Expect(cmd.Frontmatter["stage"]).To(Equal("prod"))
 	})
 })
