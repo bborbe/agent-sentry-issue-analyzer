@@ -118,7 +118,7 @@ spec:
                 --opt build-arg:BUILD_GIT_VERSION="$(cat /meta/git-version)" \
                 --opt build-arg:BUILD_GIT_COMMIT="$(cat /meta/git-commit)" \
                 --opt build-arg:BUILD_DATE="$(cat /meta/source-date-iso)" \
-                --opt build-arg:DOCKER_REGISTRY=docker.io \
+                --opt build-arg:DOCKER_REGISTRY=__DOCKER_REGISTRY__ \
                 --metadata-file /meta/metadata.json \
                 --output type=image,name=__IMAGE__:__TAG__,push=__PUSH__,rewrite-timestamp=true
               cat /meta/metadata.json

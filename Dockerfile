@@ -1,4 +1,4 @@
-ARG DOCKER_REGISTRY=docker.prod.nuke.benjamin-borbe.de:443
+ARG DOCKER_REGISTRY=docker.io
 FROM ${DOCKER_REGISTRY}/golang:1.27.3 AS build
 ARG BUILD_GIT_VERSION=dev
 ARG BUILD_GIT_COMMIT=none
