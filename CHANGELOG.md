@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.24.0
 
 - feat: add `octopus-dev` (`4510753616756816`), `octopus-staging` (`4510753614725200`) and `octopus-prod` (`4510753613414480`) to the repo mapping, so a frame-less Seibert alert resolves to an owning repo and gets a verdict instead of `needs_input`. Every new row is derived from a real frame path — the `module` field of the event's non-vendor frames, read from the seibert-group issues API on 2026-11-09 — and cites the alert short-id it came from; no repo name was guessed. The three lists are ordered by observed frequency per project and name `Seibert-Data/root`, `shared`, `kafka`, `billomat`, `seatable`, `bigquery`, `cdb` and `google`. The projects are shared across every Seibert service, so a positional resolution is recorded as a best effort. `deep-planning.md`'s Scope block no longer declares `Seibert-Data/*` out of scope for these three projects, which would have made the new rows unusable, and `candidateEntries` in `prompts_test.go` now selects rows by repo owner rather than the `bborbe/` prefix so the drift check actually sees them.
 
