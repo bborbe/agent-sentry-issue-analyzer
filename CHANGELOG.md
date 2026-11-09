@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.25.2
 
 - fix: send the analyzer's log lines to stderr so the `jira-proposal:` decision line is readable from the Job log at default verbosity. `glog.Infof` at `pkg/steps/jira-proposal.go:194` is deliberately V(0) so cluster verification can read the emit decision, but glog writes INFO to a file rather than stderr and the image entrypoint carried no `-logtostderr` — a 30-day Cloud Logging scan for glog-format lines (`^[IWEF][0-9]{4} `) over every analyzer pod returned zero. The entrypoint is now `ENTRYPOINT ["/main", "-logtostderr", "-v=2"]`. No code change is needed: `-logtostderr` is a glog flag registered at package init and parsed by `bborbe/argument` through `flag.CommandLine.Parse`, so it cannot fail at startup.
 
