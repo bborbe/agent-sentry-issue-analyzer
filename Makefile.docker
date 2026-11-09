@@ -13,7 +13,7 @@ BUILD_TARGET ?= local
 #
 # DOCKER_REGISTRY is the BASE-IMAGE source and PUSH_REGISTRY the push target —
 # two knobs, deliberately separate, so a repo whose base images resolve from the
-# private mirror still cannot push there ([[Docker Image Mirror Convention]]).
+# private mirror still cannot push there.
 DOCKER_REGISTRY ?= docker.io
 PUSH_REGISTRY ?= docker.io
 IMAGE ?= bborbe/$(SERVICE)
