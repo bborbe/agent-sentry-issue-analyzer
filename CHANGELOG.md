@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.25.1
 
 - fix: drop the mandatory Jira dedup read from the analyzer's execution prompt. `pkg/prompts/execution.md` told every run to call `scripts/jira-read.sh` before assigning a dedup verdict, but the analyzer Config has carried no `jira-read.sh` grant since `937a27b` removed it from `ALLOWED_TOOLS` on 2026-11-05, so the demand outlived the capability: 71 of the 332 analyzer runs carrying a `## Failure` block name `jira-read` (DEV 22, STAGING 12, PROD 37), and the run that could not perform the read could not reach the certainty the fix handoff needs. The `## Mandatory: ask the Jira board before assigning a dedup verdict` section and its three-bullet reading guide are gone, and the `already-tracked` rubric row now rests on the vault-task match alone (`sentry_issue_id` frontmatter). `already-tracked` and `duplicate` stay in the verdict vocabulary — the dedup question is now answered from the vault, which is where the dedup evidence already lives.
 
