@@ -47,59 +47,66 @@ var _ = Describe("RetainAcrossDispatch", func() {
 	BeforeEach(func() { ctx = context.Background() })
 
 	It("returns the body unchanged when there is no store", func() {
-		Expect(
-			verdictrecord.RetainAcrossDispatch(
-				ctx,
-				nil,
-				fixedNow,
-				"id",
-				"OCTOPUS-DEV-4A",
-				freshBody,
-			),
-		).
-			To(Equal(freshBody))
+		body, outcome := verdictrecord.RetainAcrossDispatch(
+			ctx,
+			nil,
+			fixedNow,
+			"id",
+			"OCTOPUS-DEV-4A",
+			freshBody,
+		)
+		Expect(body).To(Equal(freshBody))
+		Expect(outcome).To(Equal(verdictrecord.OutcomeFresh))
+		Expect(outcome.String()).To(Equal("fresh"))
 	})
 
-	It("fails open when the prior body cannot be read", func() {
+	// The 2026-11-11 data loss: the prior-body read was refused for all 110
+	// alerts during a vault outage, the function returned the fresh skeleton
+	// anyway, and the caller published it over two completed tasks. The read
+	// failure must instead refuse the write — the caller has no way to know
+	// whether the task file it is about to replace carries a verdict.
+	It("refuses the write when the prior body cannot be read", func() {
 		store := newFakeStore()
 		store.readErr = context.DeadlineExceeded
-		Expect(
-			verdictrecord.RetainAcrossDispatch(
-				ctx,
-				store,
-				fixedNow,
-				"id",
-				"OCTOPUS-DEV-4A",
-				freshBody,
-			),
-		).
-			To(Equal(freshBody))
+		_, outcome := verdictrecord.RetainAcrossDispatch(
+			ctx,
+			store,
+			fixedNow,
+			"id",
+			"OCTOPUS-DEV-4A",
+			freshBody,
+		)
+		Expect(outcome).To(Equal(verdictrecord.OutcomeRefused))
+		Expect(outcome.String()).To(Equal("refused"))
 		Expect(store.written).To(BeEmpty())
 	})
 
 	It("returns the body unchanged for a first dispatch with no prior sections", func() {
 		store := newFakeStore()
 		store.prior = freshBody
-		Expect(
-			verdictrecord.RetainAcrossDispatch(
-				ctx,
-				store,
-				fixedNow,
-				"id",
-				"OCTOPUS-DEV-4A",
-				freshBody,
-			),
-		).
-			To(Equal(freshBody))
+		body, outcome := verdictrecord.RetainAcrossDispatch(
+			ctx,
+			store,
+			fixedNow,
+			"id",
+			"OCTOPUS-DEV-4A",
+			freshBody,
+		)
+		Expect(body).To(Equal(freshBody))
+		Expect(outcome).To(Equal(verdictrecord.OutcomeFresh))
 		Expect(store.written).To(BeEmpty())
 	})
 
+	// The paired success-path spec. Without it a "fix" that returns the fresh
+	// body on every read — refused or not — passes every refusal spec above.
 	It("splices the prior sections into the fresh body", func() {
 		store := newFakeStore()
 		store.prior = freshBody + "\n" + priorVerdict + "\n\n" + priorFixResult + "\n"
-		got := verdictrecord.RetainAcrossDispatch(
+		got, outcome := verdictrecord.RetainAcrossDispatch(
 			ctx, store, fixedNow, "id", "OCTOPUS-DEV-4A", freshBody,
 		)
+		Expect(outcome).To(Equal(verdictrecord.OutcomeRetained))
+		Expect(outcome.String()).To(Equal("retained"))
 		Expect(got).To(ContainSubstring(priorVerdict))
 		Expect(got).To(ContainSubstring(priorFixResult))
 		Expect(store.readTaskID).To(Equal([]string{"id"}))
@@ -108,7 +115,10 @@ var _ = Describe("RetainAcrossDispatch", func() {
 	It("writes the durable record for the issue", func() {
 		store := newFakeStore()
 		store.prior = freshBody + "\n" + priorVerdict + "\n"
-		verdictrecord.RetainAcrossDispatch(ctx, store, fixedNow, "id", "OCTOPUS-DEV-4A", freshBody)
+		_, outcome := verdictrecord.RetainAcrossDispatch(
+			ctx, store, fixedNow, "id", "OCTOPUS-DEV-4A", freshBody,
+		)
+		Expect(outcome).To(Equal(verdictrecord.OutcomeRetained))
 		Expect(store.written).To(HaveKey("OCTOPUS-DEV-4A"))
 		Expect(
 			store.written["OCTOPUS-DEV-4A"],
@@ -119,26 +129,32 @@ var _ = Describe("RetainAcrossDispatch", func() {
 		Expect(store.written["OCTOPUS-DEV-4A"]).To(ContainSubstring("verdict: real bug"))
 	})
 
+	// A record-write failure is NOT a reason to refuse the write: the splice
+	// still carries the verdict into the task file, so the durable record is
+	// the redundant half. Refusing here would lose the verdict it just read.
 	It("still splices when the record write fails", func() {
 		store := newFakeStore()
 		store.prior = freshBody + "\n" + priorVerdict + "\n"
 		store.writeErr = context.DeadlineExceeded
-		got := verdictrecord.RetainAcrossDispatch(
+		got, outcome := verdictrecord.RetainAcrossDispatch(
 			ctx, store, fixedNow, "id", "OCTOPUS-DEV-4A", freshBody,
 		)
+		Expect(outcome).To(Equal(verdictrecord.OutcomeRetained))
 		Expect(got).To(ContainSubstring(priorVerdict))
 	})
 
 	It("is idempotent across two dispatches over the same content", func() {
 		store := newFakeStore()
 		store.prior = freshBody + "\n" + priorVerdict + "\n\n" + priorFixResult + "\n"
-		first := verdictrecord.RetainAcrossDispatch(
+		first, firstOutcome := verdictrecord.RetainAcrossDispatch(
 			ctx, store, fixedNow, "id", "OCTOPUS-DEV-4A", freshBody,
 		)
+		Expect(firstOutcome).To(Equal(verdictrecord.OutcomeRetained))
 		store.prior = first
-		second := verdictrecord.RetainAcrossDispatch(
+		second, secondOutcome := verdictrecord.RetainAcrossDispatch(
 			ctx, store, fixedNow, "id", "OCTOPUS-DEV-4A", freshBody,
 		)
+		Expect(secondOutcome).To(Equal(verdictrecord.OutcomeRetained))
 		Expect(second).To(Equal(first))
 	})
 })

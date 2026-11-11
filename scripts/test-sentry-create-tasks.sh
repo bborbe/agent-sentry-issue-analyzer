@@ -130,10 +130,13 @@ print(server.server_address[1], flush=True)
 server.serve_forever()
 PY
 
-cat > "${WORK}/create-tasks" <<'STUB'
+cat > "${WORK}/create-tasks" <<STUB
 #!/usr/bin/env bash
 # Stands in for the image's /create-tasks binary. The script only reads the
-# published= count off stdout.
+# published= count off stdout; the argv is recorded so the log flags can be
+# asserted (glog defaults to files under /tmp, and this binary is not the
+# image's /main entrypoint, so without them a refusal never reaches the Job log).
+printf '%s\n' "\$@" > "${WORK}/create-args"
 echo "create-tasks-result: published=1"
 STUB
 chmod +x "${WORK}/create-tasks"
@@ -273,7 +276,12 @@ result="$(run_case "typed-populated" \
 printf '%s\n' "${result}" > "${WORK}/r"
 expect "typed-populated" "${WORK}/r" "observed=true"
 expect "typed-populated" "${WORK}/r" "expected_new=0"
+expect "typed-populated" "${WORK}/r" "refused=0"
 refuse "typed-populated" "${WORK}/r" "status=unobserved"
+# The refusal outcome is only observable in the Job log if the binary logs to
+# stderr — glog writes to /tmp files by default and this is not /main.
+expect "typed-populated" "${WORK}/create-args" "-logtostderr"
+expect "typed-populated" "${WORK}/create-args" "-v=2"
 
 # --- arm 8: a filter that stopped matching is DETECTED, not hidden ----------
 # This is the 2026-09-13 shape and the reason the guard cannot simply be
@@ -290,6 +298,35 @@ expect "broken-filter-detected" "${WORK}/r" "expected_new=1"
 expect "broken-filter-detected" "${WORK}/r" "landed=0"
 expect "broken-filter-detected" "${WORK}/r" "status=failed"
 refuse "broken-filter-detected" "${WORK}/r" "status=unobserved"
+
+# --- arm 9: a withheld write is its own failure, never a quiet skip ---------
+# /create-tasks refuses to publish an alert whose prior task body it could not
+# read: publishing would replace a task file that may already carry a verdict
+# (the 2026-11-11 data loss). The alert was NOT dispatched, so the run must
+# fail and name that cause — reporting `done` would let a vault outage look
+# like a healthy run, which is exactly how the damage stayed invisible.
+#
+# The typed listing is populated here (expected_new=0), so the landing clause
+# cannot fire: only the refused clause can produce this failure.
+cat > "${WORK}/create-tasks" <<'STUB'
+#!/usr/bin/env bash
+echo "create-tasks-result: published=0 failed=0 refused=1 total=1"
+STUB
+chmod +x "${WORK}/create-tasks"
+result="$(run_case "retention-refused" \
+	"{\"sentry\": ${ALERT_JSON}, \"typed\": ${TRACKED_JSON}, \"population\": [{\"path\": \"/vault/tasks/other.md\"}]}")"
+printf '%s\n' "${result}" > "${WORK}/r"
+expect "retention-refused" "${WORK}/r" "refused=1"
+expect "retention-refused" "${WORK}/r" "status=failed"
+refuse "retention-refused" "${WORK}/r" "status=done"
+expect "retention-refused" "${WORK}/err" "the prior verdict could not be read"
+
+# Restore the healthy stub so any later arm sees a clean run.
+cat > "${WORK}/create-tasks" <<'STUB'
+#!/usr/bin/env bash
+echo "create-tasks-result: published=1"
+STUB
+chmod +x "${WORK}/create-tasks"
 
 echo
 if [ "${fails}" -eq 0 ]; then
