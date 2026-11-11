@@ -46,8 +46,11 @@
 # is:unresolved), then a publish to Kafka. Never echoes the token.
 #
 # The script reports TWO numbers, and they are not the same number:
-#   fetched  — active unresolved alerts returned by Sentry
+#   fetched  — active unresolved alerts returned by Sentry after excluding the
+#              sentry-heartbeat liveness issue, i.e. the analysable alerts
 #   landed   — per-alert task files OBSERVED in the vault after publishing
+# The sentry-heartbeat liveness probe is dropped by exact title before this
+# count, so it never becomes a task.
 # `published` (from /create-tasks) is the number of CreateTaskCommands put on
 # Kafka; the controller owns dedup, so published != landed. A run whose
 # publishes all succeed can still land zero task files — that is the
@@ -86,6 +89,17 @@ VAULT_POLL_INTERVAL_SECONDS="${VAULT_POLL_INTERVAL_SECONDS:-5}"
 # cluster — no test and no end-to-end check is possible on a Mac. Production
 # never sets it and gets the absolute path unchanged.
 CREATE_TASKS_BIN="${CREATE_TASKS_BIN:-/create-tasks}"
+
+# The sentry-heartbeat liveness probe (bborbe/sentry-watcher pkg.HeartbeatTag)
+# emits a deliberate level:error event whose message, logger and source tag are
+# all "sentry-heartbeat". Sentry files it as an unresolved issue whose title is
+# that message, so an is:unresolved poll would otherwise create an analyzer task
+# for it every day — a synthetic issue that can never be a real bug. Excluded by
+# EXACT title, mirroring sentry-alert-consumer v0.2.0's exact-match heartbeat
+# skip: never a substring or case-insensitive match, so a real alert whose title
+# merely contains the phrase is still analysed. This is a fixed, narrow
+# exclusion, not a configuration knob.
+HEARTBEAT_TITLE="sentry-heartbeat"
 
 # The per-alert tasks are listed through the typed vault API, by task_type, never
 # by a filename glob. The old glob baked the vault's layout into this image: the
@@ -138,6 +152,7 @@ done
 # (project → slug string).
 python3 -c '
 import json, sys
+heartbeat_title = sys.argv[2]
 issues = []
 for line in open(sys.argv[1]):
     line = line.strip()
@@ -154,9 +169,9 @@ compact = [{
     "userCount": issue["userCount"],
     "permalink": issue["permalink"],
     "project": issue["project"]["slug"],
-} for issue in issues]
+} for issue in issues if issue.get("title") != heartbeat_title]
 json.dump(compact, sys.stdout)
-' "${pages_file}" > "${tmp_file}"
+' "${pages_file}" "${HEARTBEAT_TITLE}" > "${tmp_file}"
 
 count="$(python3 -c 'import json, sys; print(len(json.load(open(sys.argv[1]))))' "${tmp_file}")"
 short_ids="$(python3 -c 'import json, sys; print(" ".join(issue["shortId"] for issue in json.load(open(sys.argv[1]))))' "${tmp_file}")"

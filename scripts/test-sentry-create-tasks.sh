@@ -136,6 +136,13 @@ cat > "${WORK}/create-tasks" <<STUB
 # published= count off stdout; the argv is recorded so the log flags can be
 # asserted (glog defaults to files under /tmp, and this binary is not the
 # image's /main entrypoint, so without them a refusal never reaches the Job log).
+prev=""
+for arg in "\$@"; do
+  if [ "\${prev}" = "--alerts-file" ]; then
+    cp "\${arg}" "${WORK}/alerts-seen"
+  fi
+  prev="\${arg}"
+done
 printf '%s\n' "\$@" > "${WORK}/create-args"
 echo "create-tasks-result: published=1"
 STUB
@@ -145,6 +152,8 @@ chmod +x "${WORK}/create-tasks"
 # filename the script derives: "<shortId> - <UTC date>.md".
 ALERT_JSON='[{"id":"1","shortId":"OCTOPUS-DEV-1","title":"boom","lastSeen":"2026-11-04T10:00:00Z","firstSeen":"2026-11-04T09:00:00Z","count":3,"status":"unresolved","userCount":1,"permalink":"https://example.invalid/1","project":{"slug":"octopus-dev"}}]'
 TRACKED_JSON='[{"path":"/vault/tasks/OCTOPUS-DEV-1 - 2026-11-04.md"}]'
+HEARTBEAT_JSON='[{"id":"2","shortId":"NUKE-PROD-HB","title":"sentry-heartbeat","lastSeen":"2026-11-04T10:00:00Z","firstSeen":"2026-11-04T09:00:00Z","count":1,"status":"unresolved","userCount":0,"permalink":"https://example.invalid/2","project":{"slug":"nuke-prod"}}]'
+SENTRY_WITH_HEARTBEAT="$(python3 -c 'import json, sys; print(json.dumps(json.loads(sys.argv[1]) + json.loads(sys.argv[2])))' "${ALERT_JSON}" "${HEARTBEAT_JSON}")"
 
 # run_case <name> <scenario-json>
 # Starts a mock with that scenario, runs the real script, echoes its result line.
@@ -298,6 +307,23 @@ expect "broken-filter-detected" "${WORK}/r" "expected_new=1"
 expect "broken-filter-detected" "${WORK}/r" "landed=0"
 expect "broken-filter-detected" "${WORK}/r" "status=failed"
 refuse "broken-filter-detected" "${WORK}/r" "status=unobserved"
+
+# --- arm: the sentry-heartbeat liveness issue is never published -------------
+# The 6-hourly heartbeat is a deliberate level:error event, so Sentry files it
+# as an unresolved issue titled "sentry-heartbeat". The poll must drop it by
+# exact title and keep publishing the real alert beside it — a substring or
+# case-insensitive match here would silently drop real alerts.
+rm -f "${WORK}/alerts-seen"
+result="$(run_case "heartbeat-excluded" \
+	"{\"sentry\": ${SENTRY_WITH_HEARTBEAT}, \"typed\": ${TRACKED_JSON}}")"
+printf '%s\n' "${result}" > "${WORK}/r"
+expect "heartbeat-excluded" "${WORK}/r" "fetched=1"
+expect "heartbeat-excluded" "${WORK}/r" "published=1"
+expect "heartbeat-excluded" "${WORK}/r" "expected_new=0"
+expect "heartbeat-excluded" "${WORK}/r" "status=done"
+expect "heartbeat-excluded" "${WORK}/alerts-seen" "OCTOPUS-DEV-1"
+refuse "heartbeat-excluded" "${WORK}/alerts-seen" "NUKE-PROD-HB"
+refuse "heartbeat-excluded" "${WORK}/out" "NUKE-PROD-HB"
 
 # --- arm 9: a withheld write is its own failure, never a quiet skip ---------
 # /create-tasks refuses to publish an alert whose prior task body it could not
