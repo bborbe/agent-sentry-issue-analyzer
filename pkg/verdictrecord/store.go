@@ -183,14 +183,65 @@ func RenderRecord(shortID, verdict, fixResult string, writtenAt time.Time) strin
 	return b.String()
 }
 
+// Outcome is what RetainAcrossDispatch decided about the caller's write.
+//
+// It exists because the two halves of the retention path must fail in opposite
+// directions. A record-write failure degrades to a splice-only write, which is
+// still safe. A PRIOR-BODY READ failure is not: the caller cannot know whether
+// the task file it is about to replace carries a verdict, so the only safe
+// action is to refuse the write. Collapsing both into "return the fresh body"
+// is what destroyed two completed tasks on 2026-11-11.
+type Outcome int
+
+const (
+	// OutcomeFresh means the prior body was read (or retention is not
+	// configured) and carried no retained section: the caller writes the fresh
+	// body unchanged. This is the first-dispatch case, and it is safe because
+	// there is nothing in the file to lose.
+	OutcomeFresh Outcome = iota
+	// OutcomeRetained means the prior body was read and carried a verdict: the
+	// returned body has the prior sections spliced in, and the caller writes it.
+	OutcomeRetained
+	// OutcomeRefused means the prior body could not be read, so the caller MUST
+	// NOT write. The returned body is unusable: publishing it would replace a
+	// task file that may already carry a verdict, which is the silent data loss
+	// this package exists to prevent.
+	OutcomeRefused
+)
+
+// String renders the outcome for the caller's log line, so a refusal is
+// distinguishable in the Job log from a successful retention and from an
+// ordinary run.
+func (o Outcome) String() string {
+	switch o {
+	case OutcomeRetained:
+		return "retained"
+	case OutcomeRefused:
+		return "refused"
+	default:
+		return "fresh"
+	}
+}
+
 // RetainAcrossDispatch reads the task's prior body, persists the durable
 // record, and returns the new body with the prior sections spliced in.
 //
-// It is FAIL-OPEN on every error: a read or record failure returns the fresh
-// body unchanged and logs loudly. The collector must keep publishing — a
-// retention regression degrades to today's behaviour (verdict lost) rather
-// than stopping the whole alert fan-out. The error log is what makes that
-// degradation visible instead of silent.
+// Its contract is asymmetric on purpose, and the asymmetry is the point:
+//
+//   - A prior-body READ failure returns OutcomeRefused. The caller must not
+//     write. It has no way to tell a first dispatch from a re-dispatch of an
+//     analysed task, and writing the fresh skeleton over the latter destroys
+//     its "## Verdict", "## Fix Result" and any "### Jira Proposal" block. A
+//     vault outage is an availability fault: it may cost a delay, never the
+//     evidence.
+//   - A RECORD-WRITE failure does not refuse. The splice still carries the
+//     verdict into the task file, so the durable record is the redundant half;
+//     refusing there would discard the verdict the read just recovered.
+//
+// Refusing the write is NOT refusing the fan-out. The caller skips that one
+// alert and keeps publishing the rest — the original fail-open existed because
+// a retention regression must never stop the whole dispatch, and that concern
+// is preserved.
 func RetainAcrossDispatch(
 	ctx context.Context,
 	store Store,
@@ -198,22 +249,28 @@ func RetainAcrossDispatch(
 	taskID string,
 	shortID string,
 	body string,
-) string {
+) (string, Outcome) {
 	if store == nil {
-		return body
+		return body, OutcomeFresh
 	}
 	prior, err := store.ReadTaskBody(ctx, taskID)
 	if err != nil {
-		glog.Errorf("verdict record: read prior body for %s failed: %v", shortID, err)
-		return body
+		glog.Errorf(
+			"verdict record: REFUSED to publish %s (task %s): prior body unreadable: %v — "+
+				"publishing the fresh body would replace a task file that may carry a verdict",
+			shortID,
+			taskID,
+			err,
+		)
+		return body, OutcomeRefused
 	}
 	verdict, fixResult := Extract(prior)
 	if verdict == "" && fixResult == "" {
-		return body
+		return body, OutcomeFresh
 	}
 	record := RenderRecord(shortID, verdict, fixResult, now)
 	if err := store.WriteRecord(ctx, shortID, record); err != nil {
 		glog.Errorf("verdict record: write record for %s failed: %v", shortID, err)
 	}
-	return Retain(body, verdict, fixResult)
+	return Retain(body, verdict, fixResult), OutcomeRetained
 }

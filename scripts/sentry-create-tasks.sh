@@ -54,12 +54,20 @@
 # 2026-08-26/27/28 outage signature this script exists to surface.
 #
 # The final line is machine-readable and the collector step gates on it:
-#   sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> observed=<true|false> status=<done|failed|unobserved>
+#   sentry-create-tasks-result: fetched=<N> published=<n> expected_new=<k> landed=<m> observed=<true|false> status=<done|failed|unobserved> refused=<r>
 #
 # `observed=false` means the vault could not be read at all — that is NOT the
 # same as an observed zero, and the step treats it as a failure rather than
 # letting an unverifiable run report done. An empty typed listing on a vault that
 # demonstrably holds other tasks is an observed zero, not an unreadable vault.
+#
+# `refused=<r>` is the verdict-retention refusal count: alerts /create-tasks
+# deliberately did NOT publish because the prior task body could not be read, so
+# publishing would have replaced a task file that may already carry a verdict
+# (the 2026-11-11 data loss). It is reported separately from `failed` — nothing
+# errored, a write was withheld — and any non-zero value fails the run, because
+# those alerts were not dispatched. The field is appended after `status=` so a
+# reader matching the line's older prefix keeps working.
 
 set -euo pipefail
 
@@ -233,7 +241,17 @@ fi
 # Publish. NOT exec'd: the script needs a return path so it can observe what
 # actually landed (exec replaces this shell and discards the counts).
 set +e
+# -logtostderr -v=2 is load-bearing for the retention evidence, not cosmetic.
+# glog writes to files under /tmp by default, and /create-tasks is a SEPARATE
+# binary from the image's /main entrypoint — so the `-logtostderr` the
+# Dockerfile puts on /main does not reach it. Without these flags its per-alert
+# `verdict retention outcome=...` lines and the `REFUSED to publish ...` error
+# stay in /tmp inside the pod, and a refusal would be visible only as a count in
+# this script's own result line. Both flags are glog flags registered at package
+# init and parsed through flag.CommandLine, so passing them cannot fail startup.
 create_out="$("${CREATE_TASKS_BIN}" \
+  -logtostderr \
+  -v=2 \
   --alerts-file "${tmp_file}" \
   --kafka-brokers "${CREATE_TASKS_KAFKA_BROKERS:-${KAFKA_BROKERS}}" \
   --topic-prefix "${TOPIC_PREFIX}" \
@@ -248,6 +266,14 @@ set -e
 published="$(printf '%s\n' "${create_out}" \
   | sed -n 's/^create-tasks-result: published=\([0-9]*\).*/\1/p' | tail -1)"
 published="${published:-0}"
+
+# Refusals are counted apart from publish failures: /create-tasks withheld the
+# write for these alerts because the prior task body could not be read, so it
+# could not know whether publishing would replace a verdict. Absent (an older
+# binary) reads as 0.
+refused="$(printf '%s\n' "${create_out}" \
+  | sed -n 's/^create-tasks-result: .*refused=\([0-9]*\).*/\1/p' | tail -1)"
+refused="${refused:-0}"
 
 # Observe how many of the expected task files actually landed. The controller
 # materializes them asynchronously off Kafka, so this is a bounded poll, not a
@@ -289,9 +315,17 @@ fi
 # reads published=<fetched>; published=0 means the publish itself failed. An
 # UNOBSERVED run is neither: it cannot prove anything, so it must not report
 # done either.
+#
+# A REFUSED alert is checked first, because it is the one failure whose cause
+# the other rules would misname: it is not a publish fault and not an
+# observation gap, it is a deliberate withheld write, and the operator's action
+# is to re-run once the vault is back rather than to investigate the pipeline.
 status="done"
 failure_reason=""
-if [ "${observed}" != "true" ]; then
+if [ "${refused}" -gt 0 ]; then
+  status="failed"
+  failure_reason="${refused} of ${count} alert(s) refused: the prior verdict could not be read, so publishing would have replaced a task file that may carry one — re-run once the vault is reachable (create-tasks rc=${create_rc})"
+elif [ "${observed}" != "true" ]; then
   status="unobserved"
 elif [ "${count}" -gt 0 ] && [ "${published}" -eq 0 ]; then
   status="failed"
@@ -301,7 +335,7 @@ elif [ "${expected_new}" -gt 0 ] && [ "${landed}" -eq 0 ]; then
   failure_reason="${expected_new} new alert(s) expected but 0 task files landed (create-tasks rc=${create_rc})"
 fi
 
-result_line="sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} observed=${observed} status=${status}"
+result_line="sentry-create-tasks-result: fetched=${count} published=${published} expected_new=${expected_new} landed=${landed} observed=${observed} status=${status} refused=${refused}"
 echo "${result_line}"
 # Write it for the Go step as well. The script computes every count itself, so
 # handing them to the model to re-type adds a failure mode without adding

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	task "github.com/bborbe/agent/command/task"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,58 @@ var _ = Describe("CreateTasks", func() {
 var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
+
+// fakeCreateSender records what the fan-out published, and can be told to fail
+// one title so the publish-error arm is exercised without a Kafka broker.
+type fakeCreateSender struct {
+	sent       []task.CreateCommand
+	failTitles map[string]bool
+}
+
+func (f *fakeCreateSender) SendCommand(_ context.Context, cmd task.CreateCommand) error {
+	if f.failTitles[cmd.Title] {
+		return context.DeadlineExceeded
+	}
+	f.sent = append(f.sent, cmd)
+	return nil
+}
+
+func (f *fakeCreateSender) titles() []string {
+	titles := make([]string, 0, len(f.sent))
+	for _, cmd := range f.sent {
+		titles = append(titles, cmd.Title)
+	}
+	return titles
+}
+
+// fakeVerdictStore answers the prior-body read per task id, so one alert in a
+// run can be refused while its siblings are read normally — the 2026-11-11
+// condition, where the vault was unreachable for the whole fan-out.
+type fakeVerdictStore struct {
+	priors   map[string]string
+	readErrs map[string]error
+	written  map[string]string
+}
+
+func newFakeVerdictStore() *fakeVerdictStore {
+	return &fakeVerdictStore{
+		priors:   map[string]string{},
+		readErrs: map[string]error{},
+		written:  map[string]string{},
+	}
+}
+
+func (f *fakeVerdictStore) ReadTaskBody(_ context.Context, taskID string) (string, error) {
+	if err := f.readErrs[taskID]; err != nil {
+		return "", err
+	}
+	return f.priors[taskID], nil
+}
+
+func (f *fakeVerdictStore) WriteRecord(_ context.Context, shortID, content string) error {
+	f.written[shortID] = content
+	return nil
+}
 
 var _ = Describe("create-tasks task builder", func() {
 	var (
@@ -163,6 +216,138 @@ var _ = Describe("deriveStage", func() {
 			localCfg,
 		)
 		Expect(cmd.Frontmatter["stage"]).To(Equal("prod"))
+	})
+})
+
+var _ = Describe("dispatchAlerts", func() {
+	// The fan-out contract the fix must not break: a retention refusal narrows
+	// what may be WRITTEN (one alert's create command), never what may be
+	// DISPATCHED (the remaining alerts in the same run). A fix that returns an
+	// error out of the loop instead — the shape the fail-open was written to
+	// avoid — fails these specs.
+	var (
+		ctx context.Context
+		cfg taskConfig
+		now time.Time
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		cfg = taskConfig{
+			Stage:    "dev",
+			Assignee: "sentry-issue-analyzer",
+			Status:   "in_progress",
+			Phase:    "planning",
+		}
+		now = time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC)
+	})
+
+	newAlert := func(shortID string) compactAlert {
+		return compactAlert{
+			ID:        shortID,
+			ShortID:   shortID,
+			Title:     "Example unresolved error",
+			LastSeen:  "2026-11-11T04:00:00Z",
+			Status:    "unresolved",
+			Permalink: "https://bborbe.sentry.io/organizations/bborbe/issues/1/",
+			Project:   "nuke-dev",
+		}
+	}
+
+	taskIDOf := func(alert compactAlert) string {
+		return deriveTaskID(alert.ShortID, "2026-11-11").String()
+	}
+
+	It("publishes every alert when every retention read succeeds", func() {
+		alerts := []compactAlert{
+			newAlert("OCTOPUS-DEV-1A"),
+			newAlert("OCTOPUS-DEV-2B"),
+			newAlert("OCTOPUS-DEV-3C"),
+		}
+		store := newFakeVerdictStore()
+		sender := &fakeCreateSender{}
+
+		published, failed, refused, err := dispatchAlerts(ctx, alerts, cfg, store, sender, now)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(published).To(Equal(3))
+		Expect(failed).To(Equal(0))
+		Expect(refused).To(Equal(0))
+		Expect(sender.titles()).To(HaveLen(3))
+	})
+
+	It("skips only the refused alert and still publishes the rest", func() {
+		alerts := []compactAlert{
+			newAlert("OCTOPUS-DEV-1A"),
+			newAlert("OCTOPUS-DEV-2B"),
+			newAlert("OCTOPUS-DEV-3C"),
+		}
+		store := newFakeVerdictStore()
+		store.readErrs[taskIDOf(alerts[1])] = context.DeadlineExceeded
+		sender := &fakeCreateSender{}
+
+		published, failed, refused, err := dispatchAlerts(ctx, alerts, cfg, store, sender, now)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(published).To(Equal(2))
+		Expect(failed).To(Equal(0))
+		Expect(refused).To(Equal(1))
+		Expect(sender.titles()).To(Equal([]string{
+			"Analyze Sentry issue OCTOPUS-DEV-1A - 2026-11-11",
+			"Analyze Sentry issue OCTOPUS-DEV-3C - 2026-11-11",
+		}))
+	})
+
+	// SC1 at the caller: the refused alert's command is never sent, so no body
+	// that could replace an analysed task ever reaches the controller.
+	It("sends no command at all for a refused alert", func() {
+		alerts := []compactAlert{newAlert("OCTOPUS-PROD-8W")}
+		store := newFakeVerdictStore()
+		store.readErrs[taskIDOf(alerts[0])] = context.DeadlineExceeded
+		sender := &fakeCreateSender{}
+
+		published, _, refused, err := dispatchAlerts(ctx, alerts, cfg, store, sender, now)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(published).To(Equal(0))
+		Expect(refused).To(Equal(1))
+		Expect(sender.sent).To(BeEmpty())
+	})
+
+	// SC5 at the caller: the success path is unchanged — a reachable read still
+	// splices the prior verdict into the published body.
+	It("publishes the spliced body when the retention read succeeds", func() {
+		alerts := []compactAlert{newAlert("OCTOPUS-PROD-8W")}
+		store := newFakeVerdictStore()
+		store.priors[taskIDOf(alerts[0])] = "## Verdict\n\nverdict: real bug\n"
+		sender := &fakeCreateSender{}
+
+		_, _, refused, err := dispatchAlerts(ctx, alerts, cfg, store, sender, now)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(refused).To(Equal(0))
+		Expect(sender.sent).To(HaveLen(1))
+		Expect(sender.sent[0].Body).To(ContainSubstring("verdict: real bug"))
+		Expect(store.written).To(HaveKey("OCTOPUS-PROD-8W"))
+	})
+
+	It("keeps publishing after a publish failure", func() {
+		alerts := []compactAlert{
+			newAlert("OCTOPUS-DEV-1A"),
+			newAlert("OCTOPUS-DEV-2B"),
+		}
+		sender := &fakeCreateSender{failTitles: map[string]bool{
+			"Analyze Sentry issue OCTOPUS-DEV-1A - 2026-11-11": true,
+		}}
+
+		published, failed, refused, err := dispatchAlerts(
+			ctx, alerts, cfg, newFakeVerdictStore(), sender, now,
+		)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(published).To(Equal(1))
+		Expect(failed).To(Equal(1))
+		Expect(refused).To(Equal(0))
 	})
 })
 

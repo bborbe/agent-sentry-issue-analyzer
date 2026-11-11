@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: refuse the re-dispatch write when the prior task body cannot be read, instead of publishing a fresh analyzer skeleton over an analysed task. `RetainAcrossDispatch` was fail-open on every error, so a refused `GET /api/v1/tasks/{id}` returned the freshly rendered body and `cmd/create-tasks` published it with `ReopenTerminal`, which `vault-api` applies by REPLACING the task file — on 2026-11-11 a 30-hour `vault-api-agent` outage refused all 110 prior-body reads and the reopen gutted the `## Verdict`, `## Fix Result` and `### Jira Proposal` of two `completed` tasks (`OCTOPUS-PROD-8W` −127 lines, `OCTOPUS-STAGING-2S` −150), leaving the evidence only in git history. The function now returns an `Outcome` (`fresh` / `retained` / `refused`) alongside the body: a read failure is `refused`, and the caller skips that one alert's publish and logs `verdict record: REFUSED to publish …` — the refusal narrows what may be WRITTEN, never what may be DISPATCHED, so the rest of the fan-out still publishes. The success path is unchanged (the prior sections are still spliced and the durable record written), and a 404 still reads as `fresh`, so a first dispatch and a date rollover are untouched. `create-tasks-result:` gains `refused=<n>`, and `scripts/sentry-create-tasks.sh` turns any non-zero refusal into `status=failed` with a cause naming the withheld write — an outage that costs a delay must not also be silent.
+
 ## v0.25.4
 
 - chore: update Go to 1.27.4 and github.com/bborbe/agent to v0.141.0, github.com/bborbe/kafka to v1.29.13, github.com/bborbe/log to v1.7.8, github.com/bborbe/maintainer to v0.51.2, github.com/bborbe/service to v1.11.3, github.com/bborbe/time to v1.27.28, github.com/bborbe/vault-cli to v0.192.1
