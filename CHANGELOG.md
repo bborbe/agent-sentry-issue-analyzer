@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: update Go to 1.27.4 and github.com/bborbe/agent to v0.141.0, github.com/bborbe/kafka to v1.29.13, github.com/bborbe/log to v1.7.8, github.com/bborbe/maintainer to v0.51.2, github.com/bborbe/service to v1.11.3, github.com/bborbe/time to v1.27.28, github.com/bborbe/vault-cli to v0.192.1
+
 ## v0.25.3
 
 - fix: retain a task's `## Verdict` and `## Fix Result` across a re-dispatch instead of letting the reopen discard them. `cmd/create-tasks` renders a fresh body for every active alert, and `agent-task-controller` posts it with `ReopenTerminal: true`, which `vault-api`'s `reopenTerminalTask` applies by REPLACING the task file's frontmatter and body rather than merging into them — so re-dispatching an alert a previous run had already judged silently destroyed that run's verdict, the evidence the goal's SC10/SC11 are measured on (measured on `OCTOPUS-DEV-4A`: `a9ff681424` carries `verdict: real bug` + a `## Fix Result`, `ec8548285b` carries neither; and on `OCTOPUS-DEV-4G`: `0e45510d28` carries `verdict: noise`, `86a84a2490` is a 20-line re-created template). The producer now reads the prior body back (`GET /api/v1/tasks/{id}`), persists it to a durable per-issue record (`verdicts/<short-id>.md` through git-rest, carrying `sentry_issue_id` and `written_at`), and splices the two sections into the fresh body before publishing. Retention is opt-in on `VAULT_API_URL` + `GIT_REST_URL` and fails open — a read or record-write error returns the fresh body unchanged and logs at error level, so the alert fan-out never stops on a retention fault. `vault-api`'s replace-on-reopen is deliberately untouched, so no other consumer of the reopen mode changes behaviour.
