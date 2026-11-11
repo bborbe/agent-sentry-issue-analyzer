@@ -275,40 +275,16 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 
 	verdictStore := a.buildVerdictStore()
 
-	failed := 0
-	for _, alert := range alerts {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		date, err := deriveDate(ctx, alert.LastSeen)
-		if err != nil {
-			return errors.Wrapf(ctx, err, "derive date for %s", alert.ShortID)
-		}
-		// Splice any verdict a previous dispatch of this issue left behind, and
-		// persist it durably first. RetainAcrossDispatch fails open: on a read or
-		// write error the fresh body is returned unchanged, so the fan-out keeps
-		// going and the regression is logged rather than swallowed.
-		body := verdictrecord.RetainAcrossDispatch(
-			ctx,
-			verdictStore,
-			time.Now(),
-			deriveTaskID(alert.ShortID, date).String(),
-			alert.ShortID,
-			renderBody(alert, date),
-		)
-		cmd := buildCreateCommand(alert, date, body, cfg)
-		if err := createSender.SendCommand(ctx, cmd); err != nil {
-			glog.Errorf(
-				"publish create-task failed taskID=%s title=%q err=%v",
-				string(cmd.TaskIdentifier),
-				cmd.Title,
-				err,
-			)
-			failed++
-			continue
-		}
+	published, failed, refused, err := dispatchAlerts(
+		ctx,
+		alerts,
+		cfg,
+		verdictStore,
+		createSender,
+		time.Now(),
+	)
+	if err != nil {
+		return err
 	}
 	// Emit the publish result on stdout in a machine-readable form so the
 	// calling script can report a published count rather than echoing the
@@ -316,9 +292,10 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 	// when the run fails. This is the PUBLISH count: the controller owns dedup,
 	// so published != landed (see scripts/sentry-create-tasks.sh).
 	fmt.Printf(
-		"create-tasks-result: published=%d failed=%d total=%d\n",
-		len(alerts)-failed,
+		"create-tasks-result: published=%d failed=%d refused=%d total=%d\n",
+		published,
 		failed,
+		refused,
 		len(alerts),
 	)
 	if failed > 0 {
@@ -329,6 +306,92 @@ func (a *application) Run(ctx context.Context, _ libsentry.Client) error {
 			len(alerts),
 		)
 	}
-	glog.V(2).Infof("published %d create-task commands", len(alerts))
+	// A refusal is a failure of the run, not a quiet skip: those alerts were
+	// not dispatched, and the caller (scripts/sentry-create-tasks.sh) turns this
+	// into an alertable `status=failed`. The vault being unreadable must be
+	// loud — the whole point of the 2026-11-11 repair is that the outage was
+	// invisible everywhere a human looks.
+	if refused > 0 {
+		return errors.Errorf(
+			ctx,
+			"%d of %d alerts refused: the prior verdict could not be read, so publishing would have replaced a task file that may carry one",
+			refused,
+			len(alerts),
+		)
+	}
+	glog.V(2).Infof("published %d create-task commands", published)
 	return nil
+}
+
+// dispatchAlerts publishes one CreateTaskCommand per alert, splicing any verdict
+// a previous dispatch left behind. It returns the counts the result line
+// reports.
+//
+// A retention refusal skips that ONE alert's publish and keeps going. The
+// refusal narrows what may be WRITTEN, never what may be DISPATCHED: the other
+// alerts in the run still publish, which is the property the original fail-open
+// was written to protect. Only a cancelled context or a malformed alert aborts
+// the run — a retention fault never does.
+func dispatchAlerts(
+	ctx context.Context,
+	alerts []compactAlert,
+	cfg taskConfig,
+	store verdictrecord.Store,
+	sender task.CreateCommandSender,
+	now time.Time,
+) (published int, failed int, refused int, err error) {
+	for _, alert := range alerts {
+		select {
+		case <-ctx.Done():
+			return published, failed, refused, ctx.Err()
+		default:
+		}
+		date, derr := deriveDate(ctx, alert.LastSeen)
+		if derr != nil {
+			return published, failed, refused, errors.Wrapf(
+				ctx, derr, "derive date for %s", alert.ShortID,
+			)
+		}
+		body, outcome := verdictrecord.RetainAcrossDispatch(
+			ctx,
+			store,
+			now,
+			deriveTaskID(alert.ShortID, date).String(),
+			alert.ShortID,
+			renderBody(alert, date),
+		)
+		if outcome == verdictrecord.OutcomeRefused {
+			// Do NOT publish. The fresh body would replace a task file this run
+			// could not read, and that file may already carry a verdict.
+			refused++
+			glog.Errorf(
+				"verdict retention outcome=%s: skipped publishing %s (%s) — prior body unreadable",
+				outcome,
+				alert.ShortID,
+				date,
+			)
+			continue
+		}
+		// One line per published alert, carrying the retention outcome, so a run's
+		// fan-out is auditable from the Job log without reading the vault.
+		glog.V(2).Infof(
+			"verdict retention outcome=%s: publishing %s (%s)",
+			outcome,
+			alert.ShortID,
+			date,
+		)
+		cmd := buildCreateCommand(alert, date, body, cfg)
+		if serr := sender.SendCommand(ctx, cmd); serr != nil {
+			glog.Errorf(
+				"publish create-task failed taskID=%s title=%q err=%v",
+				string(cmd.TaskIdentifier),
+				cmd.Title,
+				serr,
+			)
+			failed++
+			continue
+		}
+		published++
+	}
+	return published, failed, refused, nil
 }
