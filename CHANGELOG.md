@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: add a `check-task-link` gate that fails a PR whose body carries no `Task: <task_identifier>` line, and install Trivy from the upstream script so `test` stops failing on the retired keyring helper
+
 ## v0.25.5
 
 - fix: refuse the re-dispatch write when the prior task body cannot be read, instead of publishing a fresh analyzer skeleton over an analysed task. `RetainAcrossDispatch` was fail-open on every error, so a refused `GET /api/v1/tasks/{id}` returned the freshly rendered body and `cmd/create-tasks` published it with `ReopenTerminal`, which `vault-api` applies by REPLACING the task file — on 2026-11-11 a 30-hour `vault-api-agent` outage refused all 110 prior-body reads and the reopen gutted the `## Verdict`, `## Fix Result` and `### Jira Proposal` of two `completed` tasks (`OCTOPUS-PROD-8W` −127 lines, `OCTOPUS-STAGING-2S` −150), leaving the evidence only in git history. The function now returns an `Outcome` (`fresh` / `retained` / `refused`) alongside the body: a read failure is `refused`, and the caller skips that one alert's publish and logs `verdict record: REFUSED to publish …` — the refusal narrows what may be WRITTEN, never what may be DISPATCHED, so the rest of the fan-out still publishes. The success path is unchanged (the prior sections are still spliced and the durable record written), and a 404 still reads as `fresh`, so a first dispatch and a date rollover are untouched. `create-tasks-result:` gains `refused=<n>`, and `scripts/sentry-create-tasks.sh` turns any non-zero refusal into `status=failed` with a cause naming the withheld write — an outage that costs a delay must not also be silent.
