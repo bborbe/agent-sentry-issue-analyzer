@@ -180,6 +180,25 @@ func (r *sentryIdentityResolver) Resolve(ctx context.Context, reference string) 
 	return issue.ShortID, nil
 }
 
+// ResolveTaskIdentity returns the canonical identity a verdict should carry.
+// The task's own frontmatter identity is authoritative: when it is a safe
+// bare reference it is returned without a lookup, so a Sentry outage cannot
+// abort a run that already knows the identity. Tasks that carry no
+// frontmatter identity fall back to resolver.Resolve.
+func ResolveTaskIdentity(
+	ctx context.Context,
+	resolver Resolver,
+	frontmatterID string,
+	reference string,
+) (string, error) {
+	if id := strings.TrimSpace(frontmatterID); id != "" {
+		if err := validateReference(ctx, id); err == nil {
+			return id, nil
+		}
+	}
+	return resolver.Resolve(ctx, reference)
+}
+
 // referencePattern is the accepted shape of a bare identity: it must start with
 // an alphanumeric and hold only alphanumerics, dot, underscore and dash. Every
 // character the security requirements name as hostile — "/", "?", "\",

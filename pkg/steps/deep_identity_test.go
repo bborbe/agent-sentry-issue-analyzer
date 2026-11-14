@@ -80,6 +80,18 @@ var _ = Describe("deep identity normalization", func() {
 		return md
 	}
 
+	// buildTaskWithShortID is the collector's task shape: the authoritative
+	// Sentry identity is already in the frontmatter. The existing buildTask
+	// deliberately carries none, so the fallback specs keep exercising it.
+	buildTaskWithShortID := func(shortID string) *agentlib.Markdown {
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\nphase: execution\nassignee: sentry-analyzer-agent\ntask_type: sentry-deep-analyzer\nshort_id: "+shortID+"\n---\n\n## Context\n\ndeep analysis\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		return md
+	}
+
 	verdictBody := func(md *agentlib.Markdown) string {
 		section, ok := md.FindSection("## Verdict")
 		Expect(ok).To(BeTrue())
@@ -188,6 +200,45 @@ var _ = Describe("deep identity normalization", func() {
 		Expect(echo.ResolveCallCount()).To(Equal(1))
 		_, reference := echo.ResolveArgsForCall(0)
 		Expect(reference).To(Equal(derivedKey))
+	})
+
+	// The reported bug: a transient Sentry 500 on the model-authored reference
+	// aborted the deep run after analysis but before the verdict was written. A
+	// task that already carries the authoritative short_id must finish writing
+	// its verdict with no lookup at all.
+	It("writes the frontmatter identity without a lookup when Sentry is unavailable", func() {
+		resolver := &identitymocks.Resolver{}
+		resolver.ResolveReturns(
+			"",
+			errors.New(ctx, "identity: fetch issue NUKE-DEV-G0: unexpected status 500"),
+		)
+		runner.RunReturns(&claudelib.ClaudeResult{Result: deepBlock("NUKE-DEV-G0")}, nil)
+
+		md := buildTaskWithShortID("NUKE-DEV-G0")
+		_, err := buildStep(resolver).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-G0"))
+		Expect(resolver.ResolveCallCount()).To(BeZero())
+	})
+
+	// The frontmatter is authoritative over the model's spelling: even when the
+	// model wrote a different (numeric) form of the same issue, the written
+	// identity is the one the collector recorded.
+	It("prefers the frontmatter identity over a different model spelling", func() {
+		resolver := &identitymocks.Resolver{}
+		resolver.ResolveReturns(
+			"",
+			errors.New(ctx, "identity: fetch issue NUKE-DEV-G0: unexpected status 500"),
+		)
+		runner.RunReturns(&claudelib.ClaudeResult{Result: deepBlock("7791255664")}, nil)
+
+		md := buildTaskWithShortID("NUKE-DEV-G0")
+		_, err := buildStep(resolver).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-G0"))
+		Expect(resolver.ResolveCallCount()).To(BeZero())
 	})
 
 	// AC5 (deep half) — an unresolvable identity fails the run. The model's raw
