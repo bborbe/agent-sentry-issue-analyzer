@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.26.0
 
 - feat: add a `check-task-link` gate that fails a PR whose body carries no `Task: <task_identifier>` line, and install Trivy from the upstream script so `test` stops failing on the retired keyring helper
 
