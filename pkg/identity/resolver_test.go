@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bborbe/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -253,4 +254,84 @@ var _ = Describe("IsDerivedKey", func() {
 		Entry("hash of the wrong length", "684522b30d7431dfb5371ef57d0fd43", false),
 		Entry("empty", "", false),
 	)
+})
+
+// taskIdentityResolver is a local fake for the ResolveTaskIdentity specs. It
+// counts calls and records the reference it was handed, so a frontmatter-first
+// path can be told apart from the fallback.
+type taskIdentityResolver struct {
+	result    string
+	err       error
+	calls     int
+	reference string
+}
+
+func (f *taskIdentityResolver) Resolve(_ context.Context, reference string) (string, error) {
+	f.calls++
+	f.reference = reference
+	return f.result, f.err
+}
+
+var _ = Describe("ResolveTaskIdentity", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	DescribeTable("returns a safe frontmatter id verbatim without a lookup",
+		func(frontmatterID string) {
+			// The fake is configured to fail: a call would surface as an error,
+			// proving the frontmatter path never reaches it.
+			resolver := &taskIdentityResolver{
+				result: "",
+				err:    errors.New(ctx, "identity: fetch issue NUKE-DEV-G0: unexpected status 500"),
+			}
+
+			got, err := identity.ResolveTaskIdentity(ctx, resolver, frontmatterID, "7791255664")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(Equal(frontmatterID))
+			Expect(resolver.calls).To(BeZero())
+		},
+		Entry("short id", "NUKE-DEV-G0"),
+		Entry("derived key", "684522b30d7431dfb5371ef57d0fd431"),
+		Entry("numeric id", "7791255664"),
+	)
+
+	It("falls back to the resolver when the frontmatter id is empty", func() {
+		resolver := &taskIdentityResolver{result: "NUKE-DEV-FB"}
+
+		got, err := identity.ResolveTaskIdentity(ctx, resolver, "", "7791255664")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("NUKE-DEV-FB"))
+		Expect(resolver.calls).To(Equal(1))
+		Expect(resolver.reference).To(Equal("7791255664"))
+	})
+
+	It("falls back to the resolver when the frontmatter id is unsafe", func() {
+		resolver := &taskIdentityResolver{result: "NUKE-DEV-FB"}
+
+		got, err := identity.ResolveTaskIdentity(
+			ctx,
+			resolver,
+			"../../projects/other",
+			"7791255664",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("NUKE-DEV-FB"))
+		Expect(resolver.calls).To(Equal(1))
+		Expect(resolver.reference).To(Equal("7791255664"))
+	})
+
+	It("propagates the fallback error", func() {
+		resolver := &taskIdentityResolver{
+			err: errors.New(ctx, "identity: fetch issue 7791255664: unexpected status 404"),
+		}
+
+		got, err := identity.ResolveTaskIdentity(ctx, resolver, "", "7791255664")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("unexpected status 404"))
+		Expect(got).To(BeEmpty())
+		Expect(resolver.calls).To(Equal(1))
+	})
 })

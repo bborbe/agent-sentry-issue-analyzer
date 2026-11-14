@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: prefer the task's own `short_id` frontmatter over a live Sentry lookup of the model-written `sentry_issue_id`, so a verdict still writes the authoritative identity when Sentry is transiently unavailable
+
 ## v0.26.0
 
 - feat: add a `check-task-link` gate that fails a PR whose body carries no `Task: <task_identifier>` line, and install Trivy from the upstream script so `test` stops failing on the retired keyring helper

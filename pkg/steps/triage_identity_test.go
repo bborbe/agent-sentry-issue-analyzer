@@ -96,6 +96,18 @@ var _ = Describe("triage identity normalization", func() {
 		return md
 	}
 
+	// buildTaskWithShortID is the collector's task shape: the authoritative
+	// Sentry identity is already in the frontmatter. The existing buildTask
+	// deliberately carries none, so the fallback specs keep exercising it.
+	buildTaskWithShortID := func(shortID string) *agentlib.Markdown {
+		md, err := agentlib.ParseMarkdown(
+			ctx,
+			"---\nstatus: in_progress\nphase: execution\nassignee: sentry-issue-analyzer\ntask_type: sentry-issue-analyzer\nshort_id: "+shortID+"\n---\n\n## Analysis\n\nroot cause\n",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		return md
+	}
+
 	// verdictBody returns the raw body of the ## Verdict section as written.
 	verdictBody := func(md *agentlib.Markdown) string {
 		section, ok := md.FindSection("## Verdict")
@@ -196,6 +208,49 @@ var _ = Describe("triage identity normalization", func() {
 		Expect(resolver.ResolveCallCount()).To(Equal(1))
 		_, reference := resolver.ResolveArgsForCall(0)
 		Expect(reference).To(Equal(derivedKey))
+	})
+
+	// The reported bug: a transient Sentry 500 on the model-authored reference
+	// aborted the run after analysis but before the verdict was written. A task
+	// that already carries the authoritative short_id must finish writing its
+	// verdict with no lookup at all.
+	It("writes the frontmatter identity without a lookup when Sentry is unavailable", func() {
+		resolver := &identitymocks.Resolver{}
+		resolver.ResolveReturns(
+			"",
+			errors.New(ctx, "identity: fetch issue NUKE-DEV-G0: unexpected status 500"),
+		)
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "```yaml\nsentry_issue_id: NUKE-DEV-G0\nverdict: noise\nreason: rate < 1/day\nlive_event_count: 3\n```",
+		}, nil)
+
+		md := buildTaskWithShortID("NUKE-DEV-G0")
+		_, err := buildStep(resolver).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-G0"))
+		Expect(resolver.ResolveCallCount()).To(BeZero())
+	})
+
+	// The frontmatter is authoritative over the model's spelling: even when the
+	// model wrote a different (numeric) form of the same issue, the written
+	// identity is the one the collector recorded.
+	It("prefers the frontmatter identity over a different model spelling", func() {
+		resolver := &identitymocks.Resolver{}
+		resolver.ResolveReturns(
+			"",
+			errors.New(ctx, "identity: fetch issue NUKE-DEV-G0: unexpected status 500"),
+		)
+		runner.RunReturns(&claudelib.ClaudeResult{
+			Result: "```yaml\nsentry_issue_id: 7791255664\nverdict: noise\nreason: rate < 1/day\nlive_event_count: 3\n```",
+		}, nil)
+
+		md := buildTaskWithShortID("NUKE-DEV-G0")
+		_, err := buildStep(resolver).Run(ctx, md)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(identityLine(md)).To(Equal("sentry_issue_id: NUKE-DEV-G0"))
+		Expect(resolver.ResolveCallCount()).To(BeZero())
 	})
 
 	// AC5 — an unresolvable identity fails the run. The model's raw form is
