@@ -11,10 +11,12 @@ package identity
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bborbe/errors"
 	"github.com/golang/glog"
@@ -34,6 +36,16 @@ const DefaultSentryBaseURL = "https://bborbe.sentry.io/api/0"
 // (NUKE-PROD-BX). Only /organizations/<org>/issues/<id>/ accepts both, so
 // dropping this segment 404s every lookup.
 const DefaultSentryOrg = "bborbe"
+
+const (
+	// defaultHTTPClientTimeout bounds one identity lookup, including connect,
+	// redirects and body read, when the caller supplies no timeout of its own.
+	defaultHTTPClientTimeout = 10 * time.Second
+	// retryBaseDelay is the first backoff wait; each subsequent retry doubles it.
+	retryBaseDelay = 250 * time.Millisecond
+	// errorBodyLimit caps how much of a non-200 body reaches the error.
+	errorBodyLimit = 512
+)
 
 // APIBaseURL derives the Sentry API base from the value a lane carries in
 // SENTRY_URL. The Config CRs set the UI form (`https://<org>.sentry.io`), while
@@ -84,19 +96,25 @@ type sentryIssue struct {
 	ShortID string `json:"shortId"`
 }
 
-// sentryIdentityResolver is the API-backed Resolver.
+// sentryIdentityResolver is the API-backed Resolver. It retries only transient
+// failures (429 and 5xx) up to len(retryDelays) times, never a deterministic
+// 404, and always issues its requests through a client that carries a timeout.
 type sentryIdentityResolver struct {
-	client  *http.Client
-	baseURL string
-	org     string
-	token   string
+	client      *http.Client
+	baseURL     string
+	org         string
+	token       string
+	retryDelays []time.Duration
 }
 
 // NewSentryIdentityResolver constructs the API-backed identity resolver. An
 // empty baseURL falls back to DefaultSentryBaseURL and an empty org to
 // DefaultSentryOrg; the client is injectable so the HTTP boundary can be
-// exercised against a test server. The token is the existing SENTRY_API_TOKEN
-// plumbing — this resolver adds no token path of its own.
+// exercised against a test server. A nil client gets a client with
+// defaultHTTPClientTimeout, and a caller-supplied client with no timeout is
+// shallow-copied before the timeout is set, so the caller's client is never
+// mutated. The token is the existing SENTRY_API_TOKEN plumbing — this resolver
+// adds no token path of its own.
 func NewSentryIdentityResolver(
 	client *http.Client,
 	baseURL string,
@@ -109,10 +127,28 @@ func NewSentryIdentityResolver(
 	if org == "" {
 		org = DefaultSentryOrg
 	}
-	if client == nil {
-		client = http.DefaultClient
+	client = clientWithTimeout(client)
+	return &sentryIdentityResolver{
+		client:      client,
+		baseURL:     baseURL,
+		org:         org,
+		token:       token,
+		retryDelays: []time.Duration{retryBaseDelay, 2 * retryBaseDelay},
 	}
-	return &sentryIdentityResolver{client: client, baseURL: baseURL, org: org, token: token}
+}
+
+// clientWithTimeout returns a client whose Timeout is non-zero, without
+// mutating the caller's client. A caller that already set a timeout keeps it.
+func clientWithTimeout(client *http.Client) *http.Client {
+	if client == nil {
+		return &http.Client{Timeout: defaultHTTPClientTimeout}
+	}
+	if client.Timeout != 0 {
+		return client
+	}
+	cloned := *client
+	cloned.Timeout = defaultHTTPClientTimeout
+	return &cloned
 }
 
 // Resolve returns the canonical short id for reference.
@@ -120,8 +156,10 @@ func NewSentryIdentityResolver(
 // A derived key denotes a Kafka-pipeline alert with no Sentry issue behind it,
 // so it is returned unchanged and no request is issued — but it is validated
 // first, so a hostile derived-shaped value cannot reach the file. Every other
-// reference is looked up exactly once: a 404, a 429 and a 5xx all fail the run
-// loudly rather than falling back to the model's raw form.
+// reference is looked up: a 404 fails the run loudly and is never retried, a
+// 429 or 5xx is retried a bounded number of times with backoff, and every other
+// non-200 fails loudly on the first attempt. A resolution failure never falls
+// back to the model's raw form.
 func (r *sentryIdentityResolver) Resolve(ctx context.Context, reference string) (string, error) {
 	if IsDerivedKey(reference) {
 		if err := validateReference(ctx, reference); err != nil {
@@ -133,28 +171,98 @@ func (r *sentryIdentityResolver) Resolve(ctx context.Context, reference string) 
 		return "", errors.Wrapf(ctx, err, "identity: invalid issue reference %q", reference)
 	}
 
+	issue, err := r.fetchIssue(ctx, reference)
+	if err != nil {
+		return "", err
+	}
+	return issue.ShortID, nil
+}
+
+// fetchIssue looks reference up, retrying only the transient failures. It
+// builds the request URL once and issues up to len(retryDelays)+1 attempts; a
+// retry wait that observes a cancelled context stops the loop.
+func (r *sentryIdentityResolver) fetchIssue(
+	ctx context.Context,
+	reference string,
+) (sentryIssue, error) {
 	// Both segments are escaped: reference is a yaml field parsed straight out of
 	// the model's verdict and would otherwise be able to retarget the request.
 	requestURL := r.baseURL +
 		"/organizations/" + url.PathEscape(r.org) +
 		"/issues/" + url.PathEscape(reference) +
 		"/"
+	var lastErr error
+	for attempt := 0; attempt <= len(r.retryDelays); attempt++ {
+		if attempt > 0 {
+			delay := r.retryDelays[attempt-1]
+			if err := waitForRetry(ctx, delay); err != nil {
+				return sentryIssue{}, errors.Wrapf(
+					ctx,
+					err,
+					"identity: retry wait for %s",
+					reference,
+				)
+			}
+		}
+		issue, retryable, err := r.fetchOnce(ctx, reference, requestURL)
+		if err == nil {
+			return issue, nil
+		}
+		if !retryable {
+			return sentryIssue{}, err
+		}
+		lastErr = err
+		glog.V(1).Infof("identity: retrying issue %s after error: %v", reference, err)
+	}
+	return sentryIssue{}, lastErr
+}
+
+// fetchOnce issues one lookup and reports whether the failure is worth a retry.
+// A 404 is deterministic and fails loudly; 429 and 5xx are transient. Every
+// non-200 carries a truncated body so the cause is visible in the error, and
+// the token is never part of the message.
+func (r *sentryIdentityResolver) fetchOnce(
+	ctx context.Context,
+	reference string,
+	requestURL string,
+) (sentryIssue, bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return "", errors.Wrapf(ctx, err, "identity: build request %s", reference)
+		return sentryIssue{}, false, errors.Wrapf(ctx, err, "identity: build request %s", reference)
 	}
 	req.Header.Set("Authorization", "Bearer "+r.token)
 	resp, err := r.client.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(ctx, err, "identity: fetch issue %s", reference)
+		return sentryIssue{}, false, errors.Wrapf(ctx, err, "identity: fetch issue %s", reference)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf(
+	switch {
+	case resp.StatusCode == http.StatusOK:
+		// Fall through to decoding below.
+	case resp.StatusCode == http.StatusNotFound:
+		return sentryIssue{}, false, errors.Errorf(
 			ctx,
-			"identity: fetch issue %s: unexpected status %d",
+			"identity: fetch issue %s: not found (status %d) body=%q",
 			reference,
 			resp.StatusCode,
+			readErrorBody(resp.Body),
+		)
+	case resp.StatusCode == http.StatusTooManyRequests ||
+		resp.StatusCode >= http.StatusInternalServerError:
+		return sentryIssue{}, true, errors.Errorf(
+			ctx,
+			"identity: fetch issue %s: status %d body=%q",
+			reference,
+			resp.StatusCode,
+			readErrorBody(resp.Body),
+		)
+	default:
+		return sentryIssue{}, false, errors.Errorf(
+			ctx,
+			"identity: fetch issue %s: unexpected status %d body=%q",
+			reference,
+			resp.StatusCode,
+			readErrorBody(resp.Body),
 		)
 	}
 	// The boundary call is part of the runtime audit trail: without a line here a
@@ -163,13 +271,17 @@ func (r *sentryIdentityResolver) Resolve(ctx context.Context, reference string) 
 	glog.V(2).Infof("identity: fetched issue %s status=%d", reference, resp.StatusCode)
 	var issue sentryIssue
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
-		return "", errors.Wrapf(ctx, err, "identity: decode issue %s", reference)
+		return sentryIssue{}, false, errors.Wrapf(ctx, err, "identity: decode issue %s", reference)
 	}
 	if issue.ShortID == "" {
-		return "", errors.Errorf(ctx, "identity: issue %s: response carries no shortId", reference)
+		return sentryIssue{}, false, errors.Errorf(
+			ctx,
+			"identity: issue %s: response carries no shortId",
+			reference,
+		)
 	}
 	if err := validateReference(ctx, issue.ShortID); err != nil {
-		return "", errors.Wrapf(
+		return sentryIssue{}, false, errors.Wrapf(
 			ctx,
 			err,
 			"identity: issue %s: resolved short id %q is not a safe identity",
@@ -177,7 +289,29 @@ func (r *sentryIdentityResolver) Resolve(ctx context.Context, reference string) 
 			issue.ShortID,
 		)
 	}
-	return issue.ShortID, nil
+	return issue, false, nil
+}
+
+// waitForRetry sleeps for delay or returns early when ctx is cancelled.
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+// readErrorBody returns at most errorBodyLimit bytes of a non-200 body,
+// trimmed. A read error yields the empty string; the status is still reported.
+func readErrorBody(body io.Reader) string {
+	data, err := io.ReadAll(io.LimitReader(body, errorBodyLimit))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 // referencePattern is the accepted shape of a bare identity: it must start with
