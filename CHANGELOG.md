@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: publish the image on a release tag by opting into the maintainer bot's in-cluster build. `.maintainer.yaml` gains `dockerBuild: {autoBuild: true, destinations: [dockerhub]}`; `github-release-watcher` (v0.8.0+) reads that block and dispatches a build Job on the tag, which pushes `docker.io/bborbe/agent-sentry-issue-analyzer:<tag>` with the cluster's `buildkit-push` secret. Before this the repo cut a tag and ran CI green while no image was ever built, because an absent `dockerBuild` block means "not opted in" — so every `AgentImageLag` series stayed a release behind and each fix was a manual pin bump.
+
 ## v0.26.0
 
 - feat: add a `check-task-link` gate that fails a PR whose body carries no `Task: <task_identifier>` line, and install Trivy from the upstream script so `test` stops failing on the retired keyring helper
