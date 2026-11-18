@@ -34,9 +34,10 @@ type disqualifierGuardStep struct {
 	// through the reassign step instead — this guard wraps only the deep
 	// execution step, so a task is counted once per run, never twice.
 	verdictMetrics metrics.Metrics
-	// identityResolver maps the model-authored sentry_issue_id to the canonical
-	// short id Sentry returns for that issue, so the written identity does not
-	// depend on which source the model happened to read.
+	// identityResolver is the fallback used when the task frontmatter carries no
+	// safe identity: it maps the model-authored sentry_issue_id to the canonical
+	// short id Sentry returns for that issue. A task with a frontmatter short_id
+	// is written from that value without consulting this resolver.
 	identityResolver identity.Resolver
 }
 
@@ -100,9 +101,20 @@ func (s *disqualifierGuardStep) Run(
 	// through RestoreUnmodeledLines, so that pointer no longer depends on the
 	// rewrite surviving. This runs for every verdict label, not only
 	// `real bug`: the identity flip is a form-based rule about the issue
-	// reference, not a verdict judgment. A resolution failure fails the run and
-	// writes nothing — the model's raw form is never substituted.
-	canonical, err := s.identityResolver.Resolve(ctx, v.SentryIssueID)
+	// reference, not a verdict judgment.
+	//
+	// The task's own frontmatter short_id is the identity the collector recorded
+	// from Sentry, so it is authoritative and is written without a live lookup —
+	// a Sentry outage cannot abort a run that already knows the identity. The
+	// resolver is the fallback for tasks that carry no frontmatter identity. A
+	// resolution failure fails the run and writes nothing — the model's raw form
+	// is never substituted.
+	canonical, err := identity.ResolveTaskIdentity(
+		ctx,
+		s.identityResolver,
+		frontmatterString(md, "short_id"),
+		v.SentryIssueID,
+	)
 	if err != nil {
 		return nil, errors.Wrapf(ctx, err, "disqualifier-guard: resolve identity")
 	}

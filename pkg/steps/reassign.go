@@ -44,9 +44,10 @@ type reassignExecutionStep struct {
 	// observable. Recorded after applyDisqualifiers, so the counted value is
 	// the one written to the task file's ## Verdict section.
 	verdictMetrics metrics.Metrics
-	// identityResolver maps the model-authored sentry_issue_id to the canonical
-	// short id Sentry returns for that issue, so the written identity does not
-	// depend on which source the model happened to read.
+	// identityResolver is the fallback used when the task frontmatter carries no
+	// safe identity: it maps the model-authored sentry_issue_id to the canonical
+	// short id Sentry returns for that issue. A task with a frontmatter short_id
+	// is written from that value without consulting this resolver.
 	identityResolver identity.Resolver
 }
 
@@ -145,10 +146,20 @@ func (s *reassignExecutionStep) finalizeVerdict(
 	// the unparseable-dates case, where applyDisqualifiers returns early and
 	// the section is otherwise left exactly as the model wrote it. This runs
 	// for every verdict label, not only `real bug`: the identity flip is a
-	// form-based rule about the issue reference, not a verdict judgment. A
-	// resolution failure fails the run and writes nothing — the model's raw
-	// form is never substituted.
-	canonical, err := s.identityResolver.Resolve(ctx, v.SentryIssueID)
+	// form-based rule about the issue reference, not a verdict judgment.
+	//
+	// The task's own frontmatter short_id is the identity the collector recorded
+	// from Sentry, so it is authoritative and is written without a live lookup —
+	// a Sentry outage cannot abort a run that already knows the identity. The
+	// resolver is the fallback for tasks that carry no frontmatter identity. A
+	// resolution failure fails the run and writes nothing — the model's raw form
+	// is never substituted.
+	canonical, err := identity.ResolveTaskIdentity(
+		ctx,
+		s.identityResolver,
+		frontmatterString(md, "short_id"),
+		v.SentryIssueID,
+	)
 	if err != nil {
 		return errors.Wrapf(ctx, err, "reassign: resolve identity")
 	}
