@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- fix: keep a transient Sentry failure from aborting an identity lookup. `(*sentryIdentityResolver).Resolve` treated every non-200 as fatal, so a single 500 on `NUKE-PROD-D1` killed the deep run after analysis but before its verdict was written. A 404 still fails loudly and is never retried; 429 and 5xx now get two bounded backoff retries, the non-200 response body is captured in the error, and the resolver always carries a 10s HTTP client timeout.
+
 ## v0.27.0
 
 - feat: publish the image on a release tag by opting into the maintainer bot's in-cluster build. `.maintainer.yaml` gains `dockerBuild: {autoBuild: true, destinations: [dockerhub]}`; `github-release-watcher` (v0.8.0+) reads that block and dispatches a build Job on the tag, which pushes `docker.io/bborbe/agent-sentry-issue-analyzer:<tag>` with the cluster's `buildkit-push` secret. Before this the repo cut a tag and ran CI green while no image was ever built, because an absent `dockerBuild` block means "not opted in" — so every `AgentImageLag` series stayed a release behind and each fix was a manual pin bump.

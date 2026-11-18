@@ -112,10 +112,24 @@ var _ = Describe("SentryIdentityResolver", func() {
 			Expect(err.Error()).To(ContainSubstring("NUKE-DEV-FB"))
 			Expect(err.Error()).To(ContainSubstring(strconv.Itoa(status)))
 			Expect(got).To(BeEmpty())
+			Expect(requests).To(Equal(1))
 		},
+		Entry("bad request", http.StatusBadRequest),
 		Entry("not found", http.StatusNotFound),
-		Entry("rate limited", http.StatusTooManyRequests),
 	)
+
+	It("captures the non-200 response body in the error", func() {
+		resolver := newResolver(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"detail":"sentry is down"}`))
+		}, "test-token")
+
+		got, err := resolver.Resolve(ctx, "NUKE-DEV-FB")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("sentry is down"))
+		Expect(requests).To(Equal(1))
+		Expect(got).To(BeEmpty())
+	})
 
 	It("fails when the body is unparseable", func() {
 		resolver := newResolver(func(w http.ResponseWriter, r *http.Request) {
