@@ -122,21 +122,26 @@ var _ = Describe("create-tasks task builder", func() {
 		Project:   "nuke-prod",
 	}
 
-	It("derives the same TaskIdentifier for the same (shortId, date)", func() {
+	It("derives the same TaskIdentifier for the same shortId on the same date", func() {
 		cmd1 := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		cmd2 := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		Expect(cmd1.TaskIdentifier).To(Equal(cmd2.TaskIdentifier))
 	})
 
-	It("derives the deterministic UUID5 task id for (shortId, date)", func() {
+	It("derives the deterministic UUID5 task id for the shortId", func() {
 		cmd := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		Expect(uuid.MustParse(string(cmd.TaskIdentifier)).Version()).To(BeEquivalentTo(5))
 	})
 
-	It("derives a new TaskIdentifier when the date changes", func() {
+	It("keeps the same TaskIdentifier when the date changes (one task per issue)", func() {
 		cmd1 := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		cmd2 := buildCreateCommand(alert, "2026-08-24", renderBody(alert, "2026-08-24"), cfg)
-		Expect(cmd1.TaskIdentifier).NotTo(Equal(cmd2.TaskIdentifier))
+		// Identity does not depend on the day: a later day's create resolves to
+		// the existing file via the controller's identifier index, so it is
+		// refused while the task is open and reopened once terminal.
+		Expect(cmd1.TaskIdentifier).To(Equal(cmd2.TaskIdentifier))
+		// The title still carries the day, so a human sees when it was filed.
+		Expect(cmd1.Title).NotTo(Equal(cmd2.Title))
 	})
 
 	It("builds the exact collector title", func() {
@@ -255,7 +260,7 @@ var _ = Describe("dispatchAlerts", func() {
 	}
 
 	taskIDOf := func(alert compactAlert) string {
-		return deriveTaskID(alert.ShortID, "2026-11-11").String()
+		return deriveTaskID(alert.ShortID).String()
 	}
 
 	It("publishes every alert when every retention read succeeds", func() {
