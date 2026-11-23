@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.28.0
 
 - feat: add the pure core of the weekly Sentry roll-up. `pkg/weekly` decides the single disposition of every reviewed issue — `noise` → nothing, `real bug` with a fired disqualifier and no PR → the existing Jira-proposal arm, anything else worth doing → an item in the week's Obsidian task — and keys the week's task by ISO week so a second run in the same week is a no-op. Routing is a map lookup over a fixed verdict set mirroring `pkg/steps/jira-proposal.go`, so it cannot drift from the emission rule `/daily-maintenance` already parses; the `regression` arm is kept even though `reassign.go` makes it unreachable, for the same reason it is kept there. Dormancy is `≥ 14 days` with no `lastSeen` window, and the task identifier is derived from `(stage, week)` under a namespace derived from the per-alert one, so a weekly task can never collide with a per-alert task. No pipeline wiring yet — the step that gathers the review set and emits the task is the next increment.
 
