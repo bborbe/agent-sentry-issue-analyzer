@@ -283,6 +283,17 @@ refuse "typed-populated" "${WORK}/r" "status=unobserved"
 expect "typed-populated" "${WORK}/create-args" "-logtostderr"
 expect "typed-populated" "${WORK}/create-args" "-v=2"
 
+# --- arm 7b: an issue tracked under an EARLIER date is not "new" ------------
+# Identity is keyed on the short-id alone, so a later day's create resolves to
+# the existing file and lands nothing. A date-keyed expectation would count it
+# as one missing file and report a false `failed` on healthy traffic.
+result="$(run_case "tracked-earlier-date" \
+	"{\"sentry\": ${ALERT_JSON}, \"typed\": [{\"path\": \"/vault/tasks/OCTOPUS-DEV-1 - 2026-11-03.md\"}], \"population_status\": 500}")"
+printf '%s\n' "${result}" > "${WORK}/r"
+expect "tracked-earlier-date" "${WORK}/r" "observed=true"
+expect "tracked-earlier-date" "${WORK}/r" "expected_new=0"
+expect "tracked-earlier-date" "${WORK}/r" "status=done"
+
 # --- arm 8: a filter that stopped matching is DETECTED, not hidden ----------
 # This is the 2026-09-13 shape and the reason the guard cannot simply be
 # deleted: the typed query matches nothing while the vault is demonstrably

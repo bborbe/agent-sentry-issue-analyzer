@@ -3,7 +3,7 @@
 # of the Sentry pipeline.
 #
 # Fetches the day's active unresolved Sentry alerts and publishes one
-# CreateTaskCommand per (short-id, date) via /create-tasks so the
+# CreateTaskCommand per short-id via /create-tasks so the
 # sentry-issue-analyzer triage agent can classify each alert.
 #
 # Usage: sentry-create-tasks.sh
@@ -163,9 +163,13 @@ short_ids="$(python3 -c 'import json, sys; print(" ".join(issue["shortId"] for i
 
 echo "sentry-create-tasks: ${count} active unresolved alerts: ${short_ids}"
 
-# Which of these alerts have no per-alert task file yet? That is the set that
-# SHOULD land. Computed from the alert's lastSeen UTC date, matching the
-# filename /create-tasks will produce ("Analyze Sentry issue <short-id> - <date>.md").
+# Which of these alerts have no task file yet? That is the set that SHOULD land.
+# Keyed on the short-id ALONE, not (short-id, date): the producer derives the
+# task identifier from the short-id, so the controller resolves a later day's
+# create to the existing file (refusing it while the task is open, reopening it
+# in place once terminal) and never creates a new "<short-id> - <new-date>.md".
+# A date-keyed expectation would count every tracked issue as "new" on every
+# later day and report a false failure when none of those files land.
 # This is a dedup check, NOT the created count — the created count is observed
 # after publishing, never predicted.
 #
@@ -229,11 +233,14 @@ import datetime, json, sys
 alerts = json.load(open(sys.argv[1]))
 existing = sys.argv[2]
 for a in alerts:
+    # Tracked if ANY file for this short-id exists, whatever date its title
+    # carries: the controller resolves the later create to that file and never
+    # emits a new "<short-id> - <new-date>.md".
+    if (a["shortId"] + " - ") in existing:
+        continue
     t = datetime.datetime.fromisoformat(a["lastSeen"].replace("Z", "+00:00"))
     date = t.astimezone(datetime.timezone.utc).strftime("%Y-%m-%d")
-    name = a["shortId"] + " - " + date + ".md"
-    if name not in existing:
-        print(name)
+    print(a["shortId"] + " - " + date + ".md")
 ' "${tmp_file}" "${existing_files}" > "${expected_file}"
   expected_new="$(grep -c . "${expected_file}" || true)"
 fi

@@ -63,7 +63,8 @@ type collectorStep struct {
 // NewCollectorPlanningStep wraps a Claude invocation as the sentry-collector's
 // planning-phase step. Claude runs scripts/sentry-create-tasks.sh to fetch the
 // day's active unresolved Sentry alerts and publish one per-alert task per
-// (short-id, date), then writes the summary under the ## Analysis section.
+// short-id (a later day's create resolves to the existing task), then writes
+// the summary under the ## Analysis section.
 //
 // NextPhase is "done" so a successful fan-out terminates the task: without it,
 // the step is an in-place save that leaves the task planning/in_progress, the

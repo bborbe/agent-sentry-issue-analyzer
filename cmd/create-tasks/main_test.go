@@ -144,6 +144,13 @@ var _ = Describe("create-tasks task builder", func() {
 		Expect(cmd1.Title).NotTo(Equal(cmd2.Title))
 	})
 
+	It("keeps the sentry identity space disjoint from the kafka consumer's", func() {
+		cmd := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
+		// Same short-id, but the kafka producer derives from the "kafka:" prefix.
+		kafkaID := uuid.NewSHA1(taskIDNamespace, []byte("kafka:"+alert.ShortID))
+		Expect(string(cmd.TaskIdentifier)).NotTo(Equal(kafkaID.String()))
+	})
+
 	It("builds the exact collector title", func() {
 		cmd := buildCreateCommand(alert, "2026-08-23", renderBody(alert, "2026-08-23"), cfg)
 		Expect(cmd.Title).To(Equal("Analyze Sentry issue SENTRY-TEST-1 - 2026-08-23"))
