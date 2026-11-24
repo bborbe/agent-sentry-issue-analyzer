@@ -130,12 +130,17 @@ type taskConfig struct {
 // identical to the retired sentry-watcher's namespace.
 var taskIDNamespace = uuid.MustParse("1b06ab0c-eede-481f-b6ee-e91b0708fba9")
 
-// deriveTaskID returns a UUID5 derived deterministically from the (short-id,
-// date) pair — byte-identical to the retired sentry-watcher's DeriveTaskID.
-// Same (short-id, date) → same task id → controller dedup makes re-emit a
-// no-op; a new date for the same issue → fresh daily task.
-func deriveTaskID(shortID, date string) uuid.UUID {
-	return uuid.NewSHA1(taskIDNamespace, []byte("sentry:"+shortID+":"+date))
+// deriveTaskID returns a UUID5 derived deterministically from the short-id
+// alone. Same short-id → same task id on every day the alert stream
+// re-delivers it, so the controller's identifier index resolves a later day's
+// create to the existing file: a still-open task is refused as
+// ErrTaskAlreadyExists (no duplicate), and a terminal task is reopened in place
+// (re-analysed). The date is deliberately NOT part of the key — keying on
+// (short-id, date) produced one task per issue per active day, which is the
+// duplicate flood this fix removes. The "sentry:" prefix keeps this identity
+// space disjoint from the kafka consumer's "kafka:" space.
+func deriveTaskID(shortID string) uuid.UUID {
+	return uuid.NewSHA1(taskIDNamespace, []byte("sentry:"+shortID))
 }
 
 // deriveDate derives the UTC calendar date (YYYY-MM-DD) of the lastSeen
@@ -191,7 +196,7 @@ func buildCreateCommand(
 	body string,
 	cfg taskConfig,
 ) task.CreateCommand {
-	taskIDStr := deriveTaskID(alert.ShortID, date).String()
+	taskIDStr := deriveTaskID(alert.ShortID).String()
 	title := "Analyze Sentry issue " + alert.ShortID + " - " + date
 	return task.CreateCommand{
 		TaskIdentifier: agentlib.TaskIdentifier(taskIDStr),
@@ -356,7 +361,7 @@ func dispatchAlerts(
 			ctx,
 			store,
 			now,
-			deriveTaskID(alert.ShortID, date).String(),
+			deriveTaskID(alert.ShortID).String(),
 			alert.ShortID,
 			renderBody(alert, date),
 		)
