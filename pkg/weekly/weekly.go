@@ -98,15 +98,24 @@ func IsDormant(issue Issue, now time.Time) bool {
 	return now.Sub(issue.LastSeen) >= DormantAfter
 }
 
-// WeekToken renders the ISO week identity of t, e.g. 2026-W48.
+// WeekToken renders the ISO week identity of t in the vault's period form, e.g.
+// 2026W48 — undashed, because every other period-suffixed task in the vault uses
+// that shape.
 //
 // The token, not the task, is the roll-up's idempotency key: one task per stage
 // per week. It is derived from the clock the caller injects rather than from
 // time.Now(), so a replayed run in the same week reproduces the same token and
 // the second run is a no-op.
+//
+// The week is taken in t's OWN location, never forced to UTC. Forcing UTC made a
+// run at 00:30 local on a Monday resolve to the previous week — the new week's
+// roll-up then matched the previous week's task and silently no-opped, so that
+// week was never reviewed at all. The caller supplies the zone the operator's
+// week is measured in (the lane's local clock); this function does not assume
+// one, which is also what makes the boundary testable.
 func WeekToken(t time.Time) string {
-	year, week := t.UTC().ISOWeek()
-	return fmt.Sprintf("%d-W%02d", year, week)
+	year, week := t.ISOWeek()
+	return fmt.Sprintf("%dW%02d", year, week)
 }
 
 // weeklyNamespace is derived from the per-alert namespace rather than invented,
@@ -126,6 +135,10 @@ func TaskIdentifier(stage, week string) uuid.UUID {
 
 // Title renders the week's task title. The stage and the week token are both in
 // the title so a reader can tell two stages' tasks apart at a glance.
+//
+// The separator is the vault's " - ", matching every other period-suffixed task
+// ("Check Unassigned Tasks - 2026W41-fri"), so the emitted name sorts and reads
+// like its neighbours.
 func Title(stage, week string) string {
-	return "Sentry Weekly Roll-Up " + stage + " " + week
+	return "Sentry Weekly Roll-Up " + stage + " - " + week
 }
