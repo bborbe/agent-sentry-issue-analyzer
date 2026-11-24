@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.28.1
 
 - fix: derive the sentry task identifier from the short-id alone instead of `(short-id, date)`, so an unresolved issue that re-alerts every day maps to one task rather than one per day. `agent-task-controller` v0.22.1+ (`reuseExistingIdentifierTitle`) already resolves a create to the file that carries its identifier — refusing it while the task is open and reopening it once terminal — so keying on the short-id alone stops the daily duplicate flood with no producer-side read. `scripts/sentry-create-tasks.sh` now computes `expected_new` per short-id too, so a later day's refused create is no longer counted as a missing file and reported as a false `failed`. Title and body still carry the day.
 
