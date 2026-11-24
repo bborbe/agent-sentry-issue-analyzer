@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.28.2
 
 - fix: derive the weekly roll-up's week token from the time's own location instead of forcing UTC, and render the vault's undashed period form. `WeekToken` used `t.UTC().ISOWeek()`, so a run at 00:30 local on a Monday resolved to the PREVIOUS week — the new week's roll-up then matched the previous week's task and silently no-opped, and that week was never reviewed at all. It now uses `t.ISOWeek()` and the caller supplies the zone the operator's week is measured in, which is also what makes the boundary case testable: the old spec used `12:00 UTC`, where local and UTC share a calendar day, so it documented the choice instead of catching the defect. The token is now `2026W48` rather than `2026-W48`, matching the 107 existing period-suffixed vault files, and `Title` inserts the vault's ` - ` separator. No weekly task has been emitted yet, so no migration is needed.
 
