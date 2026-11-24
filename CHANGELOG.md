@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- chore: remove 20 stale vulnerability ignore IDs
+
 ## v0.29.0
 
 - feat: add the weekly roll-up step. `NewWeeklyRollupStep` wraps the Claude invocation that reviews a week's unresolved issues and gates the task's terminal status on what was OBSERVED, mirroring `collectorStep`: an unconditional `NextPhase "done"` lets a run that reviewed nothing, or reviewed only the first page, still write its section and report success. The step fails on a missing result line (absence of evidence is evidence of failure), on an unobserved vault, on a missing expected total (the pre-run probe was not taken, so coverage is unmeasured), on `reviewed < expected` (the page-1-only truncation), on a non-empty review set that emitted no task (a silent no-op), and on more than one task for one week (the week key did not deduplicate). Its result file is `/tmp/sentry-weekly-result`, deliberately distinct from `collectorResultPath` — the collector clears its file at the start of every run, so a shared path would let one step wipe the other's observation. The parser and its six cases are plain Go tests in `package steps`, because the Ginkgo suite lives in `steps_test` and a second `RunSpecs` in one directory fails while a spec in a package with no `TestXxx` silently never runs.
