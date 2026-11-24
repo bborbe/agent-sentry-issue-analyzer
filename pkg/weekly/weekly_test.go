@@ -87,54 +87,66 @@ var _ = Describe("IsDormant", func() {
 })
 
 var _ = Describe("WeekToken", func() {
-	It("renders the ISO week of a Monday and of the Sunday that closes it as one token", func() {
-		monday := time.Date(2026, time.November, 23, 0, 0, 0, 0, time.UTC)
-		sunday := time.Date(2026, time.November, 29, 23, 59, 59, 0, time.UTC)
+	// Fixtures are built in a fixed +01:00 zone so the boundary cases are
+	// deterministic on any machine, and so a regression to a UTC-derived key is
+	// caught here rather than on the one run a week that crosses midnight.
+	cet := time.FixedZone("CET", 3600)
+	at := func(y int, m time.Month, d, h, min int) time.Time {
+		return time.Date(y, m, d, h, min, 0, 0, cet)
+	}
 
-		Expect(weekly.WeekToken(monday)).To(Equal("2026-W48"))
+	It("renders the vault's undashed period form", func() {
+		Expect(weekly.WeekToken(at(2026, time.November, 23, 12, 0))).To(Equal("2026W48"))
+	})
+
+	It("renders a Monday and the Sunday that closes the same week as one token", func() {
+		monday := at(2026, time.November, 23, 0, 0)
+		sunday := at(2026, time.November, 29, 23, 59)
+
 		Expect(weekly.WeekToken(sunday)).To(Equal(weekly.WeekToken(monday)))
 	})
 
 	It("renders a different token across a week boundary", func() {
-		Expect(weekly.WeekToken(time.Date(2026, time.November, 22, 0, 0, 0, 0, time.UTC))).
-			To(Equal("2026-W47"))
-		Expect(weekly.WeekToken(time.Date(2026, time.November, 30, 0, 0, 0, 0, time.UTC))).
-			To(Equal("2026-W49"))
+		Expect(weekly.WeekToken(at(2026, time.November, 22, 12, 0))).To(Equal("2026W47"))
+		Expect(weekly.WeekToken(at(2026, time.November, 30, 12, 0))).To(Equal("2026W49"))
 	})
 
-	It("renders the same token for the same instant in different locations", func() {
-		utc := time.Date(2026, time.November, 23, 12, 0, 0, 0, time.UTC)
-		plusOne := utc.In(time.FixedZone("CET", 3600))
+	// The regression this change fixes: 00:30 local on a Monday is still Sunday
+	// in UTC, so a UTC-derived key returned the PREVIOUS week, the new week's
+	// roll-up matched the old week's task, and that week was never reviewed.
+	It("attributes the first minutes of a local Monday to the new week", func() {
+		earlyMonday := at(2026, time.November, 30, 0, 30)
 
-		Expect(weekly.WeekToken(plusOne)).To(Equal(weekly.WeekToken(utc)))
+		Expect(weekly.WeekToken(earlyMonday)).To(Equal("2026W49"))
+		Expect(weekly.WeekToken(earlyMonday)).NotTo(Equal("2026W48"))
 	})
 })
 
 var _ = Describe("TaskIdentifier", func() {
 	It("is stable for the same stage and week, so a second run is a no-op", func() {
-		Expect(weekly.TaskIdentifier("dev", "2026-W48")).
-			To(Equal(weekly.TaskIdentifier("dev", "2026-W48")))
+		Expect(weekly.TaskIdentifier("dev", "2026W48")).
+			To(Equal(weekly.TaskIdentifier("dev", "2026W48")))
 	})
 
 	It("differs across a week boundary", func() {
-		Expect(weekly.TaskIdentifier("dev", "2026-W48")).
-			NotTo(Equal(weekly.TaskIdentifier("dev", "2026-W49")))
+		Expect(weekly.TaskIdentifier("dev", "2026W48")).
+			NotTo(Equal(weekly.TaskIdentifier("dev", "2026W49")))
 	})
 
 	It("differs across stages in the same week", func() {
-		Expect(weekly.TaskIdentifier("dev", "2026-W48")).
-			NotTo(Equal(weekly.TaskIdentifier("prod", "2026-W48")))
+		Expect(weekly.TaskIdentifier("dev", "2026W48")).
+			NotTo(Equal(weekly.TaskIdentifier("prod", "2026W48")))
 	})
 
 	It("never collides with a per-alert task id", func() {
-		Expect(weekly.TaskIdentifier("dev", "2026-W48").String()).
+		Expect(weekly.TaskIdentifier("dev", "2026W48").String()).
 			NotTo(Equal("1b06ab0c-eede-481f-b6ee-e91b0708fba9"))
 	})
 })
 
 var _ = Describe("Title", func() {
-	It("carries both the stage and the week token", func() {
-		Expect(weekly.Title("prod", "2026-W48")).
-			To(Equal("Sentry Weekly Roll-Up prod 2026-W48"))
+	It("carries the stage, the vault's separator and the week token", func() {
+		Expect(weekly.Title("prod", "2026W48")).
+			To(Equal("Sentry Weekly Roll-Up prod - 2026W48"))
 	})
 })
