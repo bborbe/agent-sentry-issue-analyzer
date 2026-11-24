@@ -65,7 +65,7 @@ var taskTypeSentryDeepAnalyzer = agentlib.TaskType("sentry-deep-analyzer")
 // taskTypeSentryCollector is the agent-lib TaskType literal for the collector
 // step's domain task. The daily recurring trigger creates one task of this
 // type; the agent fetches the day's active unresolved Sentry alerts and
-// publishes one per-alert task per (short-id, date) for the triage agent.
+// publishes one per-alert task per short-id for the triage agent.
 // Keep the literal exactly "sentry-collector" — the Config CR taskTypes list
 // must match.
 var taskTypeSentryCollector = agentlib.TaskType("sentry-collector")
@@ -269,7 +269,7 @@ func CreateDeepAgentFromRunner(
 // CreateCollectorAgentFromRunner builds the collector agent given a
 // pre-constructed ClaudeRunner. The collector has a single planning phase — it
 // fetches the day's active unresolved Sentry alerts and publishes one
-// per-alert task per (short-id, date) so the triage agent processes each. It
+// per-alert task per short-id so the triage agent processes each. It
 // replaces the retired standalone sentry-watcher service.
 func CreateCollectorAgentFromRunner(
 	runner claudelib.ClaudeRunner,
