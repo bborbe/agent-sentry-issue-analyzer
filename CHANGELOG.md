@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.29.1
 
 - chore: remove 20 stale vulnerability ignore IDs
 
