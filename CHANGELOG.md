@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+- feat: route the GitHub App client through the shared rate-limit-aware retry transport, so a throttled `api.github.com` response is retried with the wait it asks for instead of ending the work item. `wrapRetryTransport` wraps the `ghinstallation` transport from the outside (each retry re-enters token auth) and caps one wait at one second, deferring a longer wait so the caller sees the real rate-limit response promptly.
+
 ## v0.29.1
 
 - chore: remove 20 stale vulnerability ignore IDs
