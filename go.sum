@@ -23,8 +23,8 @@ github.com/bborbe/dark-factory v0.195.3 h1:tqakkC6IjDASuoaEIZVlA8k6lLwmhBc1W601L
 github.com/bborbe/dark-factory v0.195.3/go.mod h1:7EYa+HVuP00rWIdeRYCM0WNeac/eOmWYgCbxq/ZqOIc=
 github.com/bborbe/errors v1.6.6 h1:mo7UrvIGB3AelAT3UGYS0VG3i8KV17rLdApjtAZaeOU=
 github.com/bborbe/errors v1.6.6/go.mod h1:1XyqcmBpjmJHCSfU0aXlvBPXSTcdUZFQG+aTZoTB3pI=
-github.com/bborbe/http v1.26.33 h1:QIq1Obm9tqhEj8owNbeOXKibdpV0G3wlq+J49PDanig=
-github.com/bborbe/http v1.26.33/go.mod h1:hO3oFw/zVlAvSmshQUZVYptth5BJM1iKmirPFCAST/M=
+github.com/bborbe/http v1.28.1 h1:HTjuqB4g3lwnJ1HEmEChSA5MLnl0BDLG1MNZXyF/uWo=
+github.com/bborbe/http v1.28.1/go.mod h1:b67a5OrqgsBIiQJM1RFfSSf+PvPFJLAs4f/05W3DfzA=
 github.com/bborbe/k8s v1.14.33 h1:zGLVw1DxyTOpacOUQ3U2lU2x9sMBfm2KTQh4+K9FdbE=
 github.com/bborbe/k8s v1.14.33/go.mod h1:oQuDy3hyUFUwBmhzTsNX+X2U/TWWjWzNSVMSIG+9AHI=
 github.com/bborbe/kafka v1.29.13 h1:OlVKLCozZX90DLxvQNjkcSZv8B/GqPjzQlMvb7KXlP4=

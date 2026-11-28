@@ -8,6 +8,9 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -335,6 +338,54 @@ var _ = Describe("validatePreflight", func() {
 		app := &application{TaskType: string(agentlib.TaskTypeHealthcheck)}
 		allowedTools := claudelib.AllowedTools{"Bash(scripts/repo-clone.sh:*)"}
 		Expect(app.validatePreflight(ctx, allowedTools)).To(Succeed())
+	})
+})
+
+var _ = Describe("wrapRetryTransport", func() {
+	It("retries a rate-limited response from a retry host", func() {
+		var requests atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if requests.Add(1) == 1 {
+				w.Header().Set("Retry-After", "1")
+				w.WriteHeader(http.StatusTooManyRequests)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		client := wrapRetryTransport(&http.Client{}, []string{"127.0.0.1"})
+		resp, err := client.Get(server.URL)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Body.Close()).To(Succeed())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(requests.Load()).To(Equal(int32(2)))
+	})
+
+	It("leaves a non-nil transport when the client had none", func() {
+		client := wrapRetryTransport(&http.Client{}, []string{"api.github.com"})
+		Expect(client.Transport).NotTo(BeNil())
+		Expect(client.Transport).NotTo(BeIdenticalTo(http.DefaultTransport))
+	})
+
+	It("returns the rate-limited response instead of waiting beyond the budget", func() {
+		var requests atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requests.Add(1)
+			w.Header().Set("Retry-After", "4")
+			w.WriteHeader(http.StatusTooManyRequests)
+		}))
+		defer server.Close()
+
+		client := wrapRetryTransport(&http.Client{}, []string{"127.0.0.1"})
+		start := time.Now()
+		resp, err := client.Get(server.URL)
+		elapsed := time.Since(start)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Body.Close()).To(Succeed())
+		Expect(resp.StatusCode).To(Equal(http.StatusTooManyRequests))
+		Expect(requests.Load()).To(Equal(int32(1)))
+		Expect(elapsed).To(BeNumerically("<", 5*time.Second))
 	})
 })
 

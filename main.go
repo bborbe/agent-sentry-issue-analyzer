@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	libmetrics "github.com/bborbe/agent/metrics"
 	"github.com/bborbe/cqrs/base"
 	"github.com/bborbe/errors"
+	libhttp "github.com/bborbe/http"
 	libkafka "github.com/bborbe/kafka"
 	"github.com/bborbe/maintainer/githubapp"
 	libsentry "github.com/bborbe/sentry"
@@ -391,6 +393,29 @@ func parseRepoAllowlist(raw string) []string {
 	return out
 }
 
+// wrapRetryTransport returns client with its transport wrapped in the shared
+// rate-limit retry round tripper. A nil transport becomes http.DefaultTransport
+// first, so the wrap cannot panic on the first request. MaxWait bounds one
+// wait, not the call: MaxAttempts (default 5) multiplies it, and one second
+// keeps the worst case short.
+func wrapRetryTransport(client *http.Client, hosts []string) *http.Client {
+	if client == nil {
+		client = &http.Client{}
+	}
+	base := client.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	client.Transport = libhttp.NewRoundTripperRetryWithBackoff(
+		base,
+		libhttp.RetryBackoffOptions{
+			RetryHosts: hosts,
+			MaxWait:    1 * time.Second,
+		},
+	)
+	return client
+}
+
 // buildGithubClient returns an App-authenticated go-github client when App
 // auth is configured, nil otherwise. The fix agent files specs through the
 // GitHub Contents API using this client; a nil client makes the fix agent
@@ -407,6 +432,7 @@ func (a *application) buildGithubClient(ctx context.Context) (*github.Client, er
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "create github app client")
 	}
+	appHTTPClient = wrapRetryTransport(appHTTPClient, []string{"api.github.com"})
 	githubClient, err := github.NewClient(github.WithHTTPClient(appHTTPClient))
 	if err != nil {
 		return nil, errors.Wrap(ctx, err, "create github client")

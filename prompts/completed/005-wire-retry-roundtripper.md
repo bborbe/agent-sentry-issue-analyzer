@@ -1,5 +1,9 @@
 ---
-status: draft
+status: completed
+created: "2026-11-28T10:26:03Z"
+queued: "2026-11-28T10:26:03Z"
+completed: "2026-11-28T10:32:53Z"
+pr-url: https://github.com/bborbe/agent-sentry-issue-analyzer/pull/163
 ---
 
 <summary>

@@ -7,6 +7,7 @@ require (
 	github.com/bborbe/cqrs v0.6.15
 	github.com/bborbe/dark-factory v0.195.3
 	github.com/bborbe/errors v1.6.6
+	github.com/bborbe/http v1.28.1
 	github.com/bborbe/kafka v1.29.13
 	github.com/bborbe/log v1.7.8
 	github.com/bborbe/maintainer v0.51.2
@@ -31,7 +32,6 @@ require (
 	github.com/adrg/frontmatter v0.2.0 // indirect
 	github.com/bborbe/argument/v2 v2.13.10 // indirect
 	github.com/bborbe/collection v1.21.7 // indirect
-	github.com/bborbe/http v1.26.33 // indirect
 	github.com/bborbe/k8s v1.14.33 // indirect
 	github.com/bborbe/kv v1.21.29 // indirect
 	github.com/bborbe/math v1.4.20 // indirect
